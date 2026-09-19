@@ -51,6 +51,9 @@ export const de: Dict = {
     offlineTitle: 'Keine Verbindung',
     offlineBody:
       'Der Umschlag ist sicher und wartet auf dich. Prüf dein Internet und versuch es nochmal.',
+    notReadyTitle: 'Gleich da',
+    notReadyBody:
+      'Der Umschlag wurde gerade erst verschickt und ist noch unterwegs. Warte eine Minute und versuch es nochmal.',
     badTitle: 'Der Link ist kaputt',
     badBody:
       'Ein Stück ist unterwegs verloren gegangen. Lass ihn dir nochmal schicken und tipp den ganzen Link an.',

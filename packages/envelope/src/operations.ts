@@ -89,7 +89,8 @@ function isLostRace(error: unknown): boolean {
 
 /**
  * Opens one random unopened share for `toPuzzleHash`. Losing a race for a share is normal in a
- * group chat: another share is tried, up to `maxAttempts`.
+ * group chat, so every share is tried before giving up: the known list first, without asking the
+ * chain again, then one fresh look in case the first one was stale.
  */
 export async function openEnvelope(args: {
   chain: ChainClient;
@@ -100,35 +101,36 @@ export async function openEnvelope(args: {
   fee: bigint;
   network: Network;
   random?: () => number;
-  maxAttempts?: number;
 }): Promise<OpenedShare> {
   const { chain, envelopeSk, envelopePk, sharesHint, toPuzzleHash, fee, network } = args;
   const random = args.random ?? Math.random;
   const tried = new Set<number>();
-  for (let attempt = 0; attempt < (args.maxAttempts ?? 3); attempt++) {
+
+  for (let look = 0; look < 2; look++) {
     const shares = await inspectEnvelope(chain, envelopePk, sharesHint);
     if (shares.length === 0) throw new EnvelopeError('not_found');
     const candidates = shares.filter(
       (share) => !share.opened && !tried.has(share.index) && share.coin.amount > fee,
     );
-    const share = candidates[Math.floor(random() * candidates.length)];
-    if (share === undefined) throw new EnvelopeError('envelope_empty');
-    tried.add(share.index);
-
-    const { bundle, received } = buildOpen({ share, envelopeSk, toPuzzleHash, fee, network });
-    try {
-      await chain.pushTx(bundle);
-    } catch (error) {
-      if (isLostRace(error)) continue;
-      throw error;
+    while (candidates.length > 0) {
+      const [share] = candidates.splice(Math.floor(random() * candidates.length), 1);
+      if (share === undefined) break;
+      tried.add(share.index);
+      const { bundle, received } = buildOpen({ share, envelopeSk, toPuzzleHash, fee, network });
+      try {
+        await chain.pushTx(bundle);
+      } catch (error) {
+        if (isLostRace(error)) continue;
+        throw error;
+      }
+      return {
+        share,
+        received,
+        output: { parentCoinInfo: coinId(share.coin), puzzleHash: toPuzzleHash, amount: received },
+      };
     }
-    return {
-      share,
-      received,
-      output: { parentCoinInfo: coinId(share.coin), puzzleHash: toPuzzleHash, amount: received },
-    };
   }
-  throw new EnvelopeError('envelope_empty', 'every share tried was taken by somebody else');
+  throw new EnvelopeError('envelope_empty');
 }
 
 /** Injectable waiting, so tests do not sleep. */

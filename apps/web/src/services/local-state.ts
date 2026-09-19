@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// What this browser remembers between visits. Everything here is either public (the wallet's
+// address) or already in the sender's chat history (their own envelope links). Storage that
+// refuses to work (private windows, some in-app browsers) degrades to memory for the session.
+import type { WalletInfo } from './types';
+
+/** One envelope this browser sent. Amounts are decimal strings: JSON has no bigint. */
+export interface SentRecord {
+  id: string;
+  counter: number;
+  link: string;
+  createdAt: number;
+  total: string;
+  shares: number;
+  takenBack: { amount: string; shares: number } | null;
+}
+
+/** The remembered state, behind functions so it can be faked. */
+export interface LocalState {
+  wallet(): WalletInfo | null;
+  setWallet(info: WalletInfo): void;
+  /** What this browser got out of envelope `id`, or null. */
+  openedAmount(id: string): bigint | null;
+  setOpened(id: string, amount: bigint): void;
+  clearOpened(id: string): void;
+  sent(): SentRecord[];
+  addSent(record: SentRecord): void;
+  markTakenBack(id: string, takenBack: NonNullable<SentRecord['takenBack']>): void;
+  /** A fresh number for the next envelope's secret; never handed out twice. */
+  nextEnvelopeCounter(): number;
+}
+
+const KEY = { wallet: 'ge.wallet', opened: 'ge.opened', sent: 'ge.sent', counter: 'ge.counter' };
+
+/** Minimal storage: `localStorage`, or anything shaped like it. */
+export type StringStorage = Pick<Storage, 'getItem' | 'setItem'>;
+
+/** Creates the state on top of `storage`. */
+export function createLocalState(storage: StringStorage): LocalState {
+  const memory = new Map<string, string>();
+
+  function read<T>(key: string, fallback: T): T {
+    try {
+      const text = memory.get(key) ?? storage.getItem(key);
+      return text === null ? fallback : (JSON.parse(text) as T);
+    } catch {
+      return fallback;
+    }
+  }
+
+  function write(key: string, value: unknown): void {
+    const text = JSON.stringify(value);
+    memory.set(key, text);
+    try {
+      storage.setItem(key, text);
+    } catch {
+      // Kept in memory for this session.
+    }
+  }
+
+  const opened = () => read<Record<string, string>>(KEY.opened, {});
+
+  return {
+    wallet: () => read<WalletInfo | null>(KEY.wallet, null),
+    setWallet: (info) => write(KEY.wallet, info),
+
+    openedAmount(id) {
+      const amount = opened()[id];
+      return amount === undefined ? null : BigInt(amount);
+    },
+    setOpened: (id, amount) => write(KEY.opened, { ...opened(), [id]: amount.toString() }),
+    clearOpened(id) {
+      const { [id]: _removed, ...rest } = opened();
+      write(KEY.opened, rest);
+    },
+
+    sent: () => read<SentRecord[]>(KEY.sent, []),
+    addSent(record) {
+      write(KEY.sent, [record, ...read<SentRecord[]>(KEY.sent, [])]);
+    },
+    markTakenBack(id, takenBack) {
+      write(
+        KEY.sent,
+        read<SentRecord[]>(KEY.sent, []).map((r) => (r.id === id ? { ...r, takenBack } : r)),
+      );
+    },
+
+    nextEnvelopeCounter() {
+      const next = read<number>(KEY.counter, 0);
+      write(KEY.counter, next + 1);
+      return next;
+    },
+  };
+}

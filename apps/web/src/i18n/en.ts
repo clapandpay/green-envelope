@@ -48,6 +48,9 @@ export const en = {
     alreadyBody: 'Here is what you got:',
     offlineTitle: 'No connection',
     offlineBody: 'The envelope is safe and waits for you. Check your internet and try again.',
+    notReadyTitle: 'Almost there',
+    notReadyBody:
+      'This envelope was sent a moment ago and is still on its way. Give it a minute, then try again.',
     badTitle: 'This link is broken',
     badBody: 'A piece of it got lost on the way. Ask for the link again and tap the whole thing.',
     unknownTitle: 'That did not work',

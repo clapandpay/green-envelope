@@ -166,7 +166,6 @@ describe('openEnvelope', () => {
           fee: 0n,
           network,
           random: () => 0,
-          maxAttempts: 5,
         }),
       ),
     );

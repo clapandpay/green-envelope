@@ -11,7 +11,7 @@ export type ClaimState =
   /** `fresh`: opened just now (celebrate), not on an earlier visit. */
   | { s: 'opened'; view: EnvelopeView; amount: bigint; confirmed: boolean; fresh: boolean }
   | { s: 'gone'; reason: 'empty' | 'expired'; view: EnvelopeView | null }
-  | { s: 'failed'; reason: 'bad_link' | 'network' | 'unknown' };
+  | { s: 'failed'; reason: 'bad_link' | 'not_ready' | 'network' | 'unknown' };
 
 export type ClaimEvent =
   | { e: 'reload' }
@@ -36,6 +36,8 @@ function failure(code: ServiceErrorCode, view: EnvelopeView | null): ClaimState 
       return { s: 'gone', reason: 'expired', view };
     case 'bad_link':
       return { s: 'failed', reason: 'bad_link' };
+    case 'envelope_not_ready':
+      return { s: 'failed', reason: 'not_ready' };
     case 'network':
       return { s: 'failed', reason: 'network' };
     default:
@@ -72,7 +74,12 @@ export function claimReducer(state: ClaimState, event: ClaimEvent): ClaimState {
       if (code === 'wallet_cancelled')
         return { s: 'sealed', view: state.view, notice: 'cancelled' };
       if (code === 'network') return { s: 'sealed', view: state.view, notice: 'network' };
-      if (code === 'envelope_empty' || code === 'envelope_expired' || code === 'bad_link') {
+      if (
+        code === 'envelope_empty' ||
+        code === 'envelope_expired' ||
+        code === 'envelope_not_ready' ||
+        code === 'bad_link'
+      ) {
         return failure(code, viewOf(state));
       }
       return { s: 'sealed', view: state.view, notice: 'unknown' };

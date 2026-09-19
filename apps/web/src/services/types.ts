@@ -17,6 +17,7 @@ export interface Balance {
 
 export type ServiceErrorCode =
   | 'bad_link'
+  | 'envelope_not_ready' // the link is ahead of the network: sent seconds ago, not landed yet
   | 'envelope_empty' // every share is opened
   | 'envelope_expired' // taken back by the sender
   | 'already_opened' // this browser already opened a share of this envelope

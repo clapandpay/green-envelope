@@ -40,6 +40,7 @@ function heading(state: ClaimState, t: Dict): string {
       return state.reason === 'empty' ? t.claim.emptyTitle : t.claim.expiredTitle;
     case 'failed':
       if (state.reason === 'bad_link') return t.claim.badTitle;
+      if (state.reason === 'not_ready') return t.claim.notReadyTitle;
       return state.reason === 'network' ? t.claim.offlineTitle : t.claim.unknownTitle;
     case 'opened':
       if (!state.fresh) return t.claim.alreadyTitle;
@@ -161,9 +162,11 @@ function ProblemPanel(props: {
         : t.claim.expiredBody
       : state.reason === 'bad_link'
         ? t.claim.badBody
-        : state.reason === 'network'
-          ? t.claim.offlineBody
-          : t.claim.unknownBody;
+        : state.reason === 'not_ready'
+          ? t.claim.notReadyBody
+          : state.reason === 'network'
+            ? t.claim.offlineBody
+            : t.claim.unknownBody;
   const canRetry = state.s === 'failed' && state.reason !== 'bad_link';
   return (
     <>
