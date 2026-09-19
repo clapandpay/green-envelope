@@ -1,0 +1,16 @@
+{
+  "name": "edge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/node.ts"
+  },
+  "dependencies": {
+    "@ge/chia": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  }
+}
