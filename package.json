@@ -20,6 +20,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
+    "@testing-library/preact": "^3.2.4",
+    "fake-indexeddb": "^6.2.5",
+    "fast-check": "^4.10.1",
+    "happy-dom": "^20.14.5",
     "typescript": "7.0.2",
     "vitest": "5.0.1"
   }
