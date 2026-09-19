@@ -1,0 +1,139 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* The small wallet: balance card, sent envelopes as cards with progress, receive sheet. */
+
+.balance {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--green-soft);
+}
+
+.balance__pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 1.5em;
+  font-size: var(--text-s);
+  font-weight: 700;
+}
+
+.wallet__h2 {
+  font-size: var(--text-l);
+  line-height: 1.2;
+}
+
+.wallet__h2--list {
+  margin-top: var(--gap-m);
+}
+
+.first-run {
+  text-align: center;
+}
+
+.first-run__picture {
+  width: min(70%, 240px);
+  margin: 0 auto;
+}
+
+.sent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--paper-raised);
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius);
+}
+
+.sent--finished,
+.sent--taken_back {
+  border-style: dashed;
+  background: transparent;
+}
+
+.sent__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sent__top svg {
+  flex: none;
+  width: 28px;
+  height: 22px;
+}
+
+.sent__total {
+  font-size: var(--text-l);
+}
+
+.sent__status {
+  margin-left: auto;
+  font-size: var(--text-s);
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.sent__count {
+  font-size: var(--text-s);
+}
+
+.sent__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-s);
+  margin-top: 4px;
+}
+
+.progress {
+  height: 16px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress__bar {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  border-right: var(--line-thin) solid var(--ink);
+}
+
+.progress--segments {
+  display: flex;
+  gap: 3px;
+  height: 16px;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.progress__seg {
+  flex: 1;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: 3px;
+}
+
+.progress__seg--on {
+  background: var(--green);
+}
+
+.qr {
+  width: min(100%, 260px);
+  height: auto;
+  margin: 0 auto;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius-s);
+}
+
+.address {
+  padding: 12px 14px;
+  background: var(--paper-raised);
+  border: var(--line-thin) dashed var(--ink);
+  border-radius: var(--radius-s);
+  font-size: var(--text-s);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: all;
+  -webkit-user-select: all;
+}

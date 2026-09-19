@@ -1,0 +1,420 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* The envelope, the amount and the claim screen. Heights are reserved so nothing jumps. */
+
+/* ---------- the envelope ---------- */
+
+.env {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.env * {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.env__outline {
+  stroke: var(--ink);
+  stroke-width: 5;
+}
+
+.env__shadow {
+  fill: var(--shadow);
+}
+
+.env__inside {
+  fill: var(--green-deep);
+}
+
+.env__pocket,
+.env__flap {
+  fill: var(--green);
+}
+
+.env__flap-open {
+  fill: var(--green-soft);
+}
+
+.env__fold {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 3;
+  opacity: 0.55;
+}
+
+.env__slip {
+  fill: #fffaf0;
+}
+
+.env__slip-ink {
+  fill: #1b1a17;
+}
+
+.env__slip-green {
+  fill: #2fbf5f;
+  stroke: #1b1a17;
+  stroke-width: 2.5;
+}
+
+.env__seal-disc {
+  fill: var(--sun);
+}
+
+.env__seal-face {
+  fill: none;
+  stroke: var(--on-sun);
+  stroke-width: 4;
+}
+
+.env__seal-eye {
+  fill: var(--on-sun);
+}
+
+.env__seal .env__outline {
+  stroke: var(--on-sun);
+}
+
+/* moving parts: transitions, so an envelope that starts open does not replay the opening */
+.env__flap,
+.env__flap-open {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+}
+
+.env__flap {
+  transition: transform 220ms ease-in;
+}
+
+.env__flap-open {
+  transform: scaleY(0);
+  transition: transform 260ms var(--ease-pop) 220ms;
+}
+
+.env__slip-group {
+  transition: transform 520ms var(--ease-pop) 380ms;
+}
+
+.env__seal {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform 200ms ease-in,
+    opacity 200ms ease-in;
+}
+
+.env__all {
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+}
+
+.env--opening .env__all {
+  animation: env-shake 700ms ease-in-out infinite;
+}
+
+.env--opening .env__seal {
+  animation: env-pulse 700ms ease-in-out infinite;
+}
+
+.env--open .env__flap,
+.env--empty .env__flap {
+  transform: scaleY(0);
+}
+
+.env--open .env__flap-open,
+.env--empty .env__flap-open {
+  transform: scaleY(-1);
+}
+
+.env--open .env__seal,
+.env--empty .env__seal {
+  transform: scale(0.2) rotate(40deg);
+  opacity: 0;
+}
+
+.env--open .env__slip-group {
+  transform: translateY(-64px);
+}
+
+.env--empty .env__slip-group,
+.env--ghost .env__slip-group {
+  visibility: hidden;
+}
+
+.env--ghost .env__pocket,
+.env--ghost .env__flap,
+.env--ghost .env__inside {
+  fill: var(--paper-raised);
+}
+
+.env--ghost .env__outline {
+  stroke-dasharray: 3 11;
+}
+
+.env--ghost .env__shadow,
+.env--ghost .env__seal {
+  visibility: hidden;
+}
+
+@keyframes env-shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-2.5deg);
+  }
+  75% {
+    transform: rotate(2.5deg);
+  }
+}
+
+@keyframes env-pulse {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+/* ---------- claim layout ---------- */
+
+.claim {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--gap-s);
+  text-align: center;
+}
+
+.claim__from {
+  min-height: 2.4em;
+  font-size: var(--text-xl);
+  line-height: 1.2;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.claim__stage {
+  position: relative;
+  width: min(100%, 300px);
+  margin: 0 auto;
+  /* room above for the flap and the slip; keeps the box the same in every state */
+  aspect-ratio: 240 / 210;
+}
+
+.claim__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-s);
+  min-height: 250px;
+}
+
+.claim__message {
+  position: relative;
+  align-self: center;
+  max-width: 100%;
+  padding: 10px 16px;
+  background: var(--paper-raised);
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius);
+  font-size: var(--text-l);
+  line-height: 1.3;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.claim__left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 28px;
+}
+
+.pips {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.pip {
+  width: 14px;
+  height: 14px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: 3px;
+  background: transparent;
+}
+
+.pip--on {
+  background: var(--green);
+}
+
+.claim__hint {
+  min-height: 2.9em;
+  font-size: var(--text-s);
+  color: var(--ink-soft);
+}
+
+.claim__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 2.9em;
+  font-size: var(--text-s);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.claim__status svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.claim__status--done {
+  color: var(--ink);
+}
+
+.dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.dots i {
+  width: 7px;
+  height: 7px;
+  background: var(--green);
+  border: 1.5px solid var(--ink);
+  animation: dot-hop 900ms steps(2, jump-none) infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes dot-hop {
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.claim__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-s);
+  animation: rise 360ms var(--ease-pop) 500ms backwards;
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+
+/* ---------- the amount ---------- */
+
+.amount {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.amount__main {
+  display: block;
+  min-height: 1em;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2.6rem, 13vw, 3.75rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+.amount--long .amount__main {
+  font-size: clamp(2rem, 9.5vw, 2.75rem);
+  min-height: calc(1em * 1.35);
+  line-height: 1.35;
+}
+
+.amount__sub {
+  display: block;
+  min-height: 1.5em;
+  font-family: var(--font-num);
+  font-size: var(--text-s);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.amount--m .amount__main {
+  font-size: clamp(2rem, 10vw, 2.75rem);
+}
+
+.amount--left {
+  align-items: flex-start;
+}
+
+.amount .skeleton {
+  width: 7ch;
+  height: 1em;
+}
+
+.amount__sub .skeleton,
+.amount__sub.skeleton {
+  width: 10ch;
+}
+
+/* ---------- confetti: plain squares ---------- */
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 11px;
+  height: 11px;
+  margin: -5px;
+  background: var(--green);
+  border: var(--line-thin) solid var(--ink);
+  opacity: 0;
+  animation: confetti 1100ms cubic-bezier(0.1, 0.8, 0.3, 1) 450ms;
+}
+
+.confetti i:nth-child(3n + 1) {
+  background: var(--sun);
+}
+
+.confetti i:nth-child(3n + 2) {
+  background: var(--paper-raised);
+}
+
+@keyframes confetti {
+  0% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--x), var(--y)) rotate(var(--r));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+}

@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import type { Dict } from '../i18n/en';
+import { ServiceError, type ServiceErrorCode } from '../services/types';
+
+/** The code of anything a service call threw. */
+export function errorCode(error: unknown): ServiceErrorCode {
+  return error instanceof ServiceError ? error.code : 'unknown';
+}
+
+/** A sentence for an error code, for forms and sheets. */
+export function errorText(code: ServiceErrorCode, t: Dict): string {
+  switch (code) {
+    case 'network':
+      return t.errors.network;
+    case 'wallet_cancelled':
+      return t.errors.cancelled;
+    case 'insufficient_funds':
+      return t.errors.insufficient;
+    case 'invalid_recipient':
+      return t.errors.invalidRecipient;
+    default:
+      return t.errors.unknown;
+  }
+}
