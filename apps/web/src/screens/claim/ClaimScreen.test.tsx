@@ -39,7 +39,7 @@ describe('claim: happy path', () => {
     expect(await screen.findByText('€7.40')).toBeTruthy();
     expect(ensure).toHaveBeenCalledOnce();
     expect(screen.getByText(/0\.296\sXCH/)).toBeTruthy();
-    expect(screen.getByText(/On its way to you/)).toBeTruthy();
+    expect(screen.getByText(/On its way/)).toBeTruthy();
     expect(screen.queryByText('Arrived. It is yours.')).toBeNull();
     expect(envelopeState(container)).toContain('env--open');
     expect(container.querySelector('output[aria-live="polite"]')?.textContent).toBe(
@@ -53,7 +53,7 @@ describe('claim: happy path', () => {
     expect(play.textContent).toContain('coming soon');
 
     expect(await screen.findByText('Arrived. It is yours.')).toBeTruthy();
-    expect(screen.queryByText(/On its way to you/)).toBeNull();
+    expect(screen.queryByText(/On its way/)).toBeNull();
   });
 
   it('"Send it on" goes to a new envelope with the amount, "Keep it" to the wallet', async () => {

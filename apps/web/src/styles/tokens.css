@@ -1,21 +1,23 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Design tokens. Paper, ink, ONE green. Thick outlines, hard shadows, no gradients, no blue. */
+/* Design tokens. Old stationery: warm paper, ink, bottle green, a touch of brass.
+   Fine engraved lines, a short hard shadow, no gradients, no blue. */
 
 :root {
   color-scheme: light dark;
 
   /* colour */
-  --paper: #f3ead3;
-  --paper-raised: #fffaf0;
-  --paper-sunk: #e6d9b8;
-  --ink: #1b1a17;
-  --ink-soft: #575243;
-  --green: #2fbf5f;
-  --green-deep: #17803c;
-  --green-soft: #c3ecce;
-  --on-green: #10130d;
-  --sun: #ffd23f;
-  --on-sun: #1b1a17;
+  --paper: #efe6d0;
+  --paper-raised: #fbf6e9;
+  --paper-sunk: #e2d6b8;
+  --ink: #1c1a15;
+  --ink-soft: #5b5546;
+  --green: #1f7a4c;
+  --green-deep: #14532f;
+  --green-soft: #cfe2d3;
+  --on-green: #fbf6e9;
+  --sun: #c9a040;
+  --sun-deep: #8c6a1f;
+  --on-sun: #2a1d08;
   --alert: #ad2417;
   --alert-soft: #ffe0d8;
   --shadow: #1b1a17;
@@ -23,16 +25,17 @@
   --qr-light: #fffaf0;
 
   /* shape */
-  --line: 3px;
-  --line-thin: 2px;
-  --radius: 16px;
-  --radius-s: 10px;
-  --drop: 4px;
+  --line: 2px;
+  --line-thin: 1.5px;
+  --radius: 10px;
+  --radius-s: 6px;
+  --drop: 3px;
 
-  /* type: system stacks only. Rounded for words, monospace for money. */
-  --font-ui:
-    ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Hiragino Maru Gothic ProN", system-ui,
-    -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* type: system stacks only. A bookish serif for titles and money, a quiet sans for the rest. */
+  --font-display:
+    ui-serif, "New York", "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia,
+    serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-num:
     ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", "Droid Sans Mono", Menlo, Consolas,
     monospace;
@@ -56,14 +59,17 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #20231b;
-    --paper-raised: #2c3025;
-    --paper-sunk: #2a2e23;
-    --ink: #f3ead3;
-    --ink-soft: #bcb59e;
-    --green: #35c766;
-    --green-deep: #1d8f45;
-    --green-soft: #1f4a2d;
+    --paper: #12170f;
+    --paper-raised: #1c2218;
+    --paper-sunk: #1a2016;
+    --ink: #efe6d0;
+    --ink-soft: #b3ac95;
+    --green: #2c8f5b;
+    --green-deep: #17532f;
+    --green-soft: #1d3a27;
+    --on-green: #fbf6e9;
+    --sun: #d1aa4e;
+    --sun-deep: #8c6a1f;
     --alert: #ff9784;
     --alert-soft: #4a1f18;
     --shadow: #060705;
