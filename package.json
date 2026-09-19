@@ -16,11 +16,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "verify:spends": "cargo run --quiet --release --manifest-path tools/vectors/Cargo.toml -- verify packages/chia/src/spend-cases.json && cargo run --quiet --release --manifest-path tools/vectors/Cargo.toml -- verify packages/envelope/spend-cases.json",
-    "check": "pnpm lint && pnpm typecheck && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "e2e:testnet": "vitest run --config vitest.e2e.config.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
     "@testing-library/preact": "^3.2.4",
+    "@types/node": "^24.13.5",
     "fake-indexeddb": "^6.2.5",
     "fast-check": "^4.10.1",
     "happy-dom": "^20.14.5",

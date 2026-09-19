@@ -2,7 +2,14 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "preact"
+    "jsxImportSource": "preact",
+    "types": ["node"]
   },
-  "include": ["packages/*/src", "apps/*/src", "apps/*/*.ts", "vitest.config.ts"]
+  "include": [
+    "packages/*/src",
+    "apps/*/src",
+    "apps/*/*.ts",
+    "vitest.config.ts",
+    "vitest.e2e.config.ts"
+  ]
 }
