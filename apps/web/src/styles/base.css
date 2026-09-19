@@ -36,7 +36,7 @@ h1,
 h2 {
   font-family: var(--font-display);
   font-weight: 600;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.025em;
 }
 
 ul,
@@ -254,26 +254,12 @@ svg {
 }
 
 .btn--huge {
-  min-height: 68px;
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
+  min-height: 64px;
+  font-family: var(--font-num);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
-  /* an engraved inner rule, like the edge of a calling card */
-  --rule:
-    inset 0 0 0 5px var(--green),
-    inset 0 0 0 6px color-mix(in srgb, var(--on-green) 60%, transparent);
-  box-shadow:
-    var(--rule),
-    var(--drop) var(--drop) 0 var(--shadow);
-}
-
-.btn--huge:active:not(:disabled),
-.btn--huge[aria-busy="true"] {
-  box-shadow:
-    var(--rule),
-    0 0 0 var(--shadow);
 }
 
 .btn--small {

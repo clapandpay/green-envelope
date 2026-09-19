@@ -25,11 +25,13 @@ describe('claim: happy path', () => {
     const ensure = vi.spyOn(services.wallet, 'ensure');
     const { container } = renderScreen(<ClaimScreen link={LINK} />, { services });
 
-    expect(container.querySelector('.skeleton')).toBeTruthy(); // loading
-    expect(await screen.findByRole('heading', { name: 'from Anna' })).toBeTruthy();
-    expect(screen.getByText('Happy birthday! 🎂')).toBeTruthy();
-    expect(screen.getByText('3 of 5 left')).toBeTruthy();
+    // Act 1: nothing but the envelope. It cannot be tapped before we know it is there.
+    expect(screen.queryByRole('button', { name: 'Open' })).toBeNull();
+    expect(await screen.findByRole('button', { name: 'Open' })).toBeTruthy();
     expect(envelopeState(container)).toContain('env--sealed');
+    expect(screen.queryByText(/Anna/)).toBeNull();
+    expect(screen.queryByText('Happy birthday! 🎂')).toBeNull();
+    expect(container.querySelector('.claim--told')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.getByText('Opening…')).toBeTruthy();
@@ -38,6 +40,10 @@ describe('claim: happy path', () => {
     // The amount is there as soon as open() resolves, still "on its way".
     expect(await screen.findByText('€7.40')).toBeTruthy();
     expect(ensure).toHaveBeenCalledOnce();
+    // Act 3: now, and only now, the envelope says who it is from and what it says.
+    expect(screen.getByRole('heading', { name: 'from Anna' })).toBeTruthy();
+    expect(screen.getByText('Happy birthday! 🎂')).toBeTruthy();
+    expect(container.querySelector('.claim--fresh .bars')).toBeTruthy();
     expect(screen.getByText(/0\.296\sXCH/)).toBeTruthy();
     expect(screen.getByText(/On its way/)).toBeTruthy();
     expect(screen.queryByText('Arrived. It is yours.')).toBeNull();
@@ -67,10 +73,9 @@ describe('claim: happy path', () => {
 
   it('speaks German', async () => {
     renderScreen(<ClaimScreen link={LINK} />, { lang: 'de' });
-    expect(await screen.findByRole('heading', { name: 'von Anna' })).toBeTruthy();
-    expect(screen.getByText('noch 3 von 5 da')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Öffnen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Öffnen' }));
     expect(await screen.findByText(/^7,40\s€$/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'von Anna' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Weiterschenken' })).toBeTruthy();
   });
 
@@ -83,6 +88,7 @@ describe('claim: happy path', () => {
 
   it('takes sender and message from the link', async () => {
     renderScreen(<ClaimScreen link="https://ge.test/g/other123?from=Kai&m=Tor!#x" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
     expect(await screen.findByRole('heading', { name: 'from Kai' })).toBeTruthy();
     expect(screen.getByText('Tor!')).toBeTruthy();
   });

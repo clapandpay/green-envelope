@@ -30,6 +30,8 @@ export const en = {
     fromNobody: 'for you',
     sharesLeft: (left: number, total: number) => `${left} of ${total} left`,
     open: 'Open',
+    cue: 'Tap',
+    sealedTitle: 'An envelope for you',
     opening: 'Opening…',
     openingHint: 'Your phone may ask for your face or finger.',
     youGot: 'You got',

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The hot path: a link from a chat lands here. Sealed envelope, one button, the amount.
+// The hot path: a link from a chat lands here. Until it is opened there is only the envelope;
+// then the ceremony runs and the words arrive one by one (timeline in styles/claim.css).
 import { useEffect } from 'preact/hooks';
 import { Amount, amountLines } from '../../components/Amount';
 import { Confetti } from '../../components/Confetti';
@@ -15,7 +16,9 @@ import { preloadScreens } from '../lazy';
 import type { ClaimNotice, ClaimState } from './claim-state';
 import { useClaim } from './use-claim';
 
-const MAX_PIPS = 12;
+/** When the amount starts counting, after the ceremony: see the timeline in styles/claim.css. */
+const COUNT_UP_DELAY_MS = 360 + 1500 + 3 * 170;
+const BARS = 11;
 
 function envelopeState(state: ClaimState): EnvelopeState {
   switch (state.s) {
@@ -32,22 +35,13 @@ function envelopeState(state: ClaimState): EnvelopeState {
   }
 }
 
-function heading(state: ClaimState, t: Dict): string {
-  switch (state.s) {
-    case 'loading':
-      return t.common.loading;
-    case 'gone':
-      return state.reason === 'empty' ? t.claim.emptyTitle : t.claim.expiredTitle;
-    case 'failed':
-      if (state.reason === 'bad_link') return t.claim.badTitle;
-      if (state.reason === 'not_ready') return t.claim.notReadyTitle;
-      return state.reason === 'network' ? t.claim.offlineTitle : t.claim.unknownTitle;
-    case 'opened':
-      if (!state.fresh) return t.claim.alreadyTitle;
-      return state.view.from ? t.claim.from(state.view.from) : t.claim.fromNobody;
-    default:
-      return state.view.from ? t.claim.from(state.view.from) : t.claim.fromNobody;
+function problemTitle(state: ClaimState & { s: 'gone' | 'failed' }, t: Dict): string {
+  if (state.s === 'gone') {
+    return state.reason === 'empty' ? t.claim.emptyTitle : t.claim.expiredTitle;
   }
+  if (state.reason === 'bad_link') return t.claim.badTitle;
+  if (state.reason === 'not_ready') return t.claim.notReadyTitle;
+  return state.reason === 'network' ? t.claim.offlineTitle : t.claim.unknownTitle;
 }
 
 function noticeText(notice: ClaimNotice, t: Dict): string {
@@ -55,96 +49,87 @@ function noticeText(notice: ClaimNotice, t: Dict): string {
   return notice === 'network' ? t.errors.network : t.errors.unknown;
 }
 
-function SharesLeft(props: { view: EnvelopeView }) {
-  const { t } = useI18n();
-  const { sharesLeft, sharesTotal } = props.view;
+/** Raster bars across the whole screen, once: the machine announces the moment. */
+function Bars() {
   return (
-    <p class="claim__left">
-      {sharesTotal <= MAX_PIPS && (
-        <span class="pips" aria-hidden="true">
-          {Array.from({ length: sharesTotal }, (_, i) => (
-            <i key={i} class={i < sharesLeft ? 'pip pip--on' : 'pip'} />
-          ))}
-        </span>
-      )}
-      <span class="num">{t.claim.sharesLeft(sharesLeft, sharesTotal)}</span>
-    </p>
+    <div class="bars" aria-hidden="true">
+      {Array.from({ length: BARS }, (_, n) => (
+        <i key={n} style={`--n:${n}`} />
+      ))}
+    </div>
   );
 }
 
-function SealedPanel(props: {
-  view: EnvelopeView;
-  notice: ClaimNotice | null;
-  onOpen: () => void;
-}) {
-  const { t } = useI18n();
-  return (
-    <>
-      {props.view.message && <p class="claim__message">{props.view.message}</p>}
-      <SharesLeft view={props.view} />
-      {props.notice && (
-        <p class="notice notice--calm" role="alert">
-          {noticeText(props.notice, t)}
-        </p>
-      )}
-      <button type="button" class="btn btn--primary btn--huge" onClick={props.onOpen}>
-        {t.claim.open}
-      </button>
-    </>
-  );
-}
-
+/** Everything the envelope had to say, told one line after the other. */
 function RevealPanel(props: {
-  amount: bigint | null;
+  view: EnvelopeView;
+  amount: bigint;
   rate: Rate | null;
   fresh: boolean;
   confirmed: boolean;
 }) {
   const { t } = useI18n();
-  const { amount } = props;
+  const { amount, view, fresh } = props;
   return (
     <>
-      <p class="eyebrow">
-        {amount === null ? t.claim.opening : props.fresh ? t.claim.youGot : t.claim.alreadyBody}
-      </p>
-      <Amount mojos={amount} rate={props.rate} countUp={props.fresh} />
-      {amount === null ? (
-        <p class="claim__hint">{t.claim.openingHint}</p>
-      ) : props.confirmed ? (
-        <p class="claim__status claim__status--done">
-          <TickIcon />
-          {t.claim.arrived}
-        </p>
+      {fresh ? (
+        <h1 class="claim__from rv" style="--i:0">
+          {view.from ? t.claim.from(view.from) : t.claim.fromNobody}
+        </h1>
       ) : (
-        <p class="claim__status">
-          <span class="dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          {t.claim.onItsWay}
+        <h1 class="claim__title rv" style="--i:0">
+          {t.claim.alreadyTitle}
+        </h1>
+      )}
+      {fresh && view.message && (
+        <p class="claim__message rv" style="--i:1">
+          {view.message}
         </p>
       )}
-      {amount !== null && (
-        <div class="claim__actions">
-          <button
-            type="button"
-            class="btn btn--primary"
-            onClick={() => navigate(`/new?amount=${amount}`)}
-          >
-            {t.claim.sendOn}
+      <span class="claim__rule rv" style="--i:2" aria-hidden="true" />
+      <div class="rv" style="--i:3">
+        <Amount
+          mojos={amount}
+          rate={props.rate}
+          countUp={fresh}
+          countUpDelayMs={COUNT_UP_DELAY_MS}
+        />
+      </div>
+      <div class="rv" style="--i:4">
+        {props.confirmed ? (
+          <p class="claim__status claim__status--done">
+            <TickIcon />
+            {t.claim.arrived}
+          </p>
+        ) : (
+          <p class="claim__status">
+            <span class="dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            {t.claim.onItsWay}
+          </p>
+        )}
+      </div>
+      <div class="claim__actions rv" style="--i:5">
+        <button
+          type="button"
+          class="btn btn--primary"
+          onClick={() => navigate(`/new?amount=${amount}`)}
+        >
+          {t.claim.sendOn}
+        </button>
+        <div class="row">
+          <button type="button" class="btn" onClick={() => navigate('/')}>
+            {t.claim.keep}
           </button>
-          <div class="row">
-            <button type="button" class="btn" onClick={() => navigate('/')}>
-              {t.claim.keep}
-            </button>
-            <button type="button" class="btn" disabled>
-              {t.claim.play}
-              <span class="tag">{t.common.comingSoon}</span>
-            </button>
-          </div>
+          <button type="button" class="btn" disabled>
+            {t.claim.play}
+            <span class="tag">{t.common.comingSoon}</span>
+          </button>
         </div>
-      )}
+      </div>
     </>
   );
 }
@@ -170,7 +155,12 @@ function ProblemPanel(props: {
   const canRetry = state.s === 'failed' && state.reason !== 'bad_link';
   return (
     <>
-      <p role={state.s === 'failed' ? 'alert' : undefined}>{body}</p>
+      <h1 class="claim__title rv" style="--i:0">
+        {problemTitle(state, t)}
+      </h1>
+      <p class="rv" style="--i:1" role={state.s === 'failed' ? 'alert' : undefined}>
+        {body}
+      </p>
       {canRetry ? (
         <button type="button" class="btn btn--primary" onClick={props.onRetry}>
           {t.common.retry}
@@ -189,32 +179,52 @@ export function ClaimScreen(props: { link: string }) {
   const { rate } = useRate();
   const { state, open, retry } = useClaim(props.link);
   const opened = state.s === 'opened';
+  const fresh = opened && state.fresh;
+  // Until it is opened there is nothing on the page but the envelope.
+  const told = opened || state.s === 'gone' || state.s === 'failed';
 
   useEffect(() => {
     if (opened) preloadScreens();
   }, [opened]);
 
   return (
-    <div class="claim">
-      <h1 class="claim__from">
-        {state.s === 'loading' ? (
-          <span class="sr-only">{t.common.loading}</span>
-        ) : (
-          heading(state, t)
-        )}
-      </h1>
+    <div class={`claim${told ? ' claim--told' : ''}${fresh ? ' claim--fresh' : ''}`}>
+      {!told && <h1 class="sr-only">{t.claim.sealedTitle}</h1>}
       <div class="claim__stage">
-        <Envelope state={envelopeState(state)} />
-        {opened && state.fresh && <Confetti />}
+        {told || state.s === 'loading' ? (
+          <div class="claim__tap">
+            <Envelope state={envelopeState(state)} />
+          </div>
+        ) : (
+          <button
+            type="button"
+            class="claim__tap"
+            aria-label={t.claim.open}
+            disabled={state.s === 'opening'}
+            onClick={open}
+          >
+            <Envelope state={envelopeState(state)} />
+          </button>
+        )}
+        {state.s === 'sealed' && (
+          <p class="claim__cue" aria-hidden="true">
+            {t.claim.cue}
+          </p>
+        )}
+        {state.s === 'opening' && <p class="claim__cue claim__cue--now">{t.claim.opening}</p>}
+        {fresh && <Bars />}
+        {fresh && <Confetti />}
       </div>
       <div class="claim__panel">
-        {state.s === 'loading' && <span class="skeleton" style="height:76px;margin-top:52px" />}
-        {state.s === 'sealed' && (
-          <SealedPanel view={state.view} notice={state.notice} onOpen={open} />
+        {state.s === 'sealed' && state.notice && (
+          <p class="notice notice--calm" role="alert">
+            {noticeText(state.notice, t)}
+          </p>
         )}
-        {state.s === 'opening' && <RevealPanel amount={null} rate={rate} fresh confirmed={false} />}
+        {state.s === 'opening' && <p class="claim__hint">{t.claim.openingHint}</p>}
         {state.s === 'opened' && (
           <RevealPanel
+            view={state.view}
             amount={state.amount}
             rate={rate}
             fresh={state.fresh}
@@ -226,9 +236,7 @@ export function ClaimScreen(props: { link: string }) {
         )}
       </div>
       <output class="sr-only" aria-live="polite">
-        {opened && state.fresh
-          ? t.claim.announce(amountLines(state.amount, rate, locale).main)
-          : ''}
+        {fresh ? t.claim.announce(amountLines(state.amount, rate, locale).main) : ''}
       </output>
     </div>
   );

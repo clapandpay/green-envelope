@@ -30,6 +30,8 @@ export const de: Dict = {
     fromNobody: 'für dich',
     sharesLeft: (left, total) => `noch ${left} von ${total} da`,
     open: 'Öffnen',
+    cue: 'Tippen',
+    sealedTitle: 'Ein Umschlag für dich',
     opening: 'Wird geöffnet…',
     openingHint: 'Dein Handy fragt vielleicht nach Gesicht oder Finger.',
     youGot: 'Du bekommst',

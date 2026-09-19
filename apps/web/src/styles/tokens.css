@@ -1,23 +1,23 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Design tokens. Old stationery: warm paper, ink, bottle green, a touch of brass.
-   Fine engraved lines, a short hard shadow, no gradients, no blue. */
+/* Design tokens. Cut paper on a quiet ground: washi, sumi ink, one green, one vermilion.
+   Flat colour, hard edges, shading by dither instead of gradients. No blue. */
 
 :root {
   color-scheme: light dark;
 
   /* colour */
-  --paper: #efe6d0;
-  --paper-raised: #fbf6e9;
-  --paper-sunk: #e2d6b8;
-  --ink: #1c1a15;
-  --ink-soft: #5b5546;
-  --green: #1f7a4c;
-  --green-deep: #14532f;
-  --green-soft: #cfe2d3;
-  --on-green: #fbf6e9;
-  --sun: #c9a040;
-  --sun-deep: #8c6a1f;
-  --on-sun: #2a1d08;
+  --paper: #ebe6da;
+  --paper-raised: #f6f2e8;
+  --paper-sunk: #d9d2c0;
+  --ink: #15151a;
+  --ink-soft: #5f5c55;
+  --green: #1d6b4a;
+  --green-deep: #124a33;
+  --green-soft: #bcd4c5;
+  --on-green: #f6f2e8;
+  --sun: #d8432b;
+  --sun-deep: #a32c18;
+  --on-sun: #15151a;
   --alert: #ad2417;
   --alert-soft: #ffe0d8;
   --shadow: #1b1a17;
@@ -27,14 +27,15 @@
   /* shape */
   --line: 2px;
   --line-thin: 1.5px;
-  --radius: 10px;
-  --radius-s: 6px;
+  --radius: 4px;
+  --radius-s: 3px;
   --drop: 3px;
+  /* Amiga shading: a one-pixel checker in ink, used where others would fade */
+  --dither: repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 0 0 / 4px 4px;
 
-  /* type: system stacks only. A bookish serif for titles and money, a quiet sans for the rest. */
+  /* type: system stacks only. A tight grotesk for titles and money, mono for small labels. */
   --font-display:
-    ui-serif, "New York", "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia,
-    serif;
+    "Helvetica Neue", Helvetica, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-num:
     ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", "Droid Sans Mono", Menlo, Consolas,
@@ -59,17 +60,17 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #12170f;
-    --paper-raised: #1c2218;
-    --paper-sunk: #1a2016;
-    --ink: #efe6d0;
-    --ink-soft: #b3ac95;
-    --green: #2c8f5b;
-    --green-deep: #17532f;
-    --green-soft: #1d3a27;
-    --on-green: #fbf6e9;
-    --sun: #d1aa4e;
-    --sun-deep: #8c6a1f;
+    --paper: #0e0e11;
+    --paper-raised: #17171c;
+    --paper-sunk: #1c1c22;
+    --ink: #ece7db;
+    --ink-soft: #a29e93;
+    --green: #2a8a61;
+    --green-deep: #15513a;
+    --green-soft: #1c3a2c;
+    --on-green: #f6f2e8;
+    --sun: #e2543a;
+    --sun-deep: #a8341e;
     --alert: #ff9784;
     --alert-soft: #4a1f18;
     --shadow: #060705;

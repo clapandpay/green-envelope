@@ -16,7 +16,12 @@ export function countUpValue(target: bigint, progress: number): bigint {
 }
 
 /** Counts from zero to `target` once. Returns `target` at once when `enabled` is false. */
-export function useCountUp(target: bigint, enabled: boolean, durationMs = 900): bigint {
+export function useCountUp(
+  target: bigint,
+  enabled: boolean,
+  durationMs = 900,
+  delayMs = 0,
+): bigint {
   const animate = enabled && !prefersReducedMotion();
   const [value, setValue] = useState(animate ? 0n : target);
   useEffect(() => {
@@ -27,13 +32,19 @@ export function useCountUp(target: bigint, enabled: boolean, durationMs = 900): 
     let frame = 0;
     let start: number | null = null;
     const step = (time: number) => {
-      start ??= time;
+      start ??= time + delayMs;
       const progress = (time - start) / durationMs;
       setValue(countUpValue(target, progress));
       if (progress < 1) frame = requestAnimationFrame(step);
     };
     frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
-  }, [target, animate, durationMs]);
+    // Browsers pause animation frames in a hidden or unfocused window. The count is decoration;
+    // the amount is not: a timer puts the true number up whatever happens to the frames.
+    const settle = setTimeout(() => setValue(target), delayMs + durationMs + 120);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(settle);
+    };
+  }, [target, animate, durationMs, delayMs]);
   return animate ? value : target;
 }

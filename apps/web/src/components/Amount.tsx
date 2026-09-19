@@ -18,12 +18,19 @@ export function Amount(props: {
   mojos: bigint | null;
   rate: Rate | null;
   countUp?: boolean;
+  /** Holds the count at zero for this long first, so it starts when the number is visible. */
+  countUpDelayMs?: number;
   size?: 'l' | 'm';
   align?: 'center' | 'left';
 }) {
   const { locale } = useI18n();
   const target = props.mojos ?? 0n;
-  const shown = useCountUp(target, props.countUp === true && props.mojos !== null);
+  const shown = useCountUp(
+    target,
+    props.countUp === true && props.mojos !== null,
+    900,
+    props.countUpDelayMs ?? 0,
+  );
   const final = amountLines(target, props.rate, locale);
   const lines = shown === target ? final : amountLines(shown, props.rate, locale);
   const classes = [
