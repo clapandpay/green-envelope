@@ -246,6 +246,9 @@ importers:
       '@ge/chia':
         specifier: workspace:*
         version: link:../chia
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
 
   packages/wallet:
     dependencies:

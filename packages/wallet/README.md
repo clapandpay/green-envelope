@@ -1,0 +1,79 @@
+# @ge/wallet
+
+The wallet in the browser. This package currently holds the **keystore**: it creates, unlocks and
+forgets the one wallet of a browser profile and hands out its 32-byte seed. Balance, coin
+selection and send come on top once `@ge/chia` lands.
+
+```ts
+const store = createKeyStore({ rpName: 'Green Envelope' });
+const existing = await store.status(); // never prompts
+const { kind, seed } = existing ? await store.unlock() : await store.create();
+```
+
+## Two kinds of wallet
+
+| | passkey | device |
+| --- | --- | --- |
+| Seed | `HKDF-SHA256(PRF output, info = "clapandpay:wallet:v1:seed")`, where the PRF input is `sha256("clapandpay:wallet:v1")` | 32 bytes from `crypto.getRandomValues` |
+| Stored in IndexedDB | the credential id only (not secret) | AES-GCM ciphertext, IV, and the **non-extractable** `CryptoKey` that wraps it |
+| Unlock | biometric / PIN prompt, every time | silent |
+| When | browser has WebAuthn, a platform authenticator and PRF | everything else, so a claim is never blocked |
+
+`create()` falls back to a device wallet on its own when the passkey was created but the
+authenticator returned no PRF result, or when WebAuthn fails with anything other than the user
+dismissing the prompt (`WalletError('cancelled')`). Look at the returned `kind`.
+
+`create()` refuses (`WalletError('exists')`) while a wallet exists: overwriting the record of a
+device wallet would destroy the only copy of its seed.
+
+The two tags above are permanent. Changing either one changes the address of every passkey
+wallet ever made.
+
+## Security note: what this does and does not protect
+
+**Passkey wallet**
+
+- Protects against: someone who gets a copy of the browser profile or the IndexedDB files (there
+  is no secret in them); someone holding the unlocked phone but unable to pass the biometric or
+  PIN prompt; loss of the device, as far as the passkey is synced.
+- Does not protect against: script running on our origin (XSS, a malicious dependency, a hostile
+  browser extension). While the page is open and unlocked the seed is in JavaScript memory and
+  can be read and used to spend everything. A prompt can also be triggered by such a script and
+  will look legitimate, because it is for the right site.
+- The passkey is synced by the platform (iCloud Keychain, Google Password Manager, a password
+  manager). **The wallet follows that account**: whoever can sign in to it and restore its
+  passkeys can open the wallet, and if the account or the passkey is deleted, the money is gone.
+  There is no other backup.
+- The WebAuthn challenge is random and verified by nobody. WebAuthn is used here as a key
+  derivation device, not as a login.
+
+**Device wallet**
+
+- Protects against: reading the seed out of storage as plain bytes. The wrapping key is
+  non-extractable, so script and casual inspection of IndexedDB see ciphertext only.
+- Does not protect against: **anyone who can use the unlocked browser profile**. There is no
+  prompt; opening the page is enough to spend. The same holds for malware or a forensic tool with
+  access to the profile on disk: the wrapping key is stored next to the ciphertext, and
+  non-extractable is a rule the browser enforces on script, not encryption at rest.
+- Does not protect against XSS on the origin, exactly as above.
+- Not backed up anywhere. Clearing site data, an in-app browser that throws its storage away,
+  private mode, or `forget()` lose the money for good. Browsers may also evict storage of
+  rarely used sites. This is why the app offers to move the balance to a passkey wallet, and why
+  a device wallet should only ever hold small amounts.
+
+**Both**
+
+- Everything rests on the integrity of the JavaScript the origin serves. A strict
+  Content-Security-Policy, no third-party scripts, and few dependencies are part of the wallet's
+  security, not decoration.
+- The seed is returned to the caller as a `Uint8Array`. The keystore wipes the intermediate PRF
+  buffer, but it cannot wipe what the caller keeps, and JavaScript gives no guarantee about
+  copies made by the engine.
+
+## Testing
+
+All browser globals go through an injectable `env` (`KeyStoreEnv`) and storage through
+`KeyStoreStorage`, so the tests run in node with `fake-indexeddb` and a fake authenticator
+(`src/test-helpers.ts`). What they cannot show is real authenticator behaviour; that needs a
+manual pass on iOS Safari, Android Chrome, desktop Chrome / Safari / Firefox, and the in-app
+browsers of WhatsApp, Telegram and Instagram.

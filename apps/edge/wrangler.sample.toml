@@ -1,0 +1,21 @@
+# Sample only: copy to wrangler.toml, fill in the origin, then `wrangler deploy`.
+# Nothing in this repository deploys by itself.
+name = "green-envelope-edge"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[assets]
+# The built web app. The preview images must be inside it: copy apps/edge/assets/og/*.png to
+# apps/web/dist/og/ (or keep them in apps/web/public/og/ so that Vite does it).
+directory = "../web/dist"
+binding = "ASSETS"
+# The worker sees every request first: `/`, `/new` and `/g/*` need their tags and headers.
+run_worker_first = true
+# No clean-URL redirects and no built-in SPA fallback: the worker does both.
+html_handling = "none"
+not_found_handling = "none"
+
+[vars]
+NETWORK = "mainnet"
+PUBLIC_ORIGIN = "https://clapandpay.com"
+CHAIN_ENDPOINTS = "https://api.coinset.org"

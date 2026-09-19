@@ -151,13 +151,27 @@ export type SplitMode = 'random' | 'equal';
 /** Amounts sum exactly to `total`; every share >= `floor`; random = each share uniform in [floor, 2 x mean of the remainder]. */
 export function splitAmounts(total: bigint, shares: number, mode: SplitMode, opts?: { floor?: bigint; random?: () => number }): bigint[];
 
-export interface EnvelopeLink { publicKey: PublicKey; secret: Bytes; from?: string; message?: string }
-export function encodeLink(origin: string, link: EnvelopeLink): string; // {origin}/g/{pk b64url}?from=&m=#{secret b64url}
+export interface EnvelopeLink { publicKey: PublicKey; secret: Bytes; shares?: number; from?: string; message?: string }
+export function encodeLink(origin: string, link: EnvelopeLink): string; // {origin}/g/{pk b64url}?n=&from=&m=#{secret b64url}
 export function decodeLink(url: string): EnvelopeLink; // throws EnvelopeError('bad_link')
 export const MAX_SHARES = 100;
 export const SECRET_BYTES = 16;
 export function envelopeSeed(secret: Bytes): Bytes; // sha256("clapandpay:envelope:v1" || secret)
 ```
+
+`n` is the share count: a hint that lets the opener and the preview server derive 5 addresses
+instead of 100 (about 4 ms each). The chain stays the truth; a missing or damaged `n` means scan.
+
+On top of `@ge/chia` and `@ge/chain` the package also exports `envelopeKeys`, `shareKey`,
+`sharePuzzleHash(es)`, the pure builders `buildCreate`, `buildOpen`, `buildTakeBack`, `buildSend`
+(every bundle they produce is a case in `packages/envelope/spend-cases.json` for the Rust
+verifier), and the operations `inspectEnvelope`, `openEnvelope` (retries another share when a
+race is lost), `waitForOutput` (a claim counts only once its output coin exists, because a node
+may answer "pending" to a claim that later loses) and `takeBackEnvelope`.
+
+`@ge/wallet` adds `accountFromSeed` (path m/12381/8444/2/0, one address), `envelopeSecret`
+(derived from a hardened sibling key and a counter, so a sender can recover envelopes) and
+`selectCoins`.
 
 ## `apps/web` services seam
 

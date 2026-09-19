@@ -1,0 +1,18 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Link preview, every share opened. Export to envelope-empty.png (1200x630): WhatsApp ignores SVG. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>An open, empty green envelope</title>
+  <rect width="1200" height="630" fill="#F3EAD3"/>
+  <g transform="translate(60 8) scale(0.9)">
+  <!-- hard offset shadow: open flap and body -->
+  <path d="M356 229 L624 49 L892 229 Z" fill="#141414" stroke="#141414" stroke-width="16" stroke-linejoin="round"/>
+  <rect x="344" y="229" width="560" height="340" rx="28" fill="#141414"/>
+  <!-- open flap, pointing up -->
+  <path d="M332 205 L600 25 L868 205 Z" fill="#23A040" stroke="#141414" stroke-width="16" stroke-linejoin="round"/>
+  <!-- empty inside -->
+  <rect x="320" y="205" width="560" height="340" rx="28" fill="#F3EAD3" stroke="#141414" stroke-width="16"/>
+  <!-- front pocket -->
+  <path d="M328 240 L600 420 L872 240 L872 517 Q872 537 852 537 L348 537 Q328 537 328 517 Z" fill="#2DB84D" stroke="#141414" stroke-width="16" stroke-linejoin="round"/>
+  </g>
+  <text x="600" y="590" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="30" letter-spacing="2" fill="#141414">Clap and Pay</text>
+</svg>

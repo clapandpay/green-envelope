@@ -1,0 +1,19 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Link preview, envelope with shares left. Export to envelope.png (1200x630): WhatsApp ignores SVG. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>A sealed green envelope</title>
+  <rect width="1200" height="630" fill="#F3EAD3"/>
+  <!-- hard offset shadow -->
+  <rect x="344" y="149" width="560" height="380" rx="28" fill="#141414"/>
+  <!-- body -->
+  <rect x="320" y="125" width="560" height="380" rx="28" fill="#2DB84D" stroke="#141414" stroke-width="16"/>
+  <!-- side folds -->
+  <path d="M328 497 L540 330 M872 497 L660 330" fill="none" stroke="#141414" stroke-width="12" stroke-linecap="round"/>
+  <!-- closed flap -->
+  <path d="M332 137 L600 368 L868 137 Z" fill="#23A040" stroke="#141414" stroke-width="16" stroke-linejoin="round"/>
+  <!-- seal -->
+  <circle cx="607" cy="375" r="54" fill="#141414"/>
+  <circle cx="600" cy="368" r="54" fill="#FFD23F" stroke="#141414" stroke-width="14"/>
+  <path d="M576 368 L594 386 L626 350" fill="none" stroke="#141414" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="600" y="590" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="30" letter-spacing="2" fill="#141414">Clap and Pay</text>
+</svg>
