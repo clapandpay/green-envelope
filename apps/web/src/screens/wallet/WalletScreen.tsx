@@ -30,8 +30,10 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface WalletData {
   wallet: WalletInfo | null;
+  /** Null while the chain is still being asked; the amount shows a skeleton until then. */
   balance: Balance | null;
-  sent: SentEnvelope[];
+  /** Null while still loading, which is not the same as "none yet". */
+  sent: SentEnvelope[] | null;
   canSecure: boolean;
   /** False when logging out would take the money with it. */
   restorable: boolean;
@@ -52,24 +54,61 @@ export function WalletScreen() {
   const [message, setMessage] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
   const alive = useRef(true);
 
+  /**
+   * Brings the screen up, then fills it in.
+   *
+   * Only two of these need the chain — the balance, and the sent list, which asks about every
+   * envelope this person has made. Waiting for them before showing anything meant the opening
+   * animation finished into a blank screen on a slow network. Everything the screen needs to
+   * *exist* is local: who the wallet is, and two questions for the keystore. So that comes
+   * first and the screen appears; the two slow answers land in it when they arrive, into a
+   * skeleton that is already the right shape.
+   */
   const refresh = useCallback(async () => {
     try {
       const wallet = await services.wallet.current();
-      const data: WalletData = wallet
-        ? await Promise.all([
-            services.wallet.balance(),
-            services.envelopes.listSent(),
-            services.wallet.canUpgradeToPasskey(),
-            services.wallet.canRestoreElsewhere(),
-          ]).then(([balance, sent, canSecure, restorable]) => ({
-            wallet,
-            balance,
-            sent,
-            canSecure,
-            restorable,
-          }))
-        : { wallet: null, balance: null, sent: [], canSecure: false, restorable: false };
-      if (alive.current) setLoad({ s: 'ready', ...data });
+      if (wallet === null) {
+        if (alive.current) {
+          setLoad({
+            s: 'ready',
+            wallet: null,
+            balance: null,
+            sent: [],
+            canSecure: false,
+            restorable: false,
+          });
+        }
+        return;
+      }
+      const [canSecure, restorable] = await Promise.all([
+        services.wallet.canUpgradeToPasskey(),
+        services.wallet.canRestoreElsewhere(),
+      ]);
+      if (!alive.current) return;
+      setLoad((current) => ({
+        s: 'ready',
+        wallet,
+        // A refresh keeps what is already on screen rather than blinking back to skeletons.
+        balance: current.s === 'ready' ? current.balance : null,
+        sent: current.s === 'ready' ? current.sent : null,
+        canSecure,
+        restorable,
+      }));
+
+      const settle = <K extends 'balance' | 'sent'>(key: K, value: WalletData[K]) => {
+        if (!alive.current) return;
+        setLoad((current) => (current.s === 'ready' ? { ...current, [key]: value } : current));
+      };
+      // Not awaited, and failing separately: a chain that will not answer about envelopes
+      // must not take the balance down with it, or the screen with either.
+      void services.wallet.balance().then(
+        (balance) => settle('balance', balance),
+        () => {},
+      );
+      void services.envelopes.listSent().then(
+        (sent) => settle('sent', sent),
+        () => {},
+      );
     } catch (error) {
       // Keep what is on screen when a background refresh fails.
       if (alive.current) {
@@ -93,7 +132,7 @@ export function WalletScreen() {
   // While money is on the move, look again every few seconds.
   const moving = load.s === 'ready' && load.balance !== null && load.balance.pending !== 0n;
   const settling =
-    load.s === 'ready' && load.sent.some((envelope) => envelope.status === 'pending');
+    load.s === 'ready' && (load.sent ?? []).some((envelope) => envelope.status === 'pending');
   useEffect(() => {
     if (!moving && !settling) return;
     const timer = setInterval(refresh, REFRESH_MS);
@@ -304,7 +343,11 @@ export function WalletScreen() {
         <h2 id="sent-title" class="wallet__h2 wallet__h2--list">
           {t.wallet.sentTitle}
         </h2>
-        <SentList envelopes={load.sent} rate={rate} onChanged={refresh} />
+        {load.sent === null ? (
+          <span class="skeleton" style="height:76px" aria-hidden="true" />
+        ) : (
+          <SentList envelopes={load.sent} rate={rate} onChanged={refresh} />
+        )}
       </section>
 
       <button type="button" class="btn btn--plain wallet__out" onClick={() => setSheet('out')}>

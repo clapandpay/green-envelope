@@ -166,3 +166,41 @@ describe('logging out', () => {
     expect(within(sheet).getByRole('button', { name: /yes, log out/i })).toBeTruthy();
   });
 });
+
+describe('the wait while the wallet comes up', () => {
+  it('shows the wallet before the chain has answered, with the amount still to come', async () => {
+    const { services } = createWorld();
+    // A chain that takes its time about the balance, which is what a phone on a train is.
+    let release: (value: { confirmed: bigint; pending: bigint }) => void = () => {};
+    vi.spyOn(services.wallet, 'balance').mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    const { container } = renderScreen(<WalletScreen />, { services });
+
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+
+    // The screen is there while the number is not: everything it needs to exist is local.
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /new envelope/i })).toBeTruthy();
+    expect(container.querySelector('.amount .skeleton')).toBeTruthy();
+
+    release({ confirmed: 7_000_000_000n, pending: 0n });
+
+    // And the number lands in the shape that was already waiting for it.
+    await waitFor(() => expect(container.querySelector('.amount .skeleton')).toBeNull());
+  });
+
+  it('does not let a failing sent list keep the balance off the screen', async () => {
+    const { services } = createWorld();
+    vi.spyOn(services.envelopes, 'listSent').mockRejectedValue(new Error('chain is unwell'));
+    const { container } = renderScreen(<WalletScreen />, { services });
+
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    // The two slow answers are fetched separately and fail separately.
+    await waitFor(() => expect(container.querySelector('.amount .skeleton')).toBeNull());
+  });
+});
