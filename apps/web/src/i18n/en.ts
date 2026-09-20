@@ -62,7 +62,7 @@ export const en = {
     body: 'The Klimper app is asking for your money. After this, the app can do everything with it that you can.',
     codeLabel: 'Klimper shows this number too',
     warn: 'Only go on if you started this in Klimper yourself, and the numbers match.',
-    approve: 'Yes, with my face or finger',
+    approve: 'Yes, it is me',
     working: 'Waiting for your phone…',
     doneTitle: 'Ready',
     doneBody: 'Copy this and go back to Klimper. Only your Klimper can read it.',

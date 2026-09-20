@@ -25,7 +25,7 @@ describe('connect: handing the wallet to Klimper', () => {
     expect(screen.getByText(/numbers match/)).toBeTruthy();
     expect(approve).not.toHaveBeenCalled(); // nothing happens before the person says yes
 
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, with my face or finger' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, it is me' }));
     expect(await screen.findByRole('heading', { name: 'Ready' })).toBeTruthy();
     expect(approve).toHaveBeenCalledExactlyOnceWith(SEARCH);
 
@@ -47,15 +47,15 @@ describe('connect: handing the wallet to Klimper', () => {
 
   it('says so when this device has no wallet and no passkey', async () => {
     renderScreen(<ConnectScreen search={SEARCH} />, { services: fastMock(['nopasskey']) });
-    fireEvent.click(await screen.findByRole('button', { name: 'Yes, with my face or finger' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, it is me' }));
     expect(await screen.findByRole('heading', { name: 'No money on this device' })).toBeTruthy();
   });
 
   it('a dismissed prompt changes nothing and can be tried again', async () => {
     renderScreen(<ConnectScreen search={SEARCH} />, { services: fastMock(['cancel']) });
-    fireEvent.click(await screen.findByRole('button', { name: 'Yes, with my face or finger' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, it is me' }));
     expect((await screen.findByRole('alert')).textContent).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, with my face or finger' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, it is me' }));
     expect(await screen.findByRole('heading', { name: 'Ready' })).toBeTruthy();
   });
 

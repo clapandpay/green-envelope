@@ -62,7 +62,7 @@ export const de: Dict = {
     body: 'Die Klimper-App fragt nach deinem Geld. Danach kann die App damit alles, was du kannst.',
     codeLabel: 'Klimper zeigt dieselbe Zahl',
     warn: 'Mach nur weiter, wenn du das selbst in Klimper gestartet hast und die Zahlen gleich sind.',
-    approve: 'Ja, mit Gesicht oder Finger',
+    approve: 'Ja, das bin ich',
     working: 'Warte auf dein Handy…',
     doneTitle: 'Fertig',
     doneBody: 'Kopier das und geh zurück zu Klimper. Nur dein Klimper kann es lesen.',
