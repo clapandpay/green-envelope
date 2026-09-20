@@ -102,14 +102,6 @@
   animation: none;
 }
 
-.first-run__whisper {
-  margin-top: var(--gap-s);
-  max-width: 26ch;
-  margin-inline: auto;
-  font-size: var(--text-s);
-  color: var(--ink-soft);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .first-run__stage,
   .first-run__cue {

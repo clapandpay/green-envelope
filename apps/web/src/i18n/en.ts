@@ -128,9 +128,8 @@ export const en = {
     newEnvelope: 'New envelope',
     receive: 'Receive',
     send: 'Send',
-    // The first screen is the envelope and nothing else. These name it for screen readers.
+    // The first screen is the envelope and nothing else. This names it for screen readers.
     firstRunTitle: 'Tap the envelope to start',
-    firstRunBody: 'Your phone will ask for your face or finger. That is all it takes.',
     firstRunCue: 'Tap to open',
     firstRunOpened: 'Welcome',
     start: 'Start here',

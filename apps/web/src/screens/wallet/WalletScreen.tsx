@@ -186,7 +186,6 @@ export function WalletScreen() {
                 : t.wallet.firstRunCue}
           </span>
         </button>
-        <p class="first-run__whisper">{t.wallet.firstRunBody}</p>
         {notice}
       </div>
     );
