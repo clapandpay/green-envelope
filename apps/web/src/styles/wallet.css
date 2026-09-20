@@ -26,6 +26,18 @@
   margin-top: var(--gap-m);
 }
 
+/* The balance is the one thing worth looking at first, so nothing shares its line. */
+.balance {
+  padding-block: calc(var(--gap-m) + 4px);
+}
+
+.wallet__h2 {
+  font-size: var(--text-s);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
 /* ---------- first run: the envelope, and almost nothing else ---------- */
 
 .first-run {
@@ -57,17 +69,17 @@
 .first-run__stage {
   display: grid;
   place-items: center;
-  width: min(78%, 300px);
+  width: min(92%, 380px);
   margin: 0 auto;
   /* sealed, it owns the screen; once open, it gives the room back to the wallet */
-  min-height: min(62svh, 520px);
+  min-height: min(68svh, 560px);
   transition:
     min-height 900ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--act3) + 700ms),
     transform 140ms ease-out;
 }
 
 .first-run--opened .first-run__stage {
-  min-height: min(46svh, 380px);
+  min-height: min(50svh, 420px);
 }
 
 .first-run__open:active:not(:disabled) .first-run__stage {

@@ -6,12 +6,7 @@ import { vi } from 'vitest';
 import { I18nProvider, type Lang } from '../i18n';
 import { ServicesProvider } from '../services/context';
 import type { AppServices } from '../services/types';
-import { createFakeServices, type FakeFlag } from './fake-services';
-
-/** In-memory services without waiting: no latency, confirmation after `confirmMs`. */
-export function fastMock(flags: FakeFlag[] = [], confirmMs = 30): AppServices {
-  return createFakeServices({ flags, latencyMs: 0, confirmMs, origin: 'https://ge.test' });
-}
+import { createWorld } from './world';
 
 /** Amounts appear at once instead of counting up. */
 export function stillMotion(): void {
@@ -27,7 +22,7 @@ export function renderScreen(
   ui: ComponentChildren,
   options: { services?: AppServices; lang?: Lang } = {},
 ) {
-  const services = options.services ?? fastMock();
+  const services = options.services ?? createWorld().services;
   const view = render(
     <ServicesProvider services={services}>
       <I18nProvider initial={options.lang ?? 'en'}>{ui}</I18nProvider>

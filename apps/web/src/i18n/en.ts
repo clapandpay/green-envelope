@@ -185,7 +185,6 @@ export const en = {
     sendDone: 'Sent. It is on its way.',
   },
   footer: {
-    testnet: 'Test mode · play money',
     language: 'Language',
     how: 'How does this work?',
     howTitle: 'How does this work?',

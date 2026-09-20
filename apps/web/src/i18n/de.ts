@@ -185,7 +185,6 @@ export const de: Dict = {
     sendDone: 'Gesendet. Es ist unterwegs.',
   },
   footer: {
-    testnet: 'Testmodus · Spielgeld',
     language: 'Sprache',
     how: 'Wie funktioniert das?',
     howTitle: 'Wie funktioniert das?',

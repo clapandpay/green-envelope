@@ -109,21 +109,26 @@ export function WalletScreen() {
         // empty wallet. `ensure` is the asked-for step that makes one.
         if (kind === 'make') await services.wallet.ensure();
         else await services.wallet.open();
-        // Let the envelope finish opening before the wallet replaces it. `working` stays set
-        // through the hold: clearing it here re-enables the envelope for a second and a half
-        // while the screen still shows it, and a second tap would ask for a face again
-        // straight after a successful one.
         setOpened(true);
-        await pause(prefersReducedMotion() ? 0 : OPEN_HOLD_MS);
+        // The balance, the envelopes and the two probes are fetched **while** the envelope
+        // opens, not after it. The animation is then the waiting, instead of something a
+        // person sits through before the waiting starts: whichever takes longer sets the
+        // pace, and a quick network still gets the full turn of the flap.
+        //
+        // `working` stays set throughout. Clearing it here would re-enable the envelope for
+        // the length of the hold while the screen still shows it, and a second tap would ask
+        // for a face again right after a successful one.
+        await Promise.all([refresh(), pause(prefersReducedMotion() ? 0 : OPEN_HOLD_MS)]);
       } else if (kind === 'out') {
         await services.wallet.forget();
         setSheet(null);
         setOpened(false);
+        await refresh();
       } else {
         await services.wallet.upgradeToPasskey();
         setMessage({ tone: 'good', text: t.wallet.secured });
+        await refresh();
       }
-      await refresh();
     } catch (error) {
       setOpened(false);
       // Nothing to open, or a prompt that was dismissed: WebAuthn says the same thing either
@@ -193,6 +198,9 @@ export function WalletScreen() {
           class="first-run__open"
           aria-label={t.wallet.firstRunTitle}
           aria-busy={working === 'start'}
+          // The envelope alone keeps the broad guard: a second tap here would ask for a face
+          // again. The dashboard's buttons each answer for their own action, so none of them
+          // sits inert while something unrelated finishes.
           disabled={working !== null}
           onClick={() => run('start')}
         >
@@ -241,7 +249,9 @@ export function WalletScreen() {
   return (
     <div class="stack wallet">
       <section class="card balance" aria-labelledby="balance-title">
-        <h1 id="balance-title" class="eyebrow">
+        {/* The amount is the heading. Naming it "Your money" above it says the same thing
+            twice, so the words stay for screen readers and leave the screen to the number. */}
+        <h1 id="balance-title" class="sr-only">
           {t.wallet.title}
         </h1>
         <Amount mojos={balance?.confirmed ?? null} rate={rate} align="left" />
@@ -283,7 +293,7 @@ export function WalletScreen() {
           type="button"
           class="btn wallet__secure"
           aria-busy={working === 'secure'}
-          disabled={working !== null}
+          disabled={working === 'secure'}
           onClick={() => run('secure')}
         >
           {working === 'secure' ? t.wallet.securing : t.wallet.secureAction}
@@ -315,7 +325,7 @@ export function WalletScreen() {
               <button
                 type="button"
                 class="btn btn--primary"
-                disabled={working !== null}
+                disabled={working === 'secure'}
                 onClick={() => {
                   setSheet(null);
                   run('secure');
@@ -328,7 +338,7 @@ export function WalletScreen() {
               type="button"
               class="btn"
               aria-busy={working === 'out'}
-              disabled={working !== null}
+              disabled={working === 'out'}
               onClick={() => run('out')}
             >
               {working === 'out' ? t.wallet.loggingOut : t.wallet.logOutConfirm}

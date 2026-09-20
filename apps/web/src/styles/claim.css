@@ -38,6 +38,26 @@
   opacity: 0.55;
 }
 
+/* the key fret: paper showing through the green, the way a printed band would */
+.env__fret {
+  fill: url("#env-fret");
+  opacity: 0.55;
+}
+
+.env__fret-line {
+  stroke: #f6f2e8;
+  stroke-width: 1.6;
+  stroke-linecap: square;
+}
+
+/* the seal: a carved stone, vermilion on green, with a heavy outer rim */
+.env__seal-rim {
+  fill: none;
+  stroke: var(--on-sun);
+  stroke-width: 1.4;
+  opacity: 0.28;
+}
+
 .env__wave-ground {
   fill: #f6f2e8;
 }

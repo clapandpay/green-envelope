@@ -52,8 +52,20 @@ export function Envelope(props: { state: EnvelopeState }) {
             </g>
           ))}
         </pattern>
+        {/* 雷紋 / 回紋: the key fret, drawn once and repeated along the pocket's mouth. A single
+            stroked path, so it stays crisp at any size and costs almost nothing. */}
+        <pattern id="env-fret" width="24" height="12" patternUnits="userSpaceOnUse">
+          <path
+            class="env__fret-line"
+            d="M2 10 V4 H10 V8 H6 V6 M14 2 V8 H22 V4 H18 V6"
+            fill="none"
+          />
+        </pattern>
         <clipPath id="env-sun-clip">
           <circle cx="120" cy="92" r="74" />
+        </clipPath>
+        <clipPath id="env-pocket-clip">
+          <path d={POCKET} />
         </clipPath>
       </defs>
 
@@ -84,6 +96,9 @@ export function Envelope(props: { state: EnvelopeState }) {
           <path class="env__slip-ink" d="M92 156 H148 M104 164 H136" />
         </g>
         <path class="env__pocket" d={POCKET} />
+        <g clip-path="url(#env-pocket-clip)">
+          <rect class="env__fret" x="30" y="186" width="180" height="12" />
+        </g>
         <polygon class="env__facet-light" points="30,208 120,150 210,208" />
         <polygon class="env__facet-shade" points="210,98 210,208 120,150 120,162" />
         <path class="env__fold" d="M30 208 L120 150 L210 208" />
@@ -95,6 +110,8 @@ export function Envelope(props: { state: EnvelopeState }) {
         <g class="env__seal">
           <circle class="env__seal-cast" cx="122.5" cy="165" r="17" />
           <circle class="env__seal-disc" cx="120" cy="162" r="17" />
+          {/* Two rims, the way a carved stone leaves a heavy outer and a fine inner line. */}
+          <circle class="env__seal-rim" cx="120" cy="162" r="15" />
           <circle class="env__seal-ring" cx="120" cy="162" r="13.2" />
           {CREST.map(([cx, cy, dx, dy]) => (
             <polygon

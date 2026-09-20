@@ -3,7 +3,8 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WalletInfo } from '../../services/types';
-import { fastMock, renderScreen, stillMotion } from '../../test/render';
+import { renderScreen, stillMotion } from '../../test/render';
+import { createWorld } from '../../test/world';
 import { WalletScreen } from './WalletScreen';
 
 beforeEach(() => stillMotion());
@@ -27,7 +28,7 @@ describe('first run: the envelope and almost nothing else', () => {
   });
 
   it('opens the envelope and the wallet in one tap', async () => {
-    const services = fastMock();
+    const services = createWorld().services;
     const open = vi.spyOn(services.wallet, 'open');
     renderScreen(<WalletScreen />, { services });
 
@@ -42,7 +43,7 @@ describe('first run: the envelope and almost nothing else', () => {
   });
 
   it('shows the envelope opening rather than a spinner while the phone asks', async () => {
-    const services = fastMock();
+    const services = createWorld().services;
     // Hold the passkey answer so the in-between state can be observed.
     let release: (value: WalletInfo) => void = () => {};
     vi.spyOn(services.wallet, 'open').mockReturnValue(
@@ -61,7 +62,9 @@ describe('first run: the envelope and almost nothing else', () => {
 
   it('stays on the envelope and says so when the prompt is dismissed', async () => {
     // `cancel` makes the first prompt fail, the way a dismissed Face ID sheet does.
-    renderScreen(<WalletScreen />, { services: fastMock(['cancel']) });
+    renderScreen(<WalletScreen />, {
+      services: createWorld({ keyStore: { cancelFirst: true } }).services,
+    });
 
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
 
@@ -76,7 +79,9 @@ describe('a person who has never been here', () => {
   it('is offered a new wallet when there is no passkey to open', async () => {
     // `nopasskey` is a device with nothing on it. WebAuthn cannot tell that apart from a
     // dismissed prompt, so the screen stops guessing and asks instead of looping.
-    renderScreen(<WalletScreen />, { services: fastMock(['nopasskey']) });
+    renderScreen(<WalletScreen />, {
+      services: createWorld({ keyStore: { noPasskey: true } }).services,
+    });
 
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
 
@@ -88,7 +93,7 @@ describe('a person who has never been here', () => {
   });
 
   it('never makes a wallet on its own when the prompt is only dismissed', async () => {
-    const services = fastMock(['cancel']);
+    const services = createWorld({ keyStore: { cancelFirst: true } }).services;
     const ensure = vi.spyOn(services.wallet, 'ensure');
     renderScreen(<WalletScreen />, { services });
 
@@ -105,7 +110,7 @@ describe('a person who has never been here', () => {
 describe('securing a browser-only wallet with a passkey', () => {
   it('offers it, saves it, and stops offering once it is done', async () => {
     // `device` is a wallet the browser holds on its own: the only case where this is offered.
-    const services = fastMock(['device']);
+    const services = createWorld({ keyStore: { kind: 'device' } }).services;
     const upgrade = vi.spyOn(services.wallet, 'upgradeToPasskey');
     renderScreen(<WalletScreen />, { services });
 
@@ -125,8 +130,8 @@ describe('securing a browser-only wallet with a passkey', () => {
 });
 
 describe('logging out', () => {
-  async function intoWallet(flags: Parameters<typeof fastMock>[0] = []) {
-    const services = fastMock(flags);
+  async function intoWallet(options: Parameters<typeof createWorld>[0] = {}) {
+    const { services } = createWorld(options);
     renderScreen(<WalletScreen />, { services });
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
     await screen.findByText('Your money');
@@ -149,7 +154,7 @@ describe('logging out', () => {
 
   it('says the money is lost when the browser is the only place it lives', async () => {
     // A device wallet has no passkey behind it: forgetting it is forgetting the money.
-    await intoWallet(['device']);
+    await intoWallet({ keyStore: { kind: 'device' } });
 
     fireEvent.click(screen.getByRole('button', { name: /^log out$/i }));
 

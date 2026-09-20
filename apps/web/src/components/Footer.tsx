@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useState } from 'preact/hooks';
 import { LANGS, useI18n } from '../i18n';
-import { useServices } from '../services/context';
 import { Sheet } from './Sheet';
 
 export function Footer() {
   const { t, lang, setLang } = useI18n();
-  const { network } = useServices();
   const [howOpen, setHowOpen] = useState(false);
   return (
     <footer class="footer">
@@ -28,7 +26,6 @@ export function Footer() {
           </button>
         ))}
       </fieldset>
-      {network === 'testnet11' && <span class="tag">{t.footer.testnet}</span>}
       <Sheet open={howOpen} title={t.footer.howTitle} onClose={() => setHowOpen(false)}>
         <ul class="how">
           {t.footer.howPoints.map((point) => (

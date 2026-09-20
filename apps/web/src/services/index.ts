@@ -3,8 +3,8 @@
 // money. No build flag and no query parameter can put anything else in their place, so the app
 // on screen is always the app.
 //
-// Tests build the same real services over a fake chain (`test/fake-chain.ts`), or an in-memory
-// stand-in (`test/fake-services.ts`); neither is reachable from here.
+// Tests build these same services over a chain that lives in memory (`test/world.ts`). There is
+// no second implementation of `AppServices` anywhere in this repository.
 import { createRealServices } from './real';
 import type { AppServices } from './types';
 

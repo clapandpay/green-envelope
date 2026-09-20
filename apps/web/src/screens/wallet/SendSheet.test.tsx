@@ -2,7 +2,8 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fastMock, renderScreen, stillMotion } from '../../test/render';
+import { renderScreen, stillMotion } from '../../test/render';
+import { createWorld, type WorldOptions } from '../../test/world';
 import { SendSheet } from './SendSheet';
 
 const A = 'xch1a0t57qn6uhe7tzjlxlhwy2qgmuxvvft8gnfzmg5detg0q9f3yc3s2apz0h';
@@ -14,8 +15,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function open(flags: Parameters<typeof fastMock>[0] = []) {
-  const services = fastMock(flags);
+/** Every handle the send screen is asked about in these tests. */
+const HANDLES = {
+  anna: {},
+  c1apandpay: {},
+  moving: { pendingTransfer: true },
+  lapsed: { expiresIn: -1 },
+};
+
+function open(options: WorldOptions = {}) {
+  const { services } = createWorld(options);
   const view = renderScreen(
     <SendSheet
       rate={null}
@@ -50,7 +59,9 @@ describe('pasting a line out of a chat', () => {
   });
 
   it('asks which one when the message holds more than one', async () => {
-    const { field } = open();
+    // The suggestion comes back from /api/recipient; without one the field keeps the first
+    // candidate and the person picks, which the next test covers.
+    const { field } = open({ fetch: { pick: A } });
     paste(field, `not ${B} any more, use ${A} now`);
 
     // Both are offered, and the suggestion fills the field rather than deciding silently.
@@ -70,7 +81,7 @@ describe('pasting a line out of a chat', () => {
   });
 
   it('still shows the choice when no suggestion comes back', async () => {
-    const { field } = open(['nopick']);
+    const { field } = open({ fetch: { pick: null } });
     paste(field, `not ${B} any more, use ${A} now`);
     // No suggestion is not a failure: the person is asked instead.
     expect(await screen.findByRole('button', { name: A })).toBeTruthy();
@@ -80,31 +91,49 @@ describe('pasting a line out of a chat', () => {
 
 describe('an @name says where it goes', () => {
   it('shows the address before anything is sent', async () => {
-    const { field } = open(['mainnet']);
+    const { field } = open({ network: 'mainnet', fetch: { handles: HANDLES } });
     fireEvent.input(field, { target: { value: '@anna' } });
     expect(await screen.findByText(/sends to/i)).toBeTruthy();
   });
 
   it('warns when the name looks like one already paid', async () => {
-    const { field } = open(['mainnet']);
+    // There is nothing to imitate until a name has been paid, so the world pays one first.
+    // The mock used to warn unconditionally, which hid that the check has a precondition.
+    const world = createWorld({
+      network: 'mainnet',
+      fetch: { handles: { ...HANDLES, clapandpay: {} }, imitates: '@clapandpay' },
+    });
+    await world.payHandle('@clapandpay');
+
+    renderScreen(
+      <SendSheet
+        rate={null}
+        balance={{ confirmed: 10_000_000_000n, pending: 0n }}
+        onClose={() => {}}
+        onChanged={() => {}}
+      />,
+      { services: world.services },
+    );
+    const field = screen.getByLabelText(/to whom/i) as HTMLInputElement;
     fireEvent.input(field, { target: { value: '@c1apandpay' } });
+
     expect(await screen.findByText(/looks a lot like @clapandpay/i)).toBeTruthy();
   });
 
   it('warns when the name is changing hands', async () => {
-    const { field } = open(['mainnet']);
+    const { field } = open({ network: 'mainnet', fetch: { handles: HANDLES } });
     fireEvent.input(field, { target: { value: '@moving' } });
     expect(await screen.findByText(/changing hands/i)).toBeTruthy();
   });
 
   it('says what is actually wrong, not "check the spelling"', async () => {
-    const { field } = open(['mainnet']);
+    const { field } = open({ network: 'mainnet', fetch: { handles: HANDLES } });
     fireEvent.input(field, { target: { value: '@lapsed' } });
     expect(await screen.findByText(/has run out/i)).toBeTruthy();
   });
 
   it('says an address still works when names cannot be looked up', async () => {
-    const { field } = open(['mainnet', 'nohandles']);
+    const { field } = open({ network: 'mainnet', fetch: { handles: HANDLES, handlesDown: true } });
     fireEvent.input(field, { target: { value: '@anna' } });
     expect(await screen.findByText(/an address still works/i)).toBeTruthy();
   });
