@@ -2,11 +2,12 @@
 // The small wallet: what you have, three things you can do, the envelopes you made.
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
-import { Envelope } from '../../components/Envelope';
+import { Envelope, type EnvelopeState } from '../../components/Envelope';
 import { DownIcon, PlusIcon, UpIcon } from '../../components/icons';
 import { useI18n } from '../../i18n';
 import { errorCode, errorText } from '../../lib/errors';
 import { formatMoney } from '../../lib/money';
+import { prefersReducedMotion } from '../../lib/motion';
 import { useRate } from '../../lib/use-rate';
 import { onLinkClick } from '../../router';
 import { useServices } from '../../services/context';
@@ -17,6 +18,10 @@ import { SentList } from './SentList';
 import '../../styles/wallet.css';
 
 const REFRESH_MS = 8000;
+/** How long the opened envelope is held before the wallet takes its place. */
+const OPEN_HOLD_MS = 700;
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface WalletData {
   wallet: WalletInfo | null;
@@ -34,6 +39,7 @@ export function WalletScreen() {
   const [load, setLoad] = useState<Load>({ s: 'loading' });
   const [sheet, setSheet] = useState<'receive' | 'send' | null>(null);
   const [working, setWorking] = useState<'start' | 'secure' | null>(null);
+  const [opened, setOpened] = useState(false);
   const [message, setMessage] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
   const alive = useRef(true);
 
@@ -82,11 +88,19 @@ export function WalletScreen() {
     setWorking(kind);
     setMessage(null);
     try {
-      if (kind === 'start') await services.wallet.ensure();
-      else await services.wallet.upgradeToPasskey();
-      if (kind === 'secure') setMessage({ tone: 'good', text: t.wallet.secured });
+      if (kind === 'start') {
+        await services.wallet.open();
+        // Let the envelope finish opening before the wallet replaces it.
+        setOpened(true);
+        setWorking(null);
+        await pause(prefersReducedMotion() ? 0 : OPEN_HOLD_MS);
+      } else {
+        await services.wallet.upgradeToPasskey();
+        setMessage({ tone: 'good', text: t.wallet.secured });
+      }
       await refresh();
     } catch (error) {
+      setOpened(false);
       setMessage({ tone: 'bad', text: errorText(errorCode(error), t) });
     } finally {
       setWorking(null);
@@ -124,6 +138,14 @@ export function WalletScreen() {
     );
   }
 
+  // sealed invites the tap, opening plays while the phone asks, open is the reward held for a
+  // moment before the wallet itself arrives.
+  const firstRunEnvelope: EnvelopeState = opened
+    ? 'open'
+    : working === 'start'
+      ? 'opening'
+      : 'sealed';
+
   const notice = message && (
     <p class={message.tone === 'good' ? 'notice notice--calm' : 'notice'} role="alert">
       {message.text}
@@ -131,23 +153,29 @@ export function WalletScreen() {
   );
 
   if (load.wallet === null) {
+    // Nothing but the envelope: one tap unlocks what is here, adopts the passkey this person
+    // already has, or makes a new wallet. The animation and the passkey call start together,
+    // because a timer between the tap and `navigator.credentials` loses the user activation
+    // that Safari insists on.
     return (
       <div class="stack first-run">
-        <div class="first-run__picture">
-          <Envelope state="sealed" />
-        </div>
-        <h1 class="title">{t.wallet.firstRunTitle}</h1>
-        <p>{t.wallet.firstRunBody}</p>
-        {notice}
+        <h1 class="sr-only">{t.wallet.firstRunTitle}</h1>
         <button
           type="button"
-          class="btn btn--primary btn--huge"
+          class="first-run__open"
+          aria-label={t.wallet.firstRunTitle}
           aria-busy={working === 'start'}
           disabled={working !== null}
           onClick={() => run('start')}
         >
-          {working === 'start' ? t.wallet.starting : t.wallet.start}
+          <span class="first-run__picture">
+            <Envelope state={firstRunEnvelope} />
+          </span>
         </button>
+        <p class="first-run__hint" aria-live="polite">
+          {working === 'start' ? t.wallet.starting : t.wallet.firstRunBody}
+        </p>
+        {notice}
       </div>
     );
   }

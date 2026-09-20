@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // An in-memory AppServices for UI work, demos and tests. Deterministic: no Math.random, no
 // wall-clock decisions. Behaviour is switched with flags, in the browser through `?mock=a,b`.
+import type { NetworkName } from '../lib/network';
 import {
   type AppServices,
   type Balance,
   type CreateEnvelopeInput,
   type EnvelopeView,
+  type RecipientPick,
   type SentEnvelope,
   ServiceError,
   type WalletInfo,
@@ -18,6 +20,7 @@ export const MOCK_FLAGS = [
   'bad', // the link is broken
   'slow', // 2.5 s per call, 20 s to confirm
   'offline', // every call fails with `network`
+  'nopick', // the recipient suggestion is unavailable
   'flaky', // the first look at an envelope fails with `network`, everything after works
   'cancel', // the first passkey prompt is dismissed
   'noprice', // no euro price
@@ -36,6 +39,8 @@ export interface MockOptions {
   confirmMs?: number;
   origin?: string;
   now?: () => number;
+  /** Which chain the demo pretends to be on. Default: the `mainnet` flag, else testnet11. */
+  network?: NetworkName;
 }
 
 const XCH = 1_000_000_000_000n;
@@ -109,6 +114,7 @@ export function createMockServices(options: MockOptions = {}): AppServices {
   const confirmMs = options.confirmMs ?? (slow ? 20_000 : 6000);
   const origin = options.origin ?? 'https://clapandpay.com';
   const now = options.now ?? (() => Math.floor(Date.now() / 1000));
+  const network = options.network ?? (flags.has('mainnet') ? 'mainnet' : 'testnet11');
 
   let wallet: WalletInfo | null = null;
   let confirmed = 0n;
@@ -235,7 +241,7 @@ export function createMockServices(options: MockOptions = {}): AppServices {
   }
 
   return {
-    network: flags.has('mainnet') ? 'mainnet' : 'testnet11',
+    network,
     wallet: {
       current: () => call(() => wallet),
       ensure: () =>
@@ -263,6 +269,14 @@ export function createMockServices(options: MockOptions = {}): AppServices {
           wallet ??= newWallet();
           return wallet;
         }),
+      open: () =>
+        call(() => {
+          prompts += 1;
+          if (flags.has('cancel') && prompts === 1) throw new ServiceError('wallet_cancelled');
+          wallet ??= { kind: flags.has('nopasskey') ? 'device' : 'passkey', address: MOCK_ADDRESS };
+          return wallet;
+        }),
+
       connectRequest: (search) =>
         call(() => {
           const key = new URLSearchParams(search).get('k') ?? '';
@@ -277,6 +291,15 @@ export function createMockServices(options: MockOptions = {}): AppServices {
           wallet ??= newWallet();
           return `cp1.${btoa(`mock handoff for ${search.length} ${wallet.address}`).replace(/=+$/, '')}`;
         }),
+      // The demo has no judgment behind it: the last candidate mentioned is the usual intent
+      // ("not that one, this one"), which is enough to exercise the screen.
+      pickRecipient: (_text, candidates) =>
+        call((): RecipientPick | null => {
+          if (candidates.length < 2) return null;
+          if (flags.has('nopick')) return null;
+          return { value: candidates[candidates.length - 1] ?? null, confidence: 0.92 };
+        }),
+
       canUpgradeToPasskey: () => call(() => wallet?.kind === 'device'),
       upgradeToPasskey: () =>
         call(() => {

@@ -83,9 +83,57 @@ export function clampShares(value: number): number {
 /** What the recipient field looks like; the service has the last word. */
 export function recipientKind(to: string): 'handle' | 'address' | null {
   const text = to.trim();
-  if (/^@[a-z0-9][a-z0-9_.-]{1,29}$/i.test(text)) return 'handle';
-  if (/^t?xch1[02-9ac-hj-np-z]{20,}$/.test(text)) return 'address';
+  if (HANDLE_WHOLE.test(text)) return 'handle';
+  if (ADDRESS_WHOLE.test(text)) return 'address';
   return null;
+}
+
+const HANDLE_WHOLE = /^@[a-z0-9][a-z0-9_.-]{1,29}$/i;
+const ADDRESS_WHOLE = /^t?xch1[02-9ac-hj-np-z]{20,}$/;
+
+// The same two shapes, found anywhere in a block of text rather than anchored to all of it.
+// Deliberately generous: a candidate that is not really an address is dropped by the checks
+// above, and a candidate that is never found can never be chosen.
+const ADDRESS_ANYWHERE = /\b(t?xch1[02-9ac-hj-np-z]{20,})\b/g;
+const HANDLE_ANYWHERE = /(?<![\w@])@([a-z0-9][a-z0-9_.-]{1,29})\b/gi;
+
+/** One recipient found inside a larger piece of text. */
+export interface RecipientCandidate {
+  /** Exactly as it appears in the text, ready to be copied into the field. */
+  readonly value: string;
+  readonly kind: 'handle' | 'address';
+}
+
+/**
+ * Every address and @handle inside `text`, in the order they appear, without repeats.
+ *
+ * People paste whole lines out of a group chat: "ok send it to @anna 🙏", an address with a
+ * full stop after it, two addresses where one is superseded. `recipientKind` answers about the
+ * whole string and so says null to all of those. This finds the parts that could be a
+ * recipient; choosing between them is a separate step, and only needed when there is more
+ * than one.
+ */
+export function scanRecipients(text: string): RecipientCandidate[] {
+  const seen = new Set<string>();
+  const found: RecipientCandidate[] = [];
+  const add = (value: string, kind: 'handle' | 'address') => {
+    if (seen.has(value)) return;
+    seen.add(value);
+    found.push({ value, kind });
+  };
+  for (const match of text.matchAll(ADDRESS_ANYWHERE)) {
+    const value = match[1];
+    if (value !== undefined && ADDRESS_WHOLE.test(value)) add(value, 'address');
+  }
+  for (const match of text.matchAll(HANDLE_ANYWHERE)) {
+    const value = match[1];
+    if (value !== undefined) {
+      const handle = `@${value.toLowerCase()}`;
+      if (HANDLE_WHOLE.test(handle)) add(handle, 'handle');
+    }
+  }
+  // Document order, so a picker lists them the way the message reads.
+  return found.sort((a, b) => text.indexOf(a.value) - text.indexOf(b.value));
 }
 
 /** Null for blank optional text, trimmed otherwise. */

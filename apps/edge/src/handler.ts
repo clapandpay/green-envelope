@@ -3,6 +3,7 @@ import type { ChainLookup } from './chain';
 import type { Config } from './config';
 import { type AssetsFn, createPages } from './pages';
 import { createPriceSource, FRESH_SECONDS } from './price';
+import { pickRecipient, readRecipientQuestion } from './recipient';
 import { createRpcProxy, rpcError } from './rpc';
 import { isHtml, securityHeaders, withHeaders } from './security';
 import { createShareStateLookup, type SharesFn } from './share-state';
@@ -95,8 +96,31 @@ export function createHandler(deps: HandlerDeps): Handler {
     return withHeaders(response, cors);
   };
 
+  // Which of several pasted candidates is the recipient. The browser has already found and
+  // checked them; this only chooses. It re-checks the shapes so the route cannot be used to
+  // put arbitrary text in front of the model.
+  const recipientRoute = async (request: Request): Promise<Response> => {
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
+    if (request.method !== 'POST') return methodNotAllowed('POST, OPTIONS');
+    if (config.typesafeApiKey === null) return json({ value: null }, 200, 'no-store');
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: 'bad_request' }, 400, 'no-store');
+    }
+    const asked = readRecipientQuestion(body);
+    if (asked === null) return json({ error: 'bad_request' }, 400, 'no-store');
+
+    const pick = await pickRecipient({ fetch: deps.fetch, apiKey: config.typesafeApiKey }, asked);
+    // No suggestion is a normal answer: the screen then asks the person which one they meant.
+    return json(pick ?? { value: null, confidence: 0 }, 200, 'no-store');
+  };
+
   const api = async (request: Request, path: string): Promise<Response> => {
     if (path === '/api/price') return priceRoute(request);
+    if (path === '/api/recipient') return recipientRoute(request);
     if (path.startsWith(RPC_PREFIX)) return rpcRoute(request, path.slice(RPC_PREFIX.length));
     return rpcError(404, 'not_found');
   };

@@ -80,6 +80,13 @@ export interface ConnectRequest {
   checkCode: string;
 }
 
+/** Which of several pasted candidates is the recipient; `value` null means "none of them". */
+export interface RecipientPick {
+  value: string | null;
+  /** 0 to 1. Low means the screen should ask rather than fill the field. */
+  confidence: number;
+}
+
 export interface WalletService {
   /** Null when this device has no wallet yet. Never prompts. */
   current(): Promise<WalletInfo | null>;
@@ -93,6 +100,12 @@ export interface WalletService {
    * the phone already has. Never creates one: rejects with `no_wallet_here`.
    */
   signIn(): Promise<WalletInfo>;
+  /**
+   * One tap, whatever the situation: unlocks the wallet on this device, otherwise adopts the
+   * passkey wallet this person already has elsewhere, otherwise makes a new one. The only
+   * entry point the first-run screen needs.
+   */
+  open(): Promise<WalletInfo>;
   /** Checks a `/connect` request (`location.search`). Rejects with `bad_request`. */
   connectRequest(search: string): Promise<ConnectRequest>;
   /**
@@ -100,6 +113,12 @@ export interface WalletService {
    * of text can only be read by that app.
    */
   connectApprove(search: string): Promise<string>;
+  /**
+   * Chooses between recipients found in one pasted block of text. Only asked when the browser
+   * found more than one; resolves to null when there is no suggestion, and the screen then asks
+   * the person. Never invents a recipient: the answer is always one of `candidates`.
+   */
+  pickRecipient(text: string, candidates: readonly string[]): Promise<RecipientPick | null>;
   canUpgradeToPasskey(): Promise<boolean>;
   upgradeToPasskey(): Promise<WalletInfo>;
 }

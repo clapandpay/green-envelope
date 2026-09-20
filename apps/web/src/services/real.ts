@@ -37,13 +37,16 @@ import {
   masterSecretKey,
   selectCoins,
   WalletError,
+  type WalletKind,
 } from '@ge/wallet';
+import { resolveNetwork } from '../lib/network';
 import { resolveHandle } from './handles';
 import { createLocalState, type LocalState, type SentRecord } from './local-state';
 import {
   type AppServices,
   type Balance,
   type EnvelopeView,
+  type RecipientPick,
   type SentEnvelope,
   ServiceError,
   type WalletInfo,
@@ -107,6 +110,16 @@ async function guarded<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
+/** Reads the edge's recipient answer; null unless it names one of the candidates we offered. */
+export function readPick(body: unknown, candidates: readonly string[]): RecipientPick | null {
+  if (typeof body !== 'object' || body === null) return null;
+  const { value, confidence } = body as { value?: unknown; confidence?: unknown };
+  const strength = typeof confidence === 'number' && Number.isFinite(confidence) ? confidence : 0;
+  if (value === null) return { value: null, confidence: strength };
+  if (typeof value !== 'string' || !candidates.includes(value)) return null;
+  return { value, confidence: strength };
+}
+
 /** Reads `{ eur }` (our edge service) or `{ chia: { eur } }` (CoinGecko). */
 export function priceIn(body: unknown): number | null {
   if (typeof body !== 'object' || body === null) return null;
@@ -142,6 +155,15 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     };
     done.then(settle, settle);
     return done;
+  }
+
+  /** Remembers an unlocked wallet as the current one and reports it. Wipes the seed. */
+  function adopt(unlockedWallet: { kind: WalletKind; seed: Uint8Array }): WalletInfo {
+    account = accountFromSeed(unlockedWallet.seed, network);
+    unlockedWallet.seed.fill(0);
+    const info: WalletInfo = { kind: unlockedWallet.kind, address: account.address };
+    state.setWallet(info);
+    return info;
   }
 
   async function unlocked(): Promise<Account> {
@@ -268,6 +290,20 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           return info;
         }),
 
+      // One tap on the envelope: what is here, else what the person has elsewhere, else a new
+      // one. `signIn` tells "no passkey for this site" apart from "the prompt was dismissed",
+      // so a cancelled prompt never quietly makes a second wallet.
+      open: () =>
+        guarded(async (): Promise<WalletInfo> => {
+          if ((await keyStore.status()) !== null) return adopt(await keyStore.unlock());
+          try {
+            return adopt(await keyStore.signIn());
+          } catch (error) {
+            if (!(error instanceof WalletError) || error.code !== 'no_wallet') throw error;
+            return adopt(await keyStore.create());
+          }
+        }),
+
       connectRequest: (search) =>
         guarded(async () => ({ checkCode: (await readConnectRequest(search)).checkCode })),
 
@@ -292,6 +328,27 @@ export function createServicesFrom(deps: RealDeps): AppServices {
             master.fill(0);
           }
         }),
+
+      pickRecipient: async (text, candidates) => {
+        if (candidates.length < 2) return null;
+        try {
+          const response = await deps.fetch(`${deps.origin}/api/recipient`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              text,
+              candidates,
+              ...(account === null ? {} : { ownAddress: account.address }),
+            }),
+          });
+          if (!response.ok) return null;
+          const body: unknown = await response.json();
+          return readPick(body, candidates);
+        } catch {
+          // A suggestion is a convenience; without it the screen simply asks.
+          return null;
+        }
+      },
 
       // Moving a device wallet's money to a new passkey wallet needs a second key slot (TASK-042).
       canUpgradeToPasskey: async () => false,
@@ -443,7 +500,9 @@ export function createServicesFrom(deps: RealDeps): AppServices {
 /** The real services for this build, configured from `import.meta.env`. */
 export function createRealServices(): AppServices {
   const env = import.meta.env;
-  const network = env.VITE_NETWORK === 'mainnet' ? MAINNET : TESTNET11;
+  // The link decides (`?net=testnet`), then the build, then mainnet. See lib/network.ts.
+  const network =
+    resolveNetwork(location.search, env.VITE_NETWORK) === 'testnet11' ? TESTNET11 : MAINNET;
   const direct =
     network.name === 'mainnet' ? 'https://api.coinset.org' : 'https://testnet11.api.coinset.org';
   const configured = String(env.VITE_CHAIN_ENDPOINTS ?? '')

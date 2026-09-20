@@ -165,93 +165,97 @@ export function CreateScreen(props: { prefill: bigint | null }) {
         </p>
       </div>
 
-      <fieldset class="field">
-        <legend class="field__label">{t.create.sharesLabel}</legend>
-        <div class="stepper">
-          <button
-            type="button"
-            class="btn stepper__btn"
-            aria-label={t.create.fewer}
-            disabled={shares <= MIN_SHARES}
-            onClick={() => setShares(clampShares(shares - 1))}
-          >
-            <MinusIcon />
-          </button>
+      <div class="create__pair">
+        <fieldset class="field">
+          <legend class="field__label">{t.create.sharesLabel}</legend>
+          <div class="stepper">
+            <button
+              type="button"
+              class="btn stepper__btn"
+              aria-label={t.create.fewer}
+              disabled={shares <= MIN_SHARES}
+              onClick={() => setShares(clampShares(shares - 1))}
+            >
+              <MinusIcon />
+            </button>
+            <input
+              class="input num stepper__value"
+              type="text"
+              inputMode="numeric"
+              aria-label={t.create.sharesLabel}
+              value={String(shares)}
+              onChange={(event) => {
+                const next = clampShares(Number.parseInt(event.currentTarget.value, 10));
+                event.currentTarget.value = String(next);
+                setShares(next);
+              }}
+            />
+            <button
+              type="button"
+              class="btn stepper__btn"
+              aria-label={t.create.more}
+              disabled={shares >= MAX_SHARES}
+              onClick={() => setShares(clampShares(shares + 1))}
+            >
+              <PlusIcon />
+            </button>
+          </div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend class="field__label">{t.create.splitLabel}</legend>
+          <div class="choices">
+            {(['random', 'equal'] as const).map((option) => (
+              <label key={option} class="choice">
+                <input
+                  type="radio"
+                  name="mode"
+                  value={option}
+                  checked={mode === option}
+                  onChange={() => setMode(option)}
+                />
+                <span class="choice__card">
+                  <SplitPicture mode={option} />
+                  <strong>{option === 'random' ? t.create.random : t.create.equal}</strong>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p class="field__hint">{mode === 'random' ? t.create.randomHint : t.create.equalHint}</p>
+        </fieldset>
+      </div>
+
+      <div class="card stack create__words">
+        <label class="field">
+          <span class="field__label">
+            {t.create.nameLabel} <small>{t.create.optional}</small>
+          </span>
           <input
-            class="input num stepper__value"
+            class="input"
             type="text"
-            inputMode="numeric"
-            aria-label={t.create.sharesLabel}
-            value={String(shares)}
-            onChange={(event) => {
-              const next = clampShares(Number.parseInt(event.currentTarget.value, 10));
-              event.currentTarget.value = String(next);
-              setShares(next);
-            }}
+            autoComplete="given-name"
+            maxLength={MAX_NAME}
+            placeholder={t.create.namePlaceholder}
+            value={name}
+            onInput={(event) => setName(event.currentTarget.value)}
           />
-          <button
-            type="button"
-            class="btn stepper__btn"
-            aria-label={t.create.more}
-            disabled={shares >= MAX_SHARES}
-            onClick={() => setShares(clampShares(shares + 1))}
-          >
-            <PlusIcon />
-          </button>
-        </div>
-      </fieldset>
+        </label>
 
-      <fieldset class="field">
-        <legend class="field__label">{t.create.splitLabel}</legend>
-        <div class="choices">
-          {(['random', 'equal'] as const).map((option) => (
-            <label key={option} class="choice">
-              <input
-                type="radio"
-                name="mode"
-                value={option}
-                checked={mode === option}
-                onChange={() => setMode(option)}
-              />
-              <span class="choice__card">
-                <SplitPicture mode={option} />
-                <strong>{option === 'random' ? t.create.random : t.create.equal}</strong>
-              </span>
-            </label>
-          ))}
-        </div>
-        <p class="field__hint">{mode === 'random' ? t.create.randomHint : t.create.equalHint}</p>
-      </fieldset>
-
-      <label class="field">
-        <span class="field__label">
-          {t.create.nameLabel} <small>{t.create.optional}</small>
-        </span>
-        <input
-          class="input"
-          type="text"
-          autoComplete="given-name"
-          maxLength={MAX_NAME}
-          placeholder={t.create.namePlaceholder}
-          value={name}
-          onInput={(event) => setName(event.currentTarget.value)}
-        />
-      </label>
-
-      <label class="field">
-        <span class="field__label">
-          {t.create.messageLabel}
-          <small class="num">{t.create.charsLeft(MAX_MESSAGE - message.length)}</small>
-        </span>
-        <textarea
-          class="input"
-          rows={2}
-          maxLength={MAX_MESSAGE}
-          placeholder={t.create.messagePlaceholder}
-          value={message}
-          onInput={(event) => setMessage(event.currentTarget.value)}
-        />
-      </label>
+        <label class="field">
+          <span class="field__label">
+            {t.create.messageLabel}
+            <small class="num">{t.create.charsLeft(MAX_MESSAGE - message.length)}</small>
+          </span>
+          <textarea
+            class="input"
+            rows={2}
+            maxLength={MAX_MESSAGE}
+            placeholder={t.create.messagePlaceholder}
+            value={message}
+            onInput={(event) => setMessage(event.currentTarget.value)}
+          />
+        </label>
+      </div>
 
       {failure && (
         <p class="notice" role="alert">

@@ -10,8 +10,8 @@ export type Route =
   | { name: 'notFound' };
 
 const NAVIGATE_EVENT = 'ge:navigate';
-/** Query parameters that survive in-app navigation (the demo switch). */
-const STICKY_PARAMS = ['mock'];
+/** Query parameters that survive in-app navigation (the demo switch, the network flag). */
+const STICKY_PARAMS = ['mock', 'net'];
 
 /** Maps a location to a route. Pure. */
 export function matchRoute(pathname: string, search = ''): Route {

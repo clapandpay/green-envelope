@@ -17,6 +17,7 @@ open one: the secret is in the URL fragment, which browsers do not send.
 | `GET /`, `GET /new`, `GET /new/*` | The shell with generic tags (SPA fallback). |
 | `GET /api/price` | `{ "eur": number, "at": unixSeconds }` from CoinGecko. 3 s timeout, fresh for 60 s, one upstream call at a time, at most one retry per 10 s after a failure, stale-if-error up to 1 h, then `503 { "eur": null }`. |
 | `POST /api/rpc/:method` | Proxy for `get_coin_records_by_puzzle_hashes`, `get_coin_record_by_name`, `get_blockchain_state`, `push_tx`. JSON object bodies up to 256 kB, 8 s per endpoint, the upstream JSON and status pass through. The next endpoint is tried on transport failure or 5xx; a `push_tx` that got a `{"success": …}` answer, whatever its status, is never sent anywhere else. Errors of the proxy itself: `{ "success": false, "error": code }` with 400, 404, 413, 415 or 502. CORS for `PUBLIC_ORIGIN` only. Bodies are never logged. |
+| `POST /api/recipient` | Chooses between recipients found in one pasted block of text, when the browser found more than one. Body `{ text, candidates[], ownAddress? }`; every candidate must match the address or handle shape **and** appear in `text`, and there must be 2 to 12 of them, otherwise `400`. Answers `{ "value": string \| null, "confidence": number }`, where `value` is always one of `candidates`. Without `TYPESAFE_API_KEY`, or on any upstream failure or timeout (4 s), `{ "value": null }` with `200`: the send screen then asks the person. `no-store`, CORS for `PUBLIC_ORIGIN` only. |
 | `GET /healthz` | `200 ok` |
 | everything else | the static assets; HTML from there gets the security headers too |
 
@@ -39,6 +40,7 @@ No inline scripts: the web build must not emit any (Vite does not, by default).
 | `NETWORK` | `mainnet` | `mainnet` or `testnet11`; picks the default endpoint |
 | `CHAIN_ENDPOINTS` | the public Coinset URL of the network | comma-separated Coinset-compatible base URLs, tried in order |
 | `PUBLIC_ORIGIN` | the origin of the request | origin in `og:url` and `og:image`, and the only origin CORS allows |
+| `TYPESAFE_API_KEY` | none (the route answers "no suggestion") | key for `POST /api/recipient`; stays on this side and never reaches the browser |
 | `ASSETS` | none (every asset is a 404, previews use a built-in minimal shell) | binding with `fetch(request)` that serves the static files |
 | `PORT` | `8787` | Node entry only |
 
@@ -56,7 +58,7 @@ finds the workspace's extensionless imports (needs Node ≥ 22.15).
 
 On Deno or Bun, build the handler from your own environment:
 `import { handlerFromEnv } from './src/index.ts'` and pass it
-`{ NETWORK, CHAIN_ENDPOINTS, PUBLIC_ORIGIN, ASSETS: { fetch } }`.
+`{ NETWORK, CHAIN_ENDPOINTS, PUBLIC_ORIGIN, TYPESAFE_API_KEY, ASSETS: { fetch } }`.
 
 ## Preview images
 

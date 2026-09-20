@@ -7,8 +7,31 @@
   color: var(--ink-soft);
 }
 
+/* The submit stays within thumb reach while the rest of the form scrolls under it. */
 .create__submit {
+  position: sticky;
+  bottom: var(--gap-s);
   margin-top: var(--gap-s);
+  z-index: 1;
+}
+
+/* How many people, and who gets how much: one decision, so they sit together. Side by side
+   only where there is room for the stepper's three targets next to two cards. */
+.create__pair {
+  display: grid;
+  gap: var(--gap-m);
+}
+
+@media (min-width: 430px) {
+  .create__pair {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    align-items: start;
+  }
+}
+
+/* Name and message are both "a few words from you": one card, not two loose fields. */
+.create__words {
+  gap: var(--gap-m);
 }
 
 .stepper {

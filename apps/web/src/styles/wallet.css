@@ -28,11 +28,55 @@
 
 .first-run {
   text-align: center;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+/* The envelope is the only thing on this screen, and it is the button. */
+.first-run__open {
+  display: block;
+  width: min(78%, 300px);
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease-out;
+}
+
+.first-run__open:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.first-run__open:disabled {
+  cursor: default;
+}
+
+.first-run__open:focus-visible {
+  outline: var(--line) solid var(--ink);
+  outline-offset: 8px;
 }
 
 .first-run__picture {
-  width: min(70%, 240px);
+  display: block;
+  width: 100%;
   margin: 0 auto;
+}
+
+.first-run__hint {
+  margin-top: var(--gap-m);
+  color: var(--ink-soft);
+  max-width: 28ch;
+  margin-inline: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .first-run__open {
+    transition: none;
+  }
 }
 
 .sent {
@@ -136,4 +180,32 @@
   overflow-wrap: anywhere;
   user-select: all;
   -webkit-user-select: all;
+}
+
+/* Which of several pasted recipients was meant. Shown only after a messy paste. */
+.pick__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-xs);
+}
+
+.pick__option {
+  padding: 10px 12px;
+  background: var(--paper-raised);
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius);
+  font-size: var(--text-s);
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.pick__option[aria-pressed="true"] {
+  background: var(--green);
+  color: var(--on-green);
+}
+
+.pick__option:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
 }

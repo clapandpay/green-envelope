@@ -44,6 +44,7 @@ export const SHELL_WITHOUT_TAGS = `<!doctype html>
 export function testConfig(overrides: Partial<Config> = {}): Config {
   return {
     network: 'testnet11',
+    typesafeApiKey: null,
     chainEndpoints: ['https://node-a.test', 'https://node-b.test/rpc'],
     publicOrigin: 'https://clapandpay.test',
     shareLookupBudgetMs: 20,

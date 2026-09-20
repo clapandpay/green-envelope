@@ -8,6 +8,7 @@ import {
   optionalText,
   parseAmount,
   recipientKind,
+  scanRecipients,
 } from './envelope-form';
 
 const rate = { microEurPerXch: 25_000_000n };
@@ -114,5 +115,58 @@ describe('small helpers', () => {
   it('turns blank optional text into null', () => {
     expect(optionalText('  ')).toBeNull();
     expect(optionalText(' Anna ')).toBe('Anna');
+  });
+});
+
+describe('scanRecipients', () => {
+  const ADDRESS = 'xch1a0t57qn6uhe7tzjlxlhwy2qgmuxvvft8gnfzmg5detg0q9f3yc3s2apz0h';
+  const OTHER = 'txch1anxwneg6hlkmv2uff2mnqh0qhcp5g24hkkfh5j6m9w4t7vjejfts5au9zn';
+
+  it('finds an address that fills the whole string', () => {
+    expect(scanRecipients(ADDRESS)).toEqual([{ value: ADDRESS, kind: 'address' }]);
+  });
+
+  it('finds what recipientKind refuses: a recipient inside a sentence', () => {
+    expect(recipientKind('ok send it to @anna please')).toBeNull();
+    expect(scanRecipients('ok send it to @anna please')).toEqual([
+      { value: '@anna', kind: 'handle' },
+    ]);
+  });
+
+  it('drops punctuation that a chat app left touching the address', () => {
+    expect(scanRecipients(`send to ${ADDRESS}.`)).toEqual([{ value: ADDRESS, kind: 'address' }]);
+    expect(scanRecipients(`(${ADDRESS})`)).toEqual([{ value: ADDRESS, kind: 'address' }]);
+  });
+
+  it('finds an address inside a markdown link', () => {
+    expect(scanRecipients(`here: [my wallet](${ADDRESS})`)).toEqual([
+      { value: ADDRESS, kind: 'address' },
+    ]);
+  });
+
+  it('keeps several candidates, in the order the message reads', () => {
+    const text = `not ${OTHER} anymore, use ${ADDRESS} now`;
+    expect(scanRecipients(text).map((c) => c.value)).toEqual([OTHER, ADDRESS]);
+  });
+
+  it('never repeats the same candidate', () => {
+    expect(scanRecipients(`${ADDRESS} ... ${ADDRESS}`)).toHaveLength(1);
+  });
+
+  it('lowercases handles so the same person is one candidate', () => {
+    expect(scanRecipients('@Anna and @anna').map((c) => c.value)).toEqual(['@anna']);
+  });
+
+  it('does not mistake an email address for a handle', () => {
+    expect(scanRecipients('write to anna@example.com')).toEqual([]);
+  });
+
+  it('is empty when there is nothing to send to', () => {
+    expect(scanRecipients('how much did you send yesterday?')).toEqual([]);
+    expect(scanRecipients('')).toEqual([]);
+  });
+
+  it('rejects an address-looking word that is too short to be one', () => {
+    expect(scanRecipients('xch1short')).toEqual([]);
   });
 });

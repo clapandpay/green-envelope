@@ -6,6 +6,8 @@ export type NetworkName = 'mainnet' | 'testnet11';
 /** Static settings of one deployment; everything that varies per request is elsewhere. */
 export interface Config {
   readonly network: NetworkName;
+  /** Key for the recipient judgment; null turns the feature off cleanly. */
+  readonly typesafeApiKey: string | null;
   /** Coinset-compatible base URLs without a trailing slash, tried in order. */
   readonly chainEndpoints: readonly string[];
   /** Origin used in absolute URLs and for CORS; `null` means "the origin of the request". */
@@ -21,6 +23,8 @@ export interface Env {
   readonly CHAIN_ENDPOINTS?: string | undefined;
   readonly NETWORK?: string | undefined;
   readonly PUBLIC_ORIGIN?: string | undefined;
+  /** TypeSafe key for the recipient judgment. Absent: the route answers "no suggestion". */
+  readonly TYPESAFE_API_KEY?: string | undefined;
   readonly ASSETS?: { fetch(request: Request): Promise<Response> };
 }
 
@@ -62,8 +66,10 @@ export function configFromEnv(env: Env): Config {
     .split(',')
     .map(normalizeEndpoint)
     .filter((endpoint) => endpoint !== null);
+  const apiKey = (env.TYPESAFE_API_KEY ?? '').trim();
   return {
     network,
+    typesafeApiKey: apiKey === '' ? null : apiKey,
     chainEndpoints: configured.length > 0 ? configured : [DEFAULT_ENDPOINTS[network]],
     publicOrigin: normalizeOrigin(env.PUBLIC_ORIGIN),
     shareLookupBudgetMs: SHARE_LOOKUP_BUDGET_MS,

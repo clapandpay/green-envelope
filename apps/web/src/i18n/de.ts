@@ -123,9 +123,9 @@ export const de: Dict = {
     newEnvelope: 'Neuer Umschlag',
     receive: 'Empfangen',
     send: 'Senden',
-    firstRunTitle: 'Link bekommen? Tipp ihn an.',
-    firstRunBody:
-      'Geld, das du bekommst, landet genau hier. Oder fang hier an und füll deinen ersten Umschlag.',
+    // Der erste Bildschirm ist nur der Umschlag. Das hier benennt ihn für Screenreader.
+    firstRunTitle: 'Tippe den Umschlag an',
+    firstRunBody: 'Dein Handy fragt nach Gesicht oder Finger. Mehr braucht es nicht.',
     start: 'Hier anfangen',
     starting: 'Wird vorbereitet…',
     secureTitle: 'Sichere dein Geld',
@@ -155,6 +155,8 @@ export const de: Dict = {
     toLabel: 'An wen?',
     toPlaceholder: '@name oder Adresse',
     toInvalid: 'Das sieht noch nicht nach einem @namen oder einer Adresse aus.',
+    pickLabel: 'Wen meinst du?',
+    pickWorking: 'Einen Moment…',
     amountLabel: 'Wie viel?',
     next: 'Weiter',
     confirmTitle: 'Stimmt das so?',
