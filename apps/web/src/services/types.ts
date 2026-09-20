@@ -23,6 +23,8 @@ export type ServiceErrorCode =
   | 'already_opened' // this browser already opened a share of this envelope
   | 'insufficient_funds'
   | 'invalid_recipient'
+  | 'no_wallet_here' // nothing to open on this device: no wallet in this browser, no passkey
+  | 'bad_request' // a connect link that did not come from the app, or came damaged
   | 'wallet_cancelled' // the user dismissed the passkey prompt
   | 'network'
   | 'unknown';
@@ -72,6 +74,12 @@ export interface SentEnvelope {
   status: 'pending' | 'active' | 'finished' | 'taken_back';
 }
 
+/** The Klimper app asking this page for the wallet. */
+export interface ConnectRequest {
+  /** Six digits the app shows too. */
+  checkCode: string;
+}
+
 export interface WalletService {
   /** Null when this device has no wallet yet. Never prompts. */
   current(): Promise<WalletInfo | null>;
@@ -80,6 +88,18 @@ export interface WalletService {
   balance(): Promise<Balance>;
   /** `to` is an address or an @handle. */
   send(to: string, amount: bigint): Promise<{ confirmed: Promise<void> }>;
+  /**
+   * Opens a wallet that was made somewhere else (another browser, another phone) with the passkey
+   * the phone already has. Never creates one: rejects with `no_wallet_here`.
+   */
+  signIn(): Promise<WalletInfo>;
+  /** Checks a `/connect` request (`location.search`). Rejects with `bad_request`. */
+  connectRequest(search: string): Promise<ConnectRequest>;
+  /**
+   * Hands the wallet to the app that made the request, after a fresh unlock. The returned line
+   * of text can only be read by that app.
+   */
+  connectApprove(search: string): Promise<string>;
   canUpgradeToPasskey(): Promise<boolean>;
   upgradeToPasskey(): Promise<WalletInfo>;
 }

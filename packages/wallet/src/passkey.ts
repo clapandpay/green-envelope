@@ -90,15 +90,20 @@ function translate(cause: unknown): unknown {
   return cause;
 }
 
+/**
+ * Asks for a passkey and evaluates PRF. With `credentialId` it must be that passkey; with `null`
+ * the phone offers whichever passkeys it has for this site (they are discoverable), which is how
+ * a wallet made in one browser is found again in another, or on a new phone.
+ */
 async function assertPrf(
   env: KeyStoreEnv,
   rp: RelyingParty,
-  credentialId: OwnedBytes,
-): Promise<PrfOutcome> {
-  if (env.credentials === undefined) return { seed: null };
+  credentialId: OwnedBytes | null,
+): Promise<PrfOutcome & { credentialId: OwnedBytes | null }> {
+  if (env.credentials === undefined) return { seed: null, credentialId: null };
   const publicKey: PublicKeyCredentialRequestOptions = {
     challenge: env.crypto.getRandomValues(new Uint8Array(32)), // nobody verifies it: no server
-    allowCredentials: [{ type: 'public-key', id: credentialId }],
+    allowCredentials: credentialId === null ? [] : [{ type: 'public-key', id: credentialId }],
     userVerification: 'required',
     extensions: { prf: { eval: { first: await prfSalt(env) } } },
   };
@@ -110,8 +115,12 @@ async function assertPrf(
     throw translate(cause);
   }
   const parsed = asPrfCredential(credential);
-  const prf = parsed === null ? null : prfOutput(parsed);
-  return prf === null ? { seed: null } : { seed: await seedFromPrf(env, prf) };
+  if (parsed === null) return { seed: null, credentialId: null };
+  const used = new Uint8Array(parsed.rawId.slice(0));
+  const prf = prfOutput(parsed);
+  return prf === null
+    ? { seed: null, credentialId: used }
+    : { seed: await seedFromPrf(env, prf), credentialId: used };
 }
 
 /** Creates a discoverable passkey and evaluates PRF, with a second prompt only if create gave no PRF result. */
@@ -151,7 +160,7 @@ export async function createPasskeyWallet(
   // Most authenticators only evaluate PRF on get(). `enabled: false` says it never will.
   if (parsed.getClientExtensionResults().prf?.enabled === false)
     return { seed: null, credentialId };
-  return { ...(await assertPrf(env, rp, credentialId)), credentialId };
+  return { seed: (await assertPrf(env, rp, credentialId)).seed, credentialId };
 }
 
 /** Prompts for the stored passkey and returns its seed, or `seed: null` when PRF is unavailable here. */
@@ -161,4 +170,12 @@ export function unlockPasskeyWallet(
   credentialId: OwnedBytes,
 ): Promise<PrfOutcome> {
   return assertPrf(env, rp, credentialId);
+}
+
+/** Lets the person pick one of their existing passkeys for this site and returns its seed. */
+export function findPasskeyWallet(
+  env: KeyStoreEnv,
+  rp: RelyingParty,
+): Promise<PrfOutcome & { credentialId: OwnedBytes | null }> {
+  return assertPrf(env, rp, null);
 }

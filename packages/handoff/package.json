@@ -1,0 +1,11 @@
+{
+  "name": "@ge/handoff",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

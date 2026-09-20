@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// A history router for three routes. No library.
+// A history router for four routes. No library.
 import { useEffect, useState } from 'preact/hooks';
 
 export type Route =
   | { name: 'wallet' }
   | { name: 'create'; amount: bigint | null }
   | { name: 'claim'; id: string }
+  | { name: 'connect' }
   | { name: 'notFound' };
 
 const NAVIGATE_EVENT = 'ge:navigate';
@@ -20,6 +21,7 @@ export function matchRoute(pathname: string, search = ''): Route {
     const amount = new URLSearchParams(search).get('amount');
     return { name: 'create', amount: amount && /^\d{1,30}$/.test(amount) ? BigInt(amount) : null };
   }
+  if (path === '/connect') return { name: 'connect' };
   const claim = /^\/g\/([^/]+)$/.exec(path);
   if (claim?.[1]) return { name: 'claim', id: claim[1] };
   return { name: 'notFound' };

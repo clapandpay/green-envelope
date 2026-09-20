@@ -212,6 +212,9 @@ importers:
       '@ge/envelope':
         specifier: workspace:*
         version: link:../../packages/envelope
+      '@ge/handoff':
+        specifier: workspace:*
+        version: link:../../packages/handoff
       '@ge/wallet':
         specifier: workspace:*
         version: link:../../packages/wallet
@@ -252,6 +255,8 @@ importers:
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
+
+  packages/handoff: {}
 
   packages/wallet:
     dependencies:

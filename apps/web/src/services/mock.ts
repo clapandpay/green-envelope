@@ -24,6 +24,7 @@ export const MOCK_FLAGS = [
   'funded', // a wallet with money and two sent envelopes exists
   'device', // the wallet is a device wallet that can be secured with a passkey
   'mainnet', // no testnet badge
+  'nopasskey', // this device has no wallet and no passkey to sign in with
 ] as const;
 export type MockFlag = (typeof MOCK_FLAGS)[number];
 
@@ -253,6 +254,28 @@ export function createMockServices(options: MockOptions = {}): AppServices {
           if (amount <= 0n || amount > confirmed) throw new ServiceError('insufficient_funds');
           confirmed -= amount;
           return { confirmed: wait(confirmMs) };
+        }),
+      signIn: () =>
+        call(() => {
+          prompts += 1;
+          if (flags.has('cancel') && prompts === 1) throw new ServiceError('wallet_cancelled');
+          if (wallet === null && flags.has('nopasskey')) throw new ServiceError('no_wallet_here');
+          wallet ??= newWallet();
+          return wallet;
+        }),
+      connectRequest: (search) =>
+        call(() => {
+          const key = new URLSearchParams(search).get('k') ?? '';
+          if (flags.has('bad') || key.length < 20) throw new ServiceError('bad_request');
+          return { checkCode: '481 516'.replace(' ', '') };
+        }),
+      connectApprove: (search) =>
+        call(() => {
+          prompts += 1;
+          if (flags.has('cancel') && prompts === 1) throw new ServiceError('wallet_cancelled');
+          if (wallet === null && flags.has('nopasskey')) throw new ServiceError('no_wallet_here');
+          wallet ??= newWallet();
+          return `cp1.${btoa(`mock handoff for ${search.length} ${wallet.address}`).replace(/=+$/, '')}`;
         }),
       canUpgradeToPasskey: () => call(() => wallet?.kind === 'device'),
       upgradeToPasskey: () =>

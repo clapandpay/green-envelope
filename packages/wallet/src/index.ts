@@ -4,6 +4,7 @@ export {
   accountFromSeed,
   envelopeSecret,
   MAX_INPUTS,
+  masterSecretKey,
   selectCoins,
 } from './account';
 export type { KeyStoreEnv, PublicKeyCredentialStatics } from './env';

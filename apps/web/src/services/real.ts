@@ -11,6 +11,7 @@ import {
   type Network,
   TESTNET11,
   toBase64Url,
+  toHex,
 } from '@ge/chia';
 import {
   buildCreate,
@@ -33,6 +34,7 @@ import {
   createKeyStore,
   envelopeSecret,
   type KeyStore,
+  masterSecretKey,
   selectCoins,
   WalletError,
 } from '@ge/wallet';
@@ -78,6 +80,9 @@ export function toServiceError(error: unknown): ServiceError {
   if (error instanceof ServiceError) return error;
   if (error instanceof WalletError) {
     if (error.code === 'cancelled') return new ServiceError('wallet_cancelled');
+    if (error.code === 'no_wallet' || error.code === 'unsupported') {
+      return new ServiceError('no_wallet_here');
+    }
     if (error.code === 'insufficient_funds') return new ServiceError('insufficient_funds');
   }
   if (error instanceof EnvelopeError) {
@@ -109,6 +114,16 @@ export function priceIn(body: unknown): number | null {
   const nested = (body as { chia?: { eur?: unknown } }).chia?.eur;
   const eur = typeof direct === 'number' ? direct : nested;
   return typeof eur === 'number' && Number.isFinite(eur) && eur > 0 ? eur : null;
+}
+
+/** Only the connect page needs the handoff code, so it stays out of the claim route's bundle. */
+async function readConnectRequest(search: string) {
+  const { HandoffError, parseHandoffRequest } = await import('@ge/handoff');
+  try {
+    return await parseHandoffRequest(search);
+  } catch (error) {
+    throw error instanceof HandoffError ? new ServiceError('bad_request') : error;
+  }
 }
 
 /** Builds the services from their dependencies. */
@@ -241,6 +256,41 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           await chain.pushTx(bundle);
           const output: Coin = { parentCoinInfo: coinId(first), puzzleHash: toPuzzleHash, amount };
           return { confirmed: track(-(amount + fee), landed(first, output)) };
+        }),
+
+      signIn: () =>
+        guarded(async (): Promise<WalletInfo> => {
+          const { kind, seed } = await keyStore.signIn();
+          account = accountFromSeed(seed, network);
+          seed.fill(0);
+          const info: WalletInfo = { kind, address: account.address };
+          state.setWallet(info);
+          return info;
+        }),
+
+      connectRequest: (search) =>
+        guarded(async () => ({ checkCode: (await readConnectRequest(search)).checkCode })),
+
+      connectApprove: (search) =>
+        guarded(async () => {
+          const request = await readConnectRequest(search);
+          const { sealHandoffResponse } = await import('@ge/handoff');
+          // Always a fresh prompt: handing over the wallet is never done on a remembered unlock.
+          const { kind, seed } = await keyStore.signIn();
+          const owner = accountFromSeed(seed, network);
+          const master = masterSecretKey(seed);
+          seed.fill(0);
+          state.setWallet({ kind, address: owner.address });
+          try {
+            return await sealHandoffResponse(request, {
+              v: 1,
+              network: network.name,
+              address: owner.address,
+              masterSk: toHex(master),
+            });
+          } finally {
+            master.fill(0);
+          }
         }),
 
       // Moving a device wallet's money to a new passkey wallet needs a second key slot (TASK-042).

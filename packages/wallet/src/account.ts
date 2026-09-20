@@ -62,6 +62,14 @@ export function envelopeSecret(account: Account, counter: number): Bytes {
   return sha256(concatBytes(SECRET_TAG, account.envelopeRoot, index)).slice(0, 16);
 }
 
+/**
+ * The wallet's master secret key: what another Chia wallet needs to become this wallet.
+ * Only for a handoff the person confirmed; everything else uses `accountFromSeed`.
+ */
+export function masterSecretKey(seed: Bytes): SecretKey {
+  return keyGen(seed);
+}
+
 /** Most coins one transaction will spend; keeps the transaction small and cheap. */
 export const MAX_INPUTS = 50;
 

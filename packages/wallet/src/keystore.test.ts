@@ -324,3 +324,54 @@ describe('status, forget, create twice', () => {
     }
   });
 });
+
+describe('signIn: a wallet made somewhere else', () => {
+  const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');
+
+  it('finds the same wallet in another browser on the same phone, without creating anything', async () => {
+    const phone = fakeAuthenticator();
+    const chat = createKeyStore({ env: fakeEnv(phone), storage: memoryStorage() });
+    const made = await chat.create();
+    expect(made.kind).toBe('passkey');
+    const seed = hex(made.seed);
+
+    // Another browser: same authenticator, empty storage.
+    const safari = createKeyStore({ env: fakeEnv(phone), storage: memoryStorage() });
+    expect(await safari.status()).toBeNull();
+    const found = await safari.signIn();
+    expect(hex(found.seed)).toBe(seed);
+    expect(phone.calls.create).toHaveLength(1);
+    expect(phone.calls.get.at(-1)?.publicKey?.allowCredentials).toEqual([]);
+
+    // Remembered: from now on it is an ordinary unlock of that passkey.
+    expect(await safari.status()).toEqual({ kind: 'passkey' });
+    expect(hex((await safari.unlock()).seed)).toBe(seed);
+    expect(phone.calls.get.at(-1)?.publicKey?.allowCredentials).toHaveLength(1);
+  });
+
+  it('is an unlock when this browser already has a wallet, and never replaces a device wallet', async () => {
+    const store = createKeyStore({ env: fakeEnv(null), storage: memoryStorage() });
+    const device = await store.create();
+    expect(device.kind).toBe('device');
+    const again = await store.signIn();
+    expect(again.kind).toBe('device');
+    expect(hex(again.seed)).toBe(hex(device.seed));
+  });
+
+  it('says no_wallet when the phone has no passkey for this site', async () => {
+    const store = createKeyStore({ env: fakeEnv(fakeAuthenticator()), storage: memoryStorage() });
+    await expect(store.signIn()).rejects.toMatchObject({ code: 'cancelled' });
+    const without = createKeyStore({ env: fakeEnv(null), storage: memoryStorage() });
+    await expect(without.signIn()).rejects.toMatchObject({ code: 'no_wallet' });
+    expect(await without.status()).toBeNull();
+  });
+
+  it('does not remember a passkey that cannot evaluate PRF here', async () => {
+    const phone = fakeAuthenticator();
+    await createKeyStore({ env: fakeEnv(phone), storage: memoryStorage() }).create();
+    phone.behaviour.prfOnGet = false;
+    const other = createKeyStore({ env: fakeEnv(phone), storage: memoryStorage() });
+    await expect(other.signIn()).rejects.toMatchObject({ code: 'unsupported' });
+    expect(await other.status()).toBeNull();
+  });
+});

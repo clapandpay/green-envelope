@@ -2,7 +2,12 @@
 import { createDeviceWallet, unlockDeviceWallet } from './device';
 import { browserEnv, type KeyStoreEnv } from './env';
 import { WalletError } from './errors';
-import { createPasskeyWallet, type RelyingParty, unlockPasskeyWallet } from './passkey';
+import {
+  createPasskeyWallet,
+  findPasskeyWallet,
+  type RelyingParty,
+  unlockPasskeyWallet,
+} from './passkey';
 import { indexedDbStorage, type KeyStoreStorage } from './storage';
 
 /** How the wallet's seed is protected. */
@@ -24,6 +29,11 @@ export interface KeyStore {
   create(opts?: { prefer?: WalletKind }): Promise<UnlockedWallet>;
   /** Returns the seed of the existing wallet (passkey: prompts biometrics). */
   unlock(): Promise<UnlockedWallet>;
+  /**
+   * Finds a passkey wallet that was made somewhere else (another browser, another phone) and
+   * remembers it here. Never creates one. With a wallet already on this device it is `unlock()`.
+   */
+  signIn(): Promise<UnlockedWallet>;
   /** Removes the local record. A device wallet's money is lost with it; a passkey stays in the user's account. */
   forget(): Promise<void>;
 }
@@ -102,6 +112,19 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
         throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
       }
       return { kind: 'passkey', seed };
+    },
+
+    async signIn() {
+      if ((await storage().load()) !== null) return this.unlock();
+      const found = await findPasskeyWallet(env(), rp);
+      if (found.credentialId === null) {
+        throw new WalletError('no_wallet', 'no passkey for this site on this device');
+      }
+      if (found.seed === null) {
+        throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
+      }
+      await storage().save({ kind: 'passkey', credentialId: found.credentialId });
+      return { kind: 'passkey', seed: found.seed };
     },
 
     async forget() {

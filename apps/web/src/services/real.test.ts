@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { decodeAddress, sha256, TESTNET11 } from '@ge/chia';
 import { decodeLink } from '@ge/envelope';
+import { createHandoffRequest } from '@ge/handoff';
 import type { KeyStore } from '@ge/wallet';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeChain } from '../test/fake-chain';
@@ -30,6 +31,10 @@ function keyStoreFor(name: string): KeyStore {
       return unlockedWallet();
     },
     unlock: async () => unlockedWallet(),
+    signIn: async () => {
+      exists = true;
+      return unlockedWallet();
+    },
     forget: async () => {
       exists = false;
     },
@@ -223,6 +228,29 @@ describe('the whole loop', () => {
     const b = await anna.envelopes.create(input);
     expect(a.id).not.toBe(b.id);
     expect((await anna.envelopes.listSent()).map((e) => e.id)).toEqual([b.id, a.id]);
+  });
+});
+
+describe('handing the wallet to Klimper', () => {
+  it('gives the asking app the key of exactly this wallet, and nobody else', async () => {
+    const { person } = world();
+    const kai = person('kai');
+    const { address } = await kai.wallet.ensure();
+
+    const klimper = await createHandoffRequest('https://clapandpay.test');
+    const search = new URL(klimper.url).search;
+    expect((await kai.wallet.connectRequest(search)).checkCode).toBe(klimper.checkCode);
+
+    const response = await kai.wallet.connectApprove(search);
+    const payload = await klimper.open(response);
+    expect(payload).toMatchObject({ v: 1, network: 'testnet11', address });
+    expect(payload.masterSk).toMatch(/^[0-9a-f]{64}$/);
+
+    const other = await createHandoffRequest('https://clapandpay.test');
+    await expect(other.open(response)).rejects.toMatchObject({ code: 'wrong_receiver' });
+    await expect(kai.wallet.connectRequest('?v=1&k=nope')).rejects.toMatchObject({
+      code: 'bad_request',
+    });
   });
 });
 

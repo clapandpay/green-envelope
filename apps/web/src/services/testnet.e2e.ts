@@ -25,6 +25,7 @@ function person(name: string) {
       return { kind: 'device', seed: seed() };
     },
     unlock: async () => ({ kind: 'device', seed: seed() }),
+    signIn: async () => ({ kind: 'device', seed: seed() }),
     forget: async () => {},
   };
   const memory = new Map<string, string>();

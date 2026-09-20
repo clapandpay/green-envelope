@@ -14,6 +14,7 @@
     "@ge/chain": "workspace:*",
     "@ge/chia": "workspace:*",
     "@ge/envelope": "workspace:*",
+    "@ge/handoff": "workspace:*",
     "@ge/wallet": "workspace:*",
     "preact": "10.29.8"
   },

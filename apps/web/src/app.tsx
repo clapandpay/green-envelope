@@ -8,7 +8,7 @@ import { Footer } from './components/Footer';
 import { I18nProvider, type Lang, useI18n } from './i18n';
 import { onLinkClick, type Route, useRoute } from './router';
 import { ClaimScreen } from './screens/claim/ClaimScreen';
-import { loadCreateScreen, loadWalletScreen } from './screens/lazy';
+import { loadConnectScreen, loadCreateScreen, loadWalletScreen } from './screens/lazy';
 import { ServicesProvider } from './services/context';
 import type { AppServices } from './services/types';
 
@@ -77,6 +77,9 @@ function Screen(props: { route: Route }) {
       return <Lazy load={loadCreateScreen} with={{ prefill: route.amount }} />;
     case 'wallet':
       return <Lazy load={loadWalletScreen} with={{}} />;
+    case 'connect':
+      // `location.search` carries the app's one-time public key. Nothing secret is in it.
+      return <Lazy load={loadConnectScreen} with={{ search: location.search }} />;
     default:
       return <NotFound />;
   }

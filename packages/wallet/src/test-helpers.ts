@@ -65,7 +65,15 @@ export function fakeAuthenticator(options: FakeAuthenticatorOptions = {}) {
       calls.get.push(request ?? {});
       if (behaviour.failGet !== undefined) throw new DOMException('no', behaviour.failGet);
       const allowed = request?.publicKey?.allowCredentials?.[0]?.id;
-      const id = new Uint8Array(bytesOf(allowed));
+      // No allow-list: the phone offers its discoverable passkeys. The fake picks the newest.
+      const newest = [...secrets.keys()].at(-1);
+      if (allowed === undefined && newest === undefined) {
+        throw new DOMException('no passkey for this site', 'NotAllowedError');
+      }
+      const id =
+        allowed === undefined
+          ? new Uint8Array(Buffer.from(newest ?? '', 'hex'))
+          : new Uint8Array(bytesOf(allowed));
       const salt = request?.publicKey?.extensions?.prf?.eval?.first;
       return credential(id, behaviour.prfOnGet ? { results: { first: evaluate(id, salt) } } : {});
     },
