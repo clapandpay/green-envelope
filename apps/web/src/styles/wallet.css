@@ -26,28 +26,51 @@
   margin-top: var(--gap-m);
 }
 
+/* ---------- first run: the envelope, and almost nothing else ---------- */
+
 .first-run {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  text-align: center;
+  /* when the third act starts, counted from the tap; the same dial the claim screen turns */
+  --act3: 0ms;
 }
 
-/* The envelope is the only thing on this screen, and it is the button. */
+.first-run--opened {
+  --act3: 120ms;
+}
+
+/* The envelope is the button, and the button is the whole screen. */
 .first-run__open {
+  position: relative;
   display: block;
-  width: min(78%, 300px);
-  margin: 0 auto;
+  width: 100%;
   padding: 0;
   border: 0;
   background: none;
   cursor: pointer;
-  border-radius: 50%;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 140ms ease-out;
 }
 
-.first-run__open:active:not(:disabled) {
+.first-run__stage {
+  display: grid;
+  place-items: center;
+  width: min(78%, 300px);
+  margin: 0 auto;
+  /* sealed, it owns the screen; once open, it gives the room back to the wallet */
+  min-height: min(62svh, 520px);
+  transition:
+    min-height 900ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--act3) + 700ms),
+    transform 140ms ease-out;
+}
+
+.first-run--opened .first-run__stage {
+  min-height: min(46svh, 380px);
+}
+
+.first-run__open:active:not(:disabled) .first-run__stage {
   transform: scale(0.97);
 }
 
@@ -55,27 +78,43 @@
   cursor: default;
 }
 
-.first-run__open:focus-visible {
+.first-run__open:focus-visible .first-run__stage {
   outline: var(--line) solid var(--ink);
   outline-offset: 8px;
+  border-radius: var(--radius);
 }
 
-.first-run__picture {
+/* The only instruction, and it waits three seconds before giving it: the envelope should get
+   the first look. Same letterspaced whisper the claim screen uses. */
+.first-run__cue {
   display: block;
-  width: 100%;
-  margin: 0 auto;
+  font-family: var(--font-num);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  animation: cue-in 600ms steps(4, end) 3000ms backwards;
 }
 
-.first-run__hint {
-  margin-top: var(--gap-m);
-  color: var(--ink-soft);
-  max-width: 28ch;
+.first-run__cue--now {
+  animation: none;
+}
+
+.first-run__whisper {
+  margin-top: var(--gap-s);
+  max-width: 26ch;
   margin-inline: auto;
+  font-size: var(--text-s);
+  color: var(--ink-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .first-run__open {
+  .first-run__stage,
+  .first-run__cue {
     transition: none;
+    animation: none;
   }
 }
 

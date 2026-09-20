@@ -33,9 +33,13 @@ RUN --mount=type=cache,target=/pnpm-store \
     pnpm config set store-dir /pnpm-store && pnpm install --frozen-lockfile
 
 COPY . .
-# apps/web/public/og/*.png are copied into dist by Vite, which is where the preview images have
-# to end up for WhatsApp and the rest to find them.
-RUN pnpm --filter web build
+# Which chain this image is for. Mainnet unless the build says otherwise; a person can still
+# open a single link on the other chain with `?net=`, which is what testnet links carry.
+ARG VITE_NETWORK=mainnet
+# Never the demo services. The default is already real, and saying so here keeps it that way
+# if that default ever moves again: an image of this app handles real money.
+ENV VITE_SERVICES=real
+RUN VITE_NETWORK="$VITE_NETWORK" pnpm --filter web build
 
 # ---------------------------------------------------------------------------------------------
 # Runtime: sources and production dependencies only. apps/edge and @ge/chia ship as TypeScript —

@@ -39,7 +39,7 @@ import {
   WalletError,
   type WalletKind,
 } from '@ge/wallet';
-import { resolveNetwork } from '../lib/network';
+import { resolveNetwork, withNetwork } from '../lib/network';
 import { resolveHandle } from './handles';
 import { createLocalState, type LocalState, type SentRecord } from './local-state';
 import {
@@ -461,13 +461,16 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           const record: SentRecord = {
             id: toBase64Url(keys.publicKey),
             counter,
-            link: encodeLink(deps.origin, {
-              publicKey: keys.publicKey,
-              secret,
-              shares: input.shares,
-              ...(input.from === null ? {} : { from: input.from }),
-              ...(input.message === null ? {} : { message: input.message }),
-            }),
+            link: withNetwork(
+              encodeLink(deps.origin, {
+                publicKey: keys.publicKey,
+                secret,
+                shares: input.shares,
+                ...(input.from === null ? {} : { from: input.from }),
+                ...(input.message === null ? {} : { message: input.message }),
+              }),
+              network.name,
+            ),
             createdAt: deps.now(),
             total: input.total.toString(),
             shares: input.shares,

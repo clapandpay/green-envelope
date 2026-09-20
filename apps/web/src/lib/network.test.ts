@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { networkFromSearch, resolveNetwork } from './network';
+import { networkFromSearch, resolveNetwork, withNetwork } from './network';
 
 describe('networkFromSearch', () => {
   it('reads the names a tester would type', () => {
@@ -39,5 +39,29 @@ describe('resolveNetwork', () => {
   it('lets the link win over the build', () => {
     expect(resolveNetwork('?net=testnet', 'mainnet')).toBe('testnet11');
     expect(resolveNetwork('?net=main', 'testnet11')).toBe('mainnet');
+  });
+});
+
+describe('withNetwork', () => {
+  const LINK = 'https://clapandpay.com/g/abc?n=5&from=Anna#s3cr3t';
+
+  it('leaves a mainnet link exactly as it was', () => {
+    expect(withNetwork(LINK, 'mainnet')).toBe(LINK);
+  });
+
+  it('marks a test-chain link so it opens on the chain it was made on', () => {
+    const marked = withNetwork(LINK, 'testnet11');
+    expect(new URL(marked).searchParams.get('net')).toBe('testnet');
+    // Round trip: what the marked link says is what the app will resolve.
+    expect(resolveNetwork(new URL(marked).search, undefined)).toBe('testnet11');
+  });
+
+  it('keeps the secret in the fragment untouched', () => {
+    // The secret is the money. A query parameter must never disturb it.
+    const marked = new URL(withNetwork(LINK, 'testnet11'));
+    expect(marked.hash).toBe('#s3cr3t');
+    expect(marked.pathname).toBe('/g/abc');
+    expect(marked.searchParams.get('n')).toBe('5');
+    expect(marked.searchParams.get('from')).toBe('Anna');
   });
 });

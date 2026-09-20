@@ -18,8 +18,12 @@ import { SentList } from './SentList';
 import '../../styles/wallet.css';
 
 const REFRESH_MS = 8000;
-/** How long the opened envelope is held before the wallet takes its place. */
-const OPEN_HOLD_MS = 700;
+/**
+ * How long the opened envelope is held before the wallet takes its place. The flap takes
+ * 260 + 420 ms and the note inside only starts rising at +520 ms over 900 ms, so anything
+ * shorter than this cuts the envelope off before the money is out of it.
+ */
+const OPEN_HOLD_MS = 1500;
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -158,7 +162,7 @@ export function WalletScreen() {
     // because a timer between the tap and `navigator.credentials` loses the user activation
     // that Safari insists on.
     return (
-      <div class="stack first-run">
+      <div class={`first-run${opened ? ' first-run--opened' : ''}`}>
         <h1 class="sr-only">{t.wallet.firstRunTitle}</h1>
         <button
           type="button"
@@ -168,13 +172,21 @@ export function WalletScreen() {
           disabled={working !== null}
           onClick={() => run('start')}
         >
-          <span class="first-run__picture">
+          <span class="first-run__stage">
             <Envelope state={firstRunEnvelope} />
           </span>
+          {/* The one instruction on the screen, and it waits a beat before asking. */}
+          <span
+            class={`first-run__cue${working === null && !opened ? '' : ' first-run__cue--now'}`}
+          >
+            {opened
+              ? t.wallet.firstRunOpened
+              : working === 'start'
+                ? t.wallet.starting
+                : t.wallet.firstRunCue}
+          </span>
         </button>
-        <p class="first-run__hint" aria-live="polite">
-          {working === 'start' ? t.wallet.starting : t.wallet.firstRunBody}
-        </p>
+        <p class="first-run__whisper">{t.wallet.firstRunBody}</p>
         {notice}
       </div>
     );

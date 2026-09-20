@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Picks the services at build time: `VITE_SERVICES=real` or (default, for now) `mock`.
+// Picks the services at build time. Real unless a demo is asked for with `VITE_SERVICES=mock`:
+// a build that says nothing is a build that handles real money, because the opposite default
+// once meant a release could quietly ship the demo. `pnpm dev` asks for the mock in
+// apps/web/.env.development.
 // The comparison is against a build-time constant, so the unused side is dropped from the bundle.
 import { resolveNetwork } from '../lib/network';
 import { createMockServices, parseMockFlags } from './mock';
@@ -8,7 +11,7 @@ import type { AppServices } from './types';
 
 /** The services for this build. */
 export function createServices(): AppServices {
-  if (import.meta.env.VITE_SERVICES === 'real') return createRealServices();
+  if (import.meta.env.VITE_SERVICES !== 'mock') return createRealServices();
   return createMockServices({
     flags: parseMockFlags(location.search),
     origin: location.origin,

@@ -131,6 +131,8 @@ export const de: Dict = {
     // Der erste Bildschirm ist nur der Umschlag. Das hier benennt ihn für Screenreader.
     firstRunTitle: 'Tippe den Umschlag an',
     firstRunBody: 'Dein Handy fragt nach Gesicht oder Finger. Mehr braucht es nicht.',
+    firstRunCue: 'Zum Öffnen tippen',
+    firstRunOpened: 'Willkommen',
     start: 'Hier anfangen',
     starting: 'Wird vorbereitet…',
     secureTitle: 'Sichere dein Geld',

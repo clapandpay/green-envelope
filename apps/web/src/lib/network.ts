@@ -30,3 +30,14 @@ export function resolveNetwork(search: string, built: string | undefined): Netwo
   const fromBuild = built === undefined ? null : (ALIASES[built.trim().toLowerCase()] ?? null);
   return fromBuild ?? 'mainnet';
 }
+
+/**
+ * Adds `net=` to a link when it is not for mainnet, so that opening it lands on the same chain
+ * it was made on. Mainnet links stay clean, because that is almost every link. Pure.
+ */
+export function withNetwork(link: string, network: NetworkName): string {
+  if (network === 'mainnet') return link;
+  const url = new URL(link);
+  url.searchParams.set('net', network === 'testnet11' ? 'testnet' : network);
+  return url.toString();
+}

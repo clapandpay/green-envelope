@@ -131,6 +131,8 @@ export const en = {
     // The first screen is the envelope and nothing else. These name it for screen readers.
     firstRunTitle: 'Tap the envelope to start',
     firstRunBody: 'Your phone will ask for your face or finger. That is all it takes.',
+    firstRunCue: 'Tap to open',
+    firstRunOpened: 'Welcome',
     start: 'Start here',
     starting: 'Getting ready…',
     secureTitle: 'Secure your money',
