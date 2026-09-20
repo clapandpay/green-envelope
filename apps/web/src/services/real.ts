@@ -39,7 +39,7 @@ import {
   WalletError,
   type WalletKind,
 } from '@ge/wallet';
-import { resolveNetwork, withNetwork } from '../lib/network';
+import { type NetworkName, resolveNetwork, withNetwork } from '../lib/network';
 import { resolveHandle } from './handles';
 import { createLocalState, type LocalState, type SentRecord } from './local-state';
 import {
@@ -109,6 +109,34 @@ async function guarded<T>(work: () => Promise<T>): Promise<T> {
   } catch (error) {
     throw toServiceError(error);
   }
+}
+
+/**
+ * The fee when a deployment does not name one, per network.
+ *
+ * Zero is fine on a quiet chain and is what a test chain always is. On mainnet it is the thing
+ * that gets dropped first when the mempool fills, and a green envelope that will not open for
+ * an hour is worse than one that costs a thousandth of a cent to open. So mainnet has a floor
+ * and testnet does not.
+ *
+ * A millionth of an XCH is a tenth of a percent of the smallest share this app will make
+ * (`MIN_SHARE_MOJOS`, 0.001 XCH), and the opener pays it out of their own share. It is a dial:
+ * `VITE_FEE_MOJOS` overrides it, and a busy chain may want more.
+ */
+export const DEFAULT_FEE_MOJOS: Readonly<Record<NetworkName, bigint>> = {
+  mainnet: 1_000_000n,
+  testnet11: 0n,
+};
+
+/**
+ * The configured fee, or the network's default. A value that is not a whole number of mojos is
+ * ignored rather than thrown: a typo in a deployment variable must not take the app down, and
+ * falling back to the default keeps transactions moving.
+ */
+export function feeFromEnv(value: string | undefined, network: NetworkName): bigint {
+  const text = (value ?? '').trim();
+  if (!/^\d+$/.test(text)) return DEFAULT_FEE_MOJOS[network];
+  return BigInt(text);
 }
 
 /** Reads the edge's recipient answer; null unless it names one of the candidates we offered. */
@@ -302,16 +330,6 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           await chain.pushTx(bundle);
           const output: Coin = { parentCoinInfo: coinId(first), puzzleHash: toPuzzleHash, amount };
           return { confirmed: track(-(amount + fee), landed(first, output)) };
-        }),
-
-      signIn: () =>
-        guarded(async (): Promise<WalletInfo> => {
-          const { kind, seed } = await keyStore.signIn();
-          account = accountFromSeed(seed, network);
-          seed.fill(0);
-          const info: WalletInfo = { kind, address: account.address };
-          state.setWallet(info);
-          return info;
         }),
 
       // One tap on the envelope: unlock what is on this device, otherwise open the wallet this
@@ -569,7 +587,7 @@ export function createRealServices(): AppServices {
     origin: String(env.VITE_PUBLIC_ORIGIN ?? location.origin),
     fetch: (input, init) => fetch(input, init),
     now: () => Math.floor(Date.now() / 1000),
-    fee: BigInt(String(env.VITE_FEE_MOJOS ?? '0')),
+    fee: feeFromEnv(env.VITE_FEE_MOJOS, network.name),
     expirySeconds: WEEK,
   });
 }

@@ -284,3 +284,8 @@
   max-width: 22rem;
   margin: var(--gap-m) auto 0;
 }
+
+/* "Secure now": one line, shown only while the wallet is still browser-only. */
+.wallet__secure {
+  width: 100%;
+}

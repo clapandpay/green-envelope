@@ -136,9 +136,6 @@ export const en = {
     firstRunRetry: 'I already have money here',
     start: 'Start here',
     starting: 'Getting ready…',
-    secureTitle: 'Secure your money',
-    secureBody:
-      'Right now your money lives only in this browser. Lock it with your face or finger so it cannot get lost.',
     secureAction: 'Secure now',
     securing: 'Securing…',
     secured: 'Done. Your money is now protected by your phone.',

@@ -101,3 +101,25 @@ describe('a person who has never been here', () => {
     expect(screen.queryByText('Your money')).toBeNull();
   });
 });
+
+describe('securing a browser-only wallet with a passkey', () => {
+  it('offers it, saves it, and stops offering once it is done', async () => {
+    // `device` is a wallet the browser holds on its own: the only case where this is offered.
+    const services = fastMock(['device']);
+    const upgrade = vi.spyOn(services.wallet, 'upgradeToPasskey');
+    renderScreen(<WalletScreen />, { services });
+
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+
+    const secure = await screen.findByRole('button', { name: /secure now/i });
+    // One line and one tap: no paragraph explaining what the phone is about to do anyway.
+    expect(screen.queryByText(/lives only in this browser/i)).toBeNull();
+
+    fireEvent.click(secure);
+    await waitFor(() => expect(upgrade).toHaveBeenCalledTimes(1));
+
+    // Accepted in the password manager, so it is done, and the offer is gone for good.
+    await waitFor(() => expect(screen.queryByRole('button', { name: /secure now/i })).toBeNull());
+    expect(await screen.findByText(/your money is now protected/i)).toBeTruthy();
+  });
+});

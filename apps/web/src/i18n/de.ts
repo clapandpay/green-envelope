@@ -136,9 +136,6 @@ export const de: Dict = {
     firstRunRetry: 'Ich habe hier schon Geld',
     start: 'Hier anfangen',
     starting: 'Wird vorbereitet…',
-    secureTitle: 'Sichere dein Geld',
-    secureBody:
-      'Im Moment liegt dein Geld nur in diesem Browser. Sichere es mit Gesicht oder Finger, damit es nicht verloren geht.',
     secureAction: 'Jetzt sichern',
     securing: 'Wird gesichert…',
     secured: 'Erledigt. Dein Handy passt jetzt auf dein Geld auf.',

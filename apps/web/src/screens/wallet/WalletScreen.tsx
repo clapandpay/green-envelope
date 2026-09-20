@@ -260,21 +260,18 @@ export function WalletScreen() {
 
       {notice}
       {load.canSecure && (
-        <section class="card card--sun stack" aria-labelledby="secure-title">
-          <h2 id="secure-title" class="wallet__h2">
-            {t.wallet.secureTitle}
-          </h2>
-          <p>{t.wallet.secureBody}</p>
-          <button
-            type="button"
-            class="btn"
-            aria-busy={working === 'secure'}
-            disabled={working !== null}
-            onClick={() => run('secure')}
-          >
-            {working === 'secure' ? t.wallet.securing : t.wallet.secureAction}
-          </button>
-        </section>
+        // One line and one tap. It explains itself by what it does — the phone asks for a face
+        // or a finger — and it is gone the moment it has been done, because `canUpgradeToPasskey`
+        // is false once the wallet is behind a passkey.
+        <button
+          type="button"
+          class="btn wallet__secure"
+          aria-busy={working === 'secure'}
+          disabled={working !== null}
+          onClick={() => run('secure')}
+        >
+          {working === 'secure' ? t.wallet.securing : t.wallet.secureAction}
+        </button>
       )}
 
       <section class="stack" aria-labelledby="sent-title">

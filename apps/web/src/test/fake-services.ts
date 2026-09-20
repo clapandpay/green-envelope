@@ -252,6 +252,17 @@ export function createFakeServices(options: FakeOptions = {}): AppServices {
           wallet ??= newWallet();
           return wallet;
         }),
+      // Opens what exists; never makes one. `nopasskey` is a device with nothing on it, which
+      // is what a person who has never been here looks like — and what WebAuthn cannot tell
+      // apart from a dismissed prompt.
+      open: () =>
+        call(() => {
+          prompts += 1;
+          if (flags.has('cancel') && prompts === 1) throw new ServiceError('wallet_cancelled');
+          if (wallet === null && flags.has('nopasskey')) throw new ServiceError('no_wallet_here');
+          wallet ??= newWallet();
+          return wallet;
+        }),
       balance: () => call((): Balance => ({ confirmed, pending })),
       send: (to, amount) =>
         call(() => {
@@ -262,25 +273,6 @@ export function createFakeServices(options: FakeOptions = {}): AppServices {
           confirmed -= amount;
           return { confirmed: wait(confirmMs) };
         }),
-      signIn: () =>
-        call(() => {
-          prompts += 1;
-          if (flags.has('cancel') && prompts === 1) throw new ServiceError('wallet_cancelled');
-          if (wallet === null && flags.has('nopasskey')) throw new ServiceError('no_wallet_here');
-          wallet ??= newWallet();
-          return wallet;
-        }),
-      // Opens what exists; never makes one. `nopasskey` is a device with no passkey on it,
-      // which is what a person who has never been here looks like.
-      open: () =>
-        call(() => {
-          prompts += 1;
-          if (flags.has('cancel') && prompts === 1) throw new ServiceError('wallet_cancelled');
-          if (wallet === null && flags.has('nopasskey')) throw new ServiceError('no_wallet_here');
-          wallet ??= newWallet();
-          return wallet;
-        }),
-
       connectRequest: (search) =>
         call(() => {
           const key = new URLSearchParams(search).get('k') ?? '';
@@ -295,9 +287,7 @@ export function createFakeServices(options: FakeOptions = {}): AppServices {
           wallet ??= newWallet();
           return `cp1.${btoa(`mock handoff for ${search.length} ${wallet.address}`).replace(/=+$/, '')}`;
         }),
-      // The demo has no judgment behind it: the last candidate mentioned is the usual intent
-      // ("not that one, this one"), which is enough to exercise the screen.
-      // A small cast of demo handles, enough to show every state the screen can be in.
+      // A small cast of stand-in handles, enough to show every state the screen can be in.
       lookupHandle: (input) =>
         call((): HandleLookup => {
           const handle = input.trim().replace(/^@/, '').toLowerCase();
@@ -316,6 +306,8 @@ export function createFakeServices(options: FakeOptions = {}): AppServices {
           };
         }),
 
+      // No judgment behind this one: the last candidate mentioned is the usual intent ("not
+      // that one, this one"), which is enough to exercise the screen.
       pickRecipient: (_text, candidates) =>
         call((): RecipientPick | null => {
           if (candidates.length < 2) return null;

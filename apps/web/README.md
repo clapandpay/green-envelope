@@ -41,7 +41,19 @@ only sign that a test chain is in use.
 | `VITE_NETWORK` | `mainnet` | `mainnet` or `testnet11`; `?net=` overrides it per link |
 | `VITE_CHAIN_ENDPOINTS` | the public Coinset URL of the network | comma-separated, tried in order |
 | `VITE_PUBLIC_ORIGIN` | the origin of the page | origin written into the links this app makes |
-| `VITE_FEE_MOJOS` | `0` | fee added to each transaction |
+| `VITE_FEE_MOJOS` | `1000000` on mainnet, `0` on testnet11 | fee added to each transaction, in mojos |
+
+## The fee
+
+Zero is fine on a quiet chain, and a test chain is always quiet. On mainnet a zero-fee
+transaction is the first thing dropped when the mempool fills, and an envelope that will not
+open for an hour is worse than one that costs a thousandth of a cent — so mainnet has a floor of
+a millionth of an XCH and testnet does not.
+
+That is a tenth of a percent of the smallest share this app will make, and the person opening a
+share pays it out of that share. `VITE_FEE_MOJOS` overrides it either way; a value that is not a
+whole number of mojos is ignored in favour of the default, because a typo in a deployment
+variable should not take the app down.
 
 ## Passkeys and where they live
 

@@ -5,9 +5,10 @@ import { TESTNET11 } from '@ge/chia';
 import type { KeyStore, UnlockedWallet, WalletKind } from '@ge/wallet';
 import { WalletError } from '@ge/wallet';
 import { describe, expect, it, vi } from 'vitest';
+import { MIN_SHARE_MOJOS } from '../lib/envelope-form';
 import { createFakeChain } from '../test/fake-chain';
 import { createLocalState } from './local-state';
-import { createServicesFrom } from './real';
+import { createServicesFrom, DEFAULT_FEE_MOJOS, feeFromEnv } from './real';
 import type { AppServices } from './types';
 
 const SEED = new Uint8Array(32).fill(7);
@@ -123,5 +124,31 @@ describe('one tap on the envelope', () => {
     const here = await appWith(stubKeyStore()).wallet.ensure();
     const there = await appWith(elsewhere).wallet.open();
     expect(there.address).toBe(here.address);
+  });
+});
+
+describe('the fee a deployment gets when it does not name one', () => {
+  it('is zero on a test chain and non-zero on mainnet', () => {
+    // A zero fee is the first thing dropped when mainnet's mempool fills, and an envelope
+    // that will not open for an hour is worse than one that costs a fraction of a cent.
+    expect(feeFromEnv(undefined, 'testnet11')).toBe(0n);
+    expect(feeFromEnv(undefined, 'mainnet')).toBeGreaterThan(0n);
+  });
+
+  it('stays far below the smallest share, which is what pays it', () => {
+    // The opener pays the fee out of their own share, so the default must be invisible next
+    // to the smallest share this app will make.
+    expect(DEFAULT_FEE_MOJOS.mainnet * 100n).toBeLessThan(MIN_SHARE_MOJOS);
+  });
+
+  it('takes what the deployment says', () => {
+    expect(feeFromEnv('25', 'mainnet')).toBe(25n);
+    expect(feeFromEnv('0', 'mainnet')).toBe(0n); // deliberately zero is allowed
+  });
+
+  it('ignores a typo rather than taking the app down with it', () => {
+    for (const bad of ['', '  ', 'lots', '-5', '1.5', '1e6']) {
+      expect(feeFromEnv(bad, 'mainnet'), bad).toBe(DEFAULT_FEE_MOJOS.mainnet);
+    }
   });
 });

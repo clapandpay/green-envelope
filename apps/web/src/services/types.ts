@@ -116,11 +116,6 @@ export interface WalletService {
   /** `to` is an address or an @handle. */
   send(to: string, amount: bigint): Promise<{ confirmed: Promise<void> }>;
   /**
-   * Opens a wallet that was made somewhere else (another browser, another phone) with the passkey
-   * the phone already has. Never creates one: rejects with `no_wallet_here`.
-   */
-  signIn(): Promise<WalletInfo>;
-  /**
    * Unlocks the wallet on this device, or opens the one this person already has elsewhere with
    * the passkey they already hold. **Never creates one**: rejects with `no_wallet_here` or
    * `wallet_cancelled`, which a screen cannot tell apart because WebAuthn cannot either.
