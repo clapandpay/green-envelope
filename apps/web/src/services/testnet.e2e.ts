@@ -26,6 +26,11 @@ function person(name: string) {
     },
     unlock: async () => ({ kind: 'device', seed: seed() }),
     signIn: async () => ({ kind: 'device', seed: seed() }),
+    importWallet: async (imported: Uint8Array) => {
+      exists = true;
+      return { kind: 'device' as const, seed: new Uint8Array(imported) };
+    },
+    secureWithPasskey: async () => ({ kind: 'passkey' as const, seed: seed() }),
     forget: async () => {},
   };
   const memory = new Map<string, string>();

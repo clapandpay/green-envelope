@@ -43,6 +43,47 @@ only sign that a test chain is in use.
 | `VITE_PUBLIC_ORIGIN` | the origin of the page | origin written into the links this app makes |
 | `VITE_FEE_MOJOS` | `0` | fee added to each transaction |
 
+## Passkeys and where they live
+
+The wallet is a passkey. Nothing here asks for the built-in sensor specifically, so the passkey
+can live wherever the person keeps theirs:
+
+| Provider | Verified with |
+| --- | --- |
+| Apple Passwords / iCloud Keychain | Touch ID or Face ID, and it follows the person to their other Apple devices |
+| 1Password | Touch ID on a Mac, Face ID on an iPhone, through the 1Password app or extension |
+| A security key | Its own touch, plus a PIN |
+
+Two requirements make that work, and both are pinned by tests:
+
+- **`authenticatorAttachment` is never set.** Setting it to `platform` would shut out every
+  provider above except the built-in one.
+- **`residentKey: 'required'`**, so the passkey is discoverable and `signIn()` finds it again on
+  a new phone without being told which one to ask for.
+
+`isUserVerifyingPlatformAuthenticatorAvailable` is deliberately **not** consulted: it reports the
+built-in sensor and nothing else, so a Mac without Touch ID would look like a machine with no
+passkeys at all and quietly get the weaker device wallet.
+
+What is required is the **PRF extension**, because that is where the wallet key comes from. A
+provider that cannot do PRF gets a device wallet instead, which lives in this browser and can be
+secured with a passkey later (see below). Most providers evaluate PRF on `get` rather than
+`create`, so making a wallet for the first time asks twice: once to make the passkey, once to
+read from it.
+
+### Three kinds of record
+
+| Kind | Seed | Opens with |
+| --- | --- | --- |
+| `passkey` | derived from the passkey, never stored | the passkey, on any device it syncs to |
+| `device` | wrapped by a key in this browser's IndexedDB | nothing; it is lost with the profile |
+| `wrapped` | a seed from elsewhere, encrypted under a second key derived from the same passkey | the passkey, **on this device only** |
+
+A `wrapped` record is what "secure this wallet" and "bring a wallet with me" both produce. The
+seed does not change, so the address and the money do not change either — it is a new lock on
+the same door. But the wrapped seed lives in this browser, so unlike a derived wallet it does
+not reappear elsewhere when the passkey syncs.
+
 ## @names
 
 `@anna` is resolved through XCHandles, which **exists on mainnet only** — there is no testnet

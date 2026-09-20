@@ -38,6 +38,11 @@ function keyStoreFor(name: string): KeyStore {
     forget: async () => {
       exists = false;
     },
+    importWallet: async (seed: Uint8Array) => {
+      exists = true;
+      return { kind: 'device' as const, seed: new Uint8Array(seed) };
+    },
+    secureWithPasskey: async () => unlockedWallet(),
   };
 }
 

@@ -32,6 +32,11 @@ function stubKeyStore(over: Partial<KeyStore> = {}): KeyStore {
       throw new WalletError('no_wallet');
     },
     forget: async () => {},
+    importWallet: async (seed: Uint8Array) => ({
+      kind: 'passkey' as const,
+      seed: new Uint8Array(seed),
+    }),
+    secureWithPasskey: async () => ({ kind: 'passkey' as const, seed: new Uint8Array(SEED) }),
     ...over,
   };
 }

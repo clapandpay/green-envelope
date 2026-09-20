@@ -10,6 +10,16 @@ const utf8 = (text: string): OwnedBytes => new TextEncoder().encode(text);
 export const PRF_SALT_TAG = 'clapandpay:wallet:v1';
 /** HKDF `info` that separates the wallet seed from any other use of the same PRF output. */
 export const SEED_INFO_TAG = 'clapandpay:wallet:v1:seed';
+/**
+ * HKDF `info` for the key that wraps a seed this passkey did not make.
+ *
+ * A passkey wallet's own seed is derived from the PRF and never stored, which is why there is
+ * nothing secret in its record. A seed that came from somewhere else — an existing wallet a
+ * person is bringing with them, or a device wallet being put behind a face — cannot be derived,
+ * so it is encrypted under this second key and kept. Different `info`, same passkey: holding
+ * one key tells you nothing about the other.
+ */
+export const WRAP_INFO_TAG = 'clapandpay:wallet:v1:wrap';
 
 const ES256 = -7;
 const RS256 = -257;
@@ -21,31 +31,54 @@ export interface RelyingParty {
   rpName: string;
 }
 
-/** Result of asking the authenticator: a seed, or the fact that it cannot do PRF. */
-export type PrfOutcome = { seed: OwnedBytes } | { seed: null };
+/**
+ * Result of asking the authenticator: what one PRF evaluation yields, or the fact that this
+ * authenticator cannot do PRF at all.
+ */
+export type PrfOutcome = { seed: OwnedBytes; wrapKey: CryptoKey } | { seed: null; wrapKey: null };
 
 async function prfSalt(env: KeyStoreEnv): Promise<OwnedBytes> {
   return new Uint8Array(await env.crypto.subtle.digest('SHA-256', utf8(PRF_SALT_TAG)));
 }
 
+const HKDF = (info: string) =>
+  ({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: utf8(info) }) as const;
+
 /**
- * seed = HKDF-SHA256(ikm = PRF output, salt = empty, info = SEED_INFO_TAG), 32 bytes.
- * The raw PRF output is never used as a key, so another feature can use the same passkey
- * with another `info` without ever learning the wallet seed. The PRF buffer is wiped after use.
+ * Everything one PRF evaluation yields:
+ *
+ *   seed    = HKDF-SHA256(ikm = PRF output, info = SEED_INFO_TAG), 32 bytes
+ *   wrapKey = HKDF-SHA256(ikm = PRF output, info = WRAP_INFO_TAG) as a non-extractable AES-GCM key
+ *
+ * The raw PRF output is never used as a key and is wiped here, once, however this returns. Both
+ * are derived together because the authenticator is asked only once: a second prompt to get the
+ * other key would be a second face or finger for one tap.
  */
-export async function seedFromPrf(env: KeyStoreEnv, prf: OwnedBytes): Promise<OwnedBytes> {
+export async function keysFromPrf(
+  env: KeyStoreEnv,
+  prf: OwnedBytes,
+): Promise<{ seed: OwnedBytes; wrapKey: CryptoKey }> {
   const { subtle } = env.crypto;
   try {
-    const ikm = await subtle.importKey('raw', prf, 'HKDF', false, ['deriveBits']);
-    const bits = await subtle.deriveBits(
-      { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: utf8(SEED_INFO_TAG) },
+    const ikm = await subtle.importKey('raw', prf, 'HKDF', false, ['deriveBits', 'deriveKey']);
+    const bits = await subtle.deriveBits(HKDF(SEED_INFO_TAG), ikm, 256);
+    // extractable = false: this key can wrap and unwrap a seed, but its own bytes never exist.
+    const wrapKey = await subtle.deriveKey(
+      HKDF(WRAP_INFO_TAG),
       ikm,
-      256,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt'],
     );
-    return new Uint8Array(bits);
+    return { seed: new Uint8Array(bits), wrapKey };
   } finally {
     prf.fill(0);
   }
+}
+
+/** The wallet seed this passkey derives. Wipes `prf`. */
+export async function seedFromPrf(env: KeyStoreEnv, prf: OwnedBytes): Promise<OwnedBytes> {
+  return (await keysFromPrf(env, prf)).seed;
 }
 
 function toOwnedBytes(source: unknown): OwnedBytes | null {
@@ -100,7 +133,7 @@ async function assertPrf(
   rp: RelyingParty,
   credentialId: OwnedBytes | null,
 ): Promise<PrfOutcome & { credentialId: OwnedBytes | null }> {
-  if (env.credentials === undefined) return { seed: null, credentialId: null };
+  if (env.credentials === undefined) return { seed: null, wrapKey: null, credentialId: null };
   const publicKey: PublicKeyCredentialRequestOptions = {
     challenge: env.crypto.getRandomValues(new Uint8Array(32)), // nobody verifies it: no server
     allowCredentials: credentialId === null ? [] : [{ type: 'public-key', id: credentialId }],
@@ -115,12 +148,12 @@ async function assertPrf(
     throw translate(cause);
   }
   const parsed = asPrfCredential(credential);
-  if (parsed === null) return { seed: null, credentialId: null };
+  if (parsed === null) return { seed: null, wrapKey: null, credentialId: null };
   const used = new Uint8Array(parsed.rawId.slice(0));
   const prf = prfOutput(parsed);
   return prf === null
-    ? { seed: null, credentialId: used }
-    : { seed: await seedFromPrf(env, prf), credentialId: used };
+    ? { seed: null, wrapKey: null, credentialId: used }
+    : { ...(await keysFromPrf(env, prf)), credentialId: used };
 }
 
 /** Creates a discoverable passkey and evaluates PRF, with a second prompt only if create gave no PRF result. */
@@ -128,7 +161,7 @@ export async function createPasskeyWallet(
   env: KeyStoreEnv,
   rp: RelyingParty,
 ): Promise<PrfOutcome & { credentialId: OwnedBytes | null }> {
-  if (env.credentials === undefined) return { seed: null, credentialId: null };
+  if (env.credentials === undefined) return { seed: null, wrapKey: null, credentialId: null };
   const label = `${rp.rpName} wallet`;
   const publicKey: PublicKeyCredentialCreationOptions = {
     rp: rp.rpId === undefined ? { name: rp.rpName } : { id: rp.rpId, name: rp.rpName },
@@ -153,14 +186,19 @@ export async function createPasskeyWallet(
     throw translate(cause);
   }
   const parsed = asPrfCredential(credential);
-  if (parsed === null) return { seed: null, credentialId: null };
+  if (parsed === null) return { seed: null, wrapKey: null, credentialId: null };
   const credentialId = new Uint8Array(parsed.rawId.slice(0));
   const prf = prfOutput(parsed);
-  if (prf !== null) return { seed: await seedFromPrf(env, prf), credentialId };
+  if (prf !== null) return { ...(await keysFromPrf(env, prf)), credentialId };
   // Most authenticators only evaluate PRF on get(). `enabled: false` says it never will.
+  // 1Password and Apple Passwords are both in the "only on get" group, so the second prompt
+  // below is the normal path for them, not an error case.
   if (parsed.getClientExtensionResults().prf?.enabled === false)
-    return { seed: null, credentialId };
-  return { seed: (await assertPrf(env, rp, credentialId)).seed, credentialId };
+    return { seed: null, wrapKey: null, credentialId };
+  const second = await assertPrf(env, rp, credentialId);
+  return second.seed === null
+    ? { seed: null, wrapKey: null, credentialId }
+    : { seed: second.seed, wrapKey: second.wrapKey, credentialId };
 }
 
 /** Prompts for the stored passkey and returns its seed, or `seed: null` when PRF is unavailable here. */

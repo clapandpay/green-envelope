@@ -393,11 +393,17 @@ export function createServicesFrom(deps: RealDeps): AppServices {
         }
       },
 
-      // Moving a device wallet's money to a new passkey wallet needs a second key slot (TASK-042).
-      canUpgradeToPasskey: async () => false,
-      upgradeToPasskey: async () => {
-        throw new ServiceError('unknown', 'not available yet');
-      },
+      // A device wallet lives in this browser and dies with it. Behind a passkey it is the
+      // same wallet, the same address and the same money, with a face or finger in front of
+      // it: the seed is kept wrapped by a key only the passkey can derive. Nothing moves, so
+      // there is no transaction here and nothing to lose in the middle.
+      canUpgradeToPasskey: () =>
+        guarded(async () => {
+          const stored = await keyStore.status();
+          return stored?.kind === 'device' && (await keyStore.passkeySupported());
+        }),
+      upgradeToPasskey: () =>
+        guarded(async (): Promise<WalletInfo> => adopt(await keyStore.secureWithPasskey())),
     },
 
     envelopes: {

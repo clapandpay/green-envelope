@@ -4,10 +4,21 @@ import { WalletError } from './errors';
 /** Bytes backed by a plain ArrayBuffer, as WebCrypto and WebAuthn want them. */
 export type OwnedBytes = Uint8Array<ArrayBuffer>;
 
-/** What the keystore persists. A passkey wallet stores nothing secret; a device wallet stores a wrapped seed. */
+/**
+ * What the keystore persists.
+ *
+ * - `passkey`: nothing secret at all. The seed is derived from the passkey every time.
+ * - `device`: a seed wrapped by a non-extractable key that lives in IndexedDB. No face needed,
+ *   and it is lost with the browser profile.
+ * - `wrapped`: a seed the passkey did not make — one brought from another wallet, or a device
+ *   wallet put behind a face — encrypted under a key derived from the same passkey with a
+ *   different HKDF `info`. Opening it needs the passkey, so it is a passkey wallet to the
+ *   person holding it; it just has a seed of its own rather than a derived one.
+ */
 export type StoredWallet =
   | { kind: 'passkey'; credentialId: OwnedBytes }
-  | { kind: 'device'; key: CryptoKey; iv: OwnedBytes; ciphertext: OwnedBytes };
+  | { kind: 'device'; key: CryptoKey; iv: OwnedBytes; ciphertext: OwnedBytes }
+  | { kind: 'wrapped'; credentialId: OwnedBytes; iv: OwnedBytes; ciphertext: OwnedBytes };
 
 /** Where the keystore keeps its single record. Values must survive a structured clone (CryptoKey included). */
 export interface KeyStoreStorage {
@@ -46,6 +57,19 @@ export function parseStoredWallet(value: unknown): StoredWallet | null {
     } = value;
     if (v.kind === 'passkey' && isOwnedBytes(v.credentialId)) {
       return { kind: 'passkey', credentialId: v.credentialId };
+    }
+    if (
+      v.kind === 'wrapped' &&
+      isOwnedBytes(v.credentialId) &&
+      isOwnedBytes(v.iv) &&
+      isOwnedBytes(v.ciphertext)
+    ) {
+      return {
+        kind: 'wrapped',
+        credentialId: v.credentialId,
+        iv: v.iv,
+        ciphertext: v.ciphertext,
+      };
     }
     if (
       v.kind === 'device' &&

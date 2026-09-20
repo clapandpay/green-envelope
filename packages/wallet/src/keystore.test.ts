@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { WalletError } from './errors';
 import { createKeyStore } from './keystore';
-import { PRF_SALT_TAG, seedFromPrf } from './passkey';
+import { keysFromPrf, PRF_SALT_TAG, seedFromPrf } from './passkey';
 import { indexedDbStorage, type KeyStoreStorage, type StoredWallet } from './storage';
 import { fakeAuthenticator, fakeEnv } from './test-helpers';
 
@@ -389,5 +389,189 @@ describe('signIn: a wallet made somewhere else', () => {
     const other = createKeyStore({ env: fakeEnv(phone), storage: memoryStorage() });
     await expect(other.signIn()).rejects.toMatchObject({ code: 'unsupported' });
     expect(await other.status()).toBeNull();
+  });
+});
+
+describe('a wallet brought from somewhere else, kept behind a passkey', () => {
+  const IMPORTED = new Uint8Array(32).fill(9);
+
+  function store(auth: ReturnType<typeof fakeAuthenticator>, storage = memoryStorage()) {
+    return {
+      store: createKeyStore({ env: fakeEnv(auth), storage, rpName: 'Clap' }),
+      storage,
+    };
+  }
+
+  it('keeps the imported seed, not the one the passkey would have derived', async () => {
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const { store: keyStore, storage } = store(auth);
+
+    const imported = await keyStore.importWallet(IMPORTED);
+    expect(imported.kind).toBe('passkey');
+    expect(hexOf(imported.seed)).toBe(hexOf(IMPORTED));
+
+    // The passkey's own derived seed is a different value, and is not what came back.
+    const derived = await createKeyStore({
+      env: fakeEnv(fakeAuthenticator({ prfOnCreate: true })),
+      storage: memoryStorage(),
+      rpName: 'Clap',
+    }).create();
+    expect(hexOf(derived.seed)).not.toBe(hexOf(IMPORTED));
+
+    // What is stored is a ciphertext, never the seed itself.
+    const record = storage.peek();
+    expect(record?.kind).toBe('wrapped');
+    const stored = record as Extract<typeof record, { kind: 'wrapped' }>;
+    expect(hexOf(stored.ciphertext)).not.toContain(hexOf(IMPORTED));
+    expect(Object.keys(stored).sort()).toEqual(['ciphertext', 'credentialId', 'iv', 'kind']);
+  });
+
+  it('gives the same seed back on unlock, and calls itself a passkey wallet', async () => {
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const { store: keyStore } = store(auth);
+
+    await keyStore.importWallet(IMPORTED);
+    expect(await keyStore.status()).toEqual({ kind: 'passkey' });
+
+    const opened = await keyStore.unlock();
+    expect(opened.kind).toBe('passkey');
+    expect(hexOf(opened.seed)).toBe(hexOf(IMPORTED));
+  });
+
+  it('refuses to import over a wallet that is already here', async () => {
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const { store: keyStore } = store(auth);
+    await keyStore.create();
+
+    expect((await errorOf(keyStore.importWallet(IMPORTED))).code).toBe('exists');
+  });
+
+  it('refuses a seed that is not a seed', async () => {
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const { store: keyStore } = store(auth);
+    await expect(keyStore.importWallet(new Uint8Array(16))).rejects.toBeInstanceOf(RangeError);
+  });
+
+  it('refuses a record that has been altered, rather than returning nonsense', async () => {
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const { store: keyStore, storage } = store(auth);
+    await keyStore.importWallet(IMPORTED);
+
+    // AES-GCM authenticates what it encrypts, so a changed byte is caught, not decrypted into
+    // a different seed that would quietly become a different wallet.
+    const record = storage.peek() as Extract<StoredWallet, { kind: 'wrapped' }>;
+    const ciphertext = new Uint8Array(record.ciphertext);
+    ciphertext[0] = (ciphertext[0] ?? 0) ^ 0xff;
+    await storage.save({ ...record, ciphertext });
+
+    expect((await errorOf(keyStore.unlock())).code).toBe('corrupt');
+  });
+
+  it('is not found by signing in on another device: the wrapped seed is only here', async () => {
+    // A derived passkey wallet reappears wherever the passkey syncs. An imported one cannot:
+    // the passkey unwraps the seed, but the wrapped seed lives in this browser's storage.
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    await createKeyStore({
+      env: fakeEnv(auth),
+      storage: memoryStorage(),
+      rpName: 'Clap',
+    }).importWallet(IMPORTED);
+
+    const otherDevice = createKeyStore({
+      env: fakeEnv(auth),
+      storage: memoryStorage(), // same passkey, empty local storage
+      rpName: 'Clap',
+    });
+    const found = await otherDevice.signIn();
+    expect(hexOf(found.seed)).not.toBe(hexOf(IMPORTED));
+  });
+});
+
+describe('the two keys one passkey yields', () => {
+  it('are independent: the wrapping key tells you nothing about the seed', async () => {
+    const env = fakeEnv(null);
+    const prf = new Uint8Array(32).fill(3);
+
+    const first = await keysFromPrf(env, prf.slice());
+    const second = await keysFromPrf(env, prf.slice());
+
+    // Same passkey, same seed every time: that is what makes a derived wallet reappear.
+    expect(hexOf(first.seed)).toBe(hexOf(second.seed));
+    // And the wrapping key is a key, not bytes anyone can read.
+    expect(first.wrapKey.extractable).toBe(false);
+    expect(first.wrapKey.algorithm).toMatchObject({ name: 'AES-GCM' });
+    await expect(crypto.subtle.exportKey('raw', first.wrapKey)).rejects.toBeTruthy();
+  });
+
+  it('wipes the PRF output it was given', async () => {
+    const env = fakeEnv(null);
+    const prf = new Uint8Array(32).fill(5);
+    await keysFromPrf(env, prf);
+    expect(prf.every((byte) => byte === 0)).toBe(true);
+  });
+
+  it('still derives the same seed as seedFromPrf did before', async () => {
+    const env = fakeEnv(null);
+    const prf = new Uint8Array(32).fill(1);
+    const viaSeed = await seedFromPrf(env, prf.slice());
+    const viaKeys = await keysFromPrf(env, prf.slice());
+    expect(hexOf(viaSeed)).toBe(hexOf(viaKeys.seed));
+  });
+});
+
+describe('putting a device wallet behind a passkey', () => {
+  it('keeps the same seed, so the address and the money do not change', async () => {
+    const storage = memoryStorage();
+    const before = await createKeyStore({ env: fakeEnv(null), storage }).create();
+    expect(before.kind).toBe('device');
+
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const after = await createKeyStore({
+      env: fakeEnv(auth),
+      storage,
+      rpName: 'Clap',
+    }).secureWithPasskey();
+
+    expect(after.kind).toBe('passkey');
+    // The whole point: a new lock on the same door. A different seed would be a different
+    // wallet, and the money would be somewhere the person can no longer reach.
+    expect(hexOf(after.seed)).toBe(hexOf(before.seed));
+    expect(storage.peek()?.kind).toBe('wrapped');
+  });
+
+  it('opens with the passkey afterwards, and still gives that seed', async () => {
+    const storage = memoryStorage();
+    const before = await createKeyStore({ env: fakeEnv(null), storage }).create();
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const store = createKeyStore({ env: fakeEnv(auth), storage, rpName: 'Clap' });
+    await store.secureWithPasskey();
+
+    expect(await store.status()).toEqual({ kind: 'passkey' });
+    expect(hexOf((await store.unlock()).seed)).toBe(hexOf(before.seed));
+  });
+
+  it('leaves the wallet untouched when the prompt is dismissed', async () => {
+    const storage = memoryStorage();
+    const before = await createKeyStore({ env: fakeEnv(null), storage }).create();
+    // NotAllowedError is what a browser gives when the person dismisses the sheet.
+    const refusing = fakeAuthenticator({ failCreate: 'NotAllowedError' });
+    const store = createKeyStore({ env: fakeEnv(refusing), storage, rpName: 'Clap' });
+
+    expect((await errorOf(store.secureWithPasskey())).code).toBe('cancelled');
+
+    // Nothing was written, so the money is still reachable exactly as before.
+    expect(storage.peek()?.kind).toBe('device');
+    const still = await createKeyStore({ env: fakeEnv(null), storage }).unlock();
+    expect(hexOf(still.seed)).toBe(hexOf(before.seed));
+  });
+
+  it('refuses a wallet that is already behind a passkey, and one that is not there', async () => {
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const storage = memoryStorage();
+    const store = createKeyStore({ env: fakeEnv(auth), storage, rpName: 'Clap' });
+
+    expect((await errorOf(store.secureWithPasskey())).code).toBe('no_wallet');
+    await store.create();
+    expect((await errorOf(store.secureWithPasskey())).code).toBe('exists');
   });
 });
