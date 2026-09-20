@@ -46,6 +46,7 @@ import {
   type AppServices,
   type Balance,
   type EnvelopeView,
+  type HandleLookup,
   type RecipientPick,
   type SentEnvelope,
   ServiceError,
@@ -184,9 +185,13 @@ export function createServicesFrom(deps: RealDeps): AppServices {
   async function recipient(to: string): Promise<Bytes> {
     const text = to.trim();
     if (text.startsWith('@')) {
-      // The handle registry exists on mainnet only.
-      if (network.name !== 'mainnet') throw new ServiceError('invalid_recipient');
-      return resolveHandle(text, deps.fetch);
+      // The registry exists on mainnet only; on a test chain say so rather than blaming
+      // the spelling.
+      if (network.name !== 'mainnet') throw new ServiceError('handles_mainnet_only');
+      const resolved = await resolveHandle(text, network.addressPrefix, deps.fetch, deps.now());
+      // Only a handle that money actually went to counts as one this person trusts.
+      state.rememberPaidHandle(resolved.handle);
+      return resolved.puzzleHash;
     }
     try {
       const { puzzleHash, prefix } = decodeAddress(text);
@@ -195,6 +200,25 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       // fall through
     }
     throw new ServiceError('invalid_recipient');
+  }
+
+  /** Screens a handle against the ones already paid. Never throws: a warning is optional. */
+  async function screenHandle(handle: string): Promise<string | null> {
+    const known = state.paidHandles().map((entry) => `@${entry}`);
+    if (known.length === 0 || known.includes(`@${handle}`)) return null;
+    try {
+      const response = await deps.fetch(`${deps.origin}/api/handle-check`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ handle: `@${handle}`, known }),
+      });
+      if (!response.ok) return null;
+      const body: unknown = await response.json();
+      const imitates = (body as { imitates?: unknown }).imitates;
+      return typeof imitates === 'string' && known.includes(imitates) ? imitates : null;
+    } catch {
+      return null;
+    }
   }
 
   function view(id: string, link: EnvelopeLink, total: number, left: number): EnvelopeView {
@@ -327,6 +351,25 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           } finally {
             master.fill(0);
           }
+        }),
+
+      lookupHandle: (input) =>
+        guarded(async (): Promise<HandleLookup> => {
+          if (network.name !== 'mainnet') throw new ServiceError('handles_mainnet_only');
+          const resolved = await resolveHandle(
+            input,
+            network.addressPrefix,
+            deps.fetch,
+            deps.now(),
+          );
+          // Resolution is the answer; the screen is an extra sentence on top of it, so a
+          // failure there must not fail the lookup.
+          return {
+            handle: resolved.handle,
+            address: resolved.address,
+            pendingTransfer: resolved.pendingTransfer,
+            imitates: await screenHandle(resolved.handle),
+          };
         }),
 
       pickRecipient: async (text, candidates) => {

@@ -204,7 +204,11 @@ describe('the whole loop', () => {
     await expect(kai.wallet.send(address.replace(/^txch/, 'xch'), 1n)).rejects.toMatchObject({
       code: 'invalid_recipient',
     });
-    await expect(kai.wallet.send('@anna', 1n)).rejects.toMatchObject({ code: 'invalid_recipient' });
+    // These tests run on testnet11, where the handle registry does not exist. Saying so is
+    // different advice from "check the spelling".
+    await expect(kai.wallet.send('@anna', 1n)).rejects.toMatchObject({
+      code: 'handles_mainnet_only',
+    });
     await expect(kai.wallet.send(address, 6_000n)).rejects.toMatchObject({
       code: 'insufficient_funds',
     });

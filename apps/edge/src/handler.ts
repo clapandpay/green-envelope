@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { ChainLookup } from './chain';
 import type { Config } from './config';
+import { readHandleQuestion, screenHandle } from './handle-screen';
 import { type AssetsFn, createPages } from './pages';
 import { createPriceSource, FRESH_SECONDS } from './price';
 import { pickRecipient, readRecipientQuestion } from './recipient';
@@ -118,9 +119,30 @@ export function createHandler(deps: HandlerDeps): Handler {
     return json(pick ?? { value: null, confidence: 0 }, 200, 'no-store');
   };
 
+  // Whether an @name is dressed up as one the person already pays. Advisory only: it adds a
+  // sentence above the confirm button and never decides anything.
+  const handleCheckRoute = async (request: Request): Promise<Response> => {
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
+    if (request.method !== 'POST') return methodNotAllowed('POST, OPTIONS');
+    if (config.typesafeApiKey === null) return json({ imitates: null }, 200, 'no-store');
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: 'bad_request' }, 400, 'no-store');
+    }
+    const asked = readHandleQuestion(body);
+    if (asked === null) return json({ error: 'bad_request' }, 400, 'no-store');
+
+    const verdict = await screenHandle({ fetch: deps.fetch, apiKey: config.typesafeApiKey }, asked);
+    return json(verdict ?? { imitates: null, probability: 0 }, 200, 'no-store');
+  };
+
   const api = async (request: Request, path: string): Promise<Response> => {
     if (path === '/api/price') return priceRoute(request);
     if (path === '/api/recipient') return recipientRoute(request);
+    if (path === '/api/handle-check') return handleCheckRoute(request);
     if (path.startsWith(RPC_PREFIX)) return rpcRoute(request, path.slice(RPC_PREFIX.length));
     return rpcError(404, 'not_found');
   };

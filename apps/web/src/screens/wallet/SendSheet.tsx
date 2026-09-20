@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Send: who and how much, then one look at the whole recipient before it goes.
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
 import { AmountField, type AmountValue } from '../../components/AmountField';
 import { TickIcon } from '../../components/icons';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
+import type { Dict } from '../../i18n/en';
 import {
   checkAmount,
   type RecipientCandidate,
@@ -15,9 +16,49 @@ import {
 import { errorCode, errorText } from '../../lib/errors';
 import type { Rate } from '../../lib/money';
 import { useServices } from '../../services/context';
-import type { Balance } from '../../services/types';
+import type { Balance, HandleLookup } from '../../services/types';
 
 type Step = 'form' | 'confirm' | 'sending' | 'done';
+
+/** What the registry says about the @name being typed. */
+type Lookup =
+  | { s: 'idle' }
+  | { s: 'loading' }
+  | { s: 'ok'; value: HandleLookup }
+  | { s: 'failed'; text: string };
+
+/** Typing pause before an @name is looked up. */
+const LOOKUP_DEBOUNCE_MS = 400;
+
+/** What an `@name` stands for: the address, and anything worth pausing over. */
+function HandleResolution(props: { lookup: Lookup; t: Dict }) {
+  const { lookup, t } = props;
+  if (lookup.s === 'idle') return null;
+  if (lookup.s === 'loading') {
+    return <span class="field__hint">{t.wallet.handleLooking}</span>;
+  }
+  if (lookup.s === 'failed') {
+    return <span class="field__error">{lookup.text}</span>;
+  }
+  const { handle, address, pendingTransfer, imitates } = lookup.value;
+  return (
+    <span class="resolved">
+      <span class="resolved__line">
+        <TickIcon />
+        <span>
+          <strong>@{handle}</strong> {t.wallet.handleGoesTo}
+        </span>
+      </span>
+      <span class="address num">{address}</span>
+      {pendingTransfer && <span class="resolved__warn">{t.wallet.handleMoving}</span>}
+      {imitates !== null && (
+        <span class="resolved__warn resolved__warn--loud" role="alert">
+          {t.wallet.handleLookalike(imitates)}
+        </span>
+      )}
+    </span>
+  );
+}
 
 export function SendSheet(props: {
   rate: Rate | null;
@@ -37,9 +78,34 @@ export function SendSheet(props: {
   // Candidates found in one messy paste, and which of them is suggested.
   const [choices, setChoices] = useState<RecipientCandidate[]>([]);
   const [picking, setPicking] = useState(false);
+  const [lookup, setLookup] = useState<Lookup>({ s: 'idle' });
 
   const recipient = to.trim();
-  const recipientOk = recipientKind(recipient) !== null;
+  const kind = recipientKind(recipient);
+
+  // An @name is only a recipient once the registry says what it pays. An address stands alone.
+  const recipientOk = kind === 'address' || (kind === 'handle' && lookup.s === 'ok');
+
+  // Look the name up while the person is still typing, but only after they pause: every
+  // keystroke would be a request, and an unfinished name is always "nobody has that".
+  useEffect(() => {
+    if (kind !== 'handle') {
+      setLookup({ s: 'idle' });
+      return;
+    }
+    setLookup({ s: 'loading' });
+    let alive = true;
+    const timer = setTimeout(() => {
+      services.wallet.lookupHandle(recipient).then(
+        (value) => alive && setLookup({ s: 'ok', value }),
+        (error) => alive && setLookup({ s: 'failed', text: errorText(errorCode(error), t) }),
+      );
+    }, LOOKUP_DEBOUNCE_MS);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [recipient, kind, services, t]);
   const check = checkAmount(amount.text, amount.unit, rate, props.balance);
   const amountError =
     check.error === 'insufficient_funds' || check.error === 'still_arriving'
@@ -134,8 +200,14 @@ export function SendSheet(props: {
             <div>
               <p class="eyebrow">{t.wallet.confirmTo}</p>
               <p class="address num">{recipient}</p>
+              {lookup.s === 'ok' && <p class="address num soft">{lookup.value.address}</p>}
             </div>
           </div>
+          {lookup.s === 'ok' && lookup.value.imitates !== null && (
+            <p class="notice" role="alert">
+              {t.wallet.handleLookalike(lookup.value.imitates)}
+            </p>
+          )}
           <p class="soft">{t.wallet.confirmWarn}</p>
           <button
             type="button"
@@ -178,7 +250,11 @@ export function SendSheet(props: {
             onPaste={onPaste}
           />
           <span class="field__hint" aria-live="polite">
-            {nudged && !recipientOk && <span class="field__error">{t.wallet.toInvalid}</span>}
+            {kind === 'handle' ? (
+              <HandleResolution lookup={lookup} t={t} />
+            ) : (
+              nudged && !recipientOk && <span class="field__error">{t.wallet.toInvalid}</span>
+            )}
           </span>
         </label>
         {choices.length > 1 && (

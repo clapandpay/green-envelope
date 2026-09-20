@@ -23,6 +23,11 @@ export type ServiceErrorCode =
   | 'already_opened' // this browser already opened a share of this envelope
   | 'insufficient_funds'
   | 'invalid_recipient'
+  | 'handle_not_found' // nobody has this @name
+  | 'handle_expired' // the name lapsed and can be claimed by anyone
+  | 'handle_not_payable' // the name exists but owns nothing that can take money
+  | 'handles_unavailable' // the registry did not answer; an address still works
+  | 'handles_mainnet_only' // @names live on the real network only
   | 'no_wallet_here' // nothing to open on this device: no wallet in this browser, no passkey
   | 'bad_request' // a connect link that did not come from the app, or came damaged
   | 'wallet_cancelled' // the user dismissed the passkey prompt
@@ -80,6 +85,21 @@ export interface ConnectRequest {
   checkCode: string;
 }
 
+/** What an `@name` stands for, and whether it is dressed up as one you already trust. */
+export interface HandleLookup {
+  /** Bare and lowercase, without the `@`. */
+  handle: string;
+  /** The address the money would go to, in full, to show before sending. */
+  address: string;
+  /** An ownership change is queued on chain: it may be about to change hands. */
+  pendingTransfer: boolean;
+  /**
+   * A handle this person has paid before that this one appears to imitate, or null.
+   * Null also means "we could not check": an absent warning is never an all-clear.
+   */
+  imitates: string | null;
+}
+
 /** Which of several pasted candidates is the recipient; `value` null means "none of them". */
 export interface RecipientPick {
   value: string | null;
@@ -119,6 +139,11 @@ export interface WalletService {
    * the person. Never invents a recipient: the answer is always one of `candidates`.
    */
   pickRecipient(text: string, candidates: readonly string[]): Promise<RecipientPick | null>;
+  /**
+   * Resolves an `@name` to the address it pays, and screens it against the names this person
+   * has paid before. Rejects with the `handle_*` code that says what is actually wrong.
+   */
+  lookupHandle(input: string): Promise<HandleLookup>;
   canUpgradeToPasskey(): Promise<boolean>;
   upgradeToPasskey(): Promise<WalletInfo>;
 }

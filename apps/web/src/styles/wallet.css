@@ -209,3 +209,37 @@
   outline: 3px solid var(--ink);
   outline-offset: 2px;
 }
+
+/* What an @name stands for, under the recipient field. */
+.resolved {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resolved__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.resolved__line svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.resolved__warn {
+  color: var(--ink-soft);
+}
+
+/* A name wearing another name's clothes: the one warning here that must not be missed, so it
+   borrows the alert colours the rest of the app already uses for trouble. */
+.resolved__warn--loud {
+  padding: 8px 10px;
+  background: var(--alert-soft);
+  color: var(--alert);
+  border: var(--line-thin) solid var(--alert);
+  border-radius: var(--radius-s);
+  font-weight: 700;
+}

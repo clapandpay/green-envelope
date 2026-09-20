@@ -23,6 +23,11 @@ export const en = {
     insufficient: 'That is more than you have.',
     invalidRecipient: 'We cannot find that person or address. Check the spelling.',
     loadFailed: 'This page did not load.',
+    handleNotFound: 'Nobody has that @name. Check the spelling, or use an address.',
+    handleExpired: 'That @name has run out. Ask them for their address instead.',
+    handleNotPayable: 'That @name cannot take money right now. Ask them for their address.',
+    handlesUnavailable: 'We cannot look up @names right now. An address still works.',
+    handlesMainnetOnly: '@names only work on the real network.',
   },
   claim: {
     title: 'A green envelope for you',
@@ -157,6 +162,11 @@ export const en = {
     toInvalid: 'That does not look like a @name or an address yet.',
     pickLabel: 'Which one did you mean?',
     pickWorking: 'Working out which one…',
+    handleLooking: 'Looking up that @name…',
+    handleGoesTo: 'sends to',
+    handleMoving: 'This @name is changing hands right now. Check with them first.',
+    handleLookalike: (other: string) =>
+      `Careful: this looks a lot like ${other}, which you have paid before. Make sure it is the right one.`,
     amountLabel: 'How much?',
     next: 'Next',
     confirmTitle: 'Is this right?',

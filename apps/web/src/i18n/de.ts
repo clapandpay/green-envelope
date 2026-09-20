@@ -23,6 +23,11 @@ export const de: Dict = {
     insufficient: 'Das ist mehr, als du hast.',
     invalidRecipient: 'Diese Person oder Adresse finden wir nicht. Stimmt die Schreibweise?',
     loadFailed: 'Die Seite wurde nicht geladen.',
+    handleNotFound: 'Diesen @Namen hat niemand. Prüfe die Schreibweise oder nimm eine Adresse.',
+    handleExpired: 'Dieser @Name ist abgelaufen. Frag nach der Adresse.',
+    handleNotPayable: 'Dieser @Name kann gerade kein Geld annehmen. Frag nach der Adresse.',
+    handlesUnavailable: '@Namen lassen sich gerade nicht nachschlagen. Eine Adresse geht trotzdem.',
+    handlesMainnetOnly: '@Namen gibt es nur im echten Netz.',
   },
   claim: {
     title: 'Ein grüner Umschlag für dich',
@@ -157,6 +162,11 @@ export const de: Dict = {
     toInvalid: 'Das sieht noch nicht nach einem @namen oder einer Adresse aus.',
     pickLabel: 'Wen meinst du?',
     pickWorking: 'Einen Moment…',
+    handleLooking: 'Wird nachgeschlagen…',
+    handleGoesTo: 'geht an',
+    handleMoving: 'Dieser @Name wechselt gerade den Besitzer. Frag lieber nach.',
+    handleLookalike: (other: string) =>
+      `Achtung: das sieht ${other} sehr ähnlich, an den du schon gezahlt hast. Prüfe, ob es stimmt.`,
     amountLabel: 'Wie viel?',
     next: 'Weiter',
     confirmTitle: 'Stimmt das so?',

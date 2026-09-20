@@ -24,13 +24,26 @@ export interface LocalState {
   setOpened(id: string, amount: bigint): void;
   clearOpened(id: string): void;
   sent(): SentRecord[];
+  /** Handles this browser has successfully paid, most recent first. */
+  paidHandles(): string[];
+  /** Remembers `handle` (bare, lowercase) as one this person has paid. */
+  rememberPaidHandle(handle: string): void;
   addSent(record: SentRecord): void;
   markTakenBack(id: string, takenBack: NonNullable<SentRecord['takenBack']>): void;
   /** A fresh number for the next envelope's secret; never handed out twice. */
   nextEnvelopeCounter(): number;
 }
 
-const KEY = { wallet: 'ge.wallet', opened: 'ge.opened', sent: 'ge.sent', counter: 'ge.counter' };
+const KEY = {
+  wallet: 'ge.wallet',
+  opened: 'ge.opened',
+  sent: 'ge.sent',
+  counter: 'ge.counter',
+  paidHandles: 'ge.paidHandles',
+};
+
+/** How many paid handles are remembered; enough to be the person's circle, not their history. */
+const MAX_PAID_HANDLES = 12;
 
 /** Minimal storage: `localStorage`, or anything shaped like it. */
 export type StringStorage = Pick<Storage, 'getItem' | 'setItem'>;
@@ -74,6 +87,11 @@ export function createLocalState(storage: StringStorage): LocalState {
       write(KEY.opened, rest);
     },
 
+    paidHandles: () => read<string[]>(KEY.paidHandles, []),
+    rememberPaidHandle: (handle) => {
+      const kept = read<string[]>(KEY.paidHandles, []).filter((entry) => entry !== handle);
+      write(KEY.paidHandles, [handle, ...kept].slice(0, MAX_PAID_HANDLES));
+    },
     sent: () => read<SentRecord[]>(KEY.sent, []),
     addSent(record) {
       write(KEY.sent, [record, ...read<SentRecord[]>(KEY.sent, [])]);

@@ -7,6 +7,7 @@ import {
   type Balance,
   type CreateEnvelopeInput,
   type EnvelopeView,
+  type HandleLookup,
   type RecipientPick,
   type SentEnvelope,
   ServiceError,
@@ -21,6 +22,7 @@ export const MOCK_FLAGS = [
   'slow', // 2.5 s per call, 20 s to confirm
   'offline', // every call fails with `network`
   'nopick', // the recipient suggestion is unavailable
+  'nohandles', // the handle registry does not answer
   'flaky', // the first look at an envelope fails with `network`, everything after works
   'cancel', // the first passkey prompt is dismissed
   'noprice', // no euro price
@@ -293,6 +295,25 @@ export function createMockServices(options: MockOptions = {}): AppServices {
         }),
       // The demo has no judgment behind it: the last candidate mentioned is the usual intent
       // ("not that one, this one"), which is enough to exercise the screen.
+      // A small cast of demo handles, enough to show every state the screen can be in.
+      lookupHandle: (input) =>
+        call((): HandleLookup => {
+          const handle = input.trim().replace(/^@/, '').toLowerCase();
+          if (network !== 'mainnet') throw new ServiceError('handles_mainnet_only');
+          if (handle === 'gone') throw new ServiceError('handle_not_found');
+          if (handle === 'lapsed') throw new ServiceError('handle_expired');
+          if (handle === 'empty') throw new ServiceError('handle_not_payable');
+          if (flags.has('nohandles')) throw new ServiceError('handles_unavailable');
+          if (!/^[a-z0-9]{3,63}$/.test(handle)) throw new ServiceError('invalid_recipient');
+          return {
+            handle,
+            address: MOCK_ADDRESS,
+            pendingTransfer: handle === 'moving',
+            // `@c1apandpay` is the demo's lookalike: one character off a handle already paid.
+            imitates: handle === 'c1apandpay' ? '@clapandpay' : null,
+          };
+        }),
+
       pickRecipient: (_text, candidates) =>
         call((): RecipientPick | null => {
           if (candidates.length < 2) return null;
