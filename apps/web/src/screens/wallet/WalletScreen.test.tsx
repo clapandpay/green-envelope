@@ -204,3 +204,37 @@ describe('the wait while the wallet comes up', () => {
     await waitFor(() => expect(container.querySelector('.amount .skeleton')).toBeNull());
   });
 });
+
+describe('the ceremony', () => {
+  /** Lets the real timings run, instead of the stillness the other tests ask for. */
+  function withMotion() {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+    }));
+  }
+
+  it('is over only once the wallet behind it is loaded', async () => {
+    withMotion();
+    const { services } = createWorld();
+    // A chain that answers in a fifth of a second, which is an ordinary one.
+    const real = services.wallet.balance.bind(services.wallet);
+    vi.spyOn(services.wallet, 'balance').mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(real()), 200)),
+    );
+    const { container } = renderScreen(<WalletScreen />, { services });
+
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+
+    // The envelope is still opening while the chain is being asked.
+    await waitFor(() => expect(container.querySelector('.env--open')).toBeTruthy());
+
+    // And when it finally gives up the screen, the amount is there rather than a skeleton:
+    // the ceremony is long enough to have covered the asking.
+    const money = await screen.findByText('Your money', undefined, { timeout: 4000 });
+    expect(money).toBeTruthy();
+    expect(container.querySelector('.amount .skeleton')).toBeNull();
+  });
+});

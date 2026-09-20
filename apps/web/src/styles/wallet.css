@@ -50,8 +50,47 @@
   --act3: 0ms;
 }
 
+/* The tap is the cue, so the third act starts on it rather than after a beat. */
 .first-run--opened {
-  --act3: 120ms;
+  --act3: 0ms;
+}
+
+/* ---------- the ceremony ----------
+ *
+ * The claim screen's opening runs 1420 ms, which is right when somebody has just been given
+ * money and the envelope is the whole point. Here it is the way in, and it plays every time,
+ * so the same acts are played about a third quicker: the seal breaks, the flap turns over,
+ * the note rises, the sun swells behind it. Nothing is removed — it is the same ceremony at
+ * a brisker tempo.
+ *
+ * Every number below is chosen so the last motion lands before OPEN_HOLD_MS in
+ * WalletScreen.tsx, which is what stops the wallet from cutting the envelope off mid-turn.
+ * Total: 980 ms. Change one and change that.
+ */
+.first-run .env__flap {
+  transition-duration: 180ms;
+}
+
+.first-run .env__flap-open {
+  transition-duration: 300ms;
+  transition-delay: 180ms;
+}
+
+.first-run .env__slip-group {
+  transition-duration: 620ms;
+  transition-delay: 360ms;
+}
+
+.first-run .env__sun {
+  transition-duration: 980ms;
+}
+
+.first-run .env__seal-disc {
+  animation-duration: 360ms;
+}
+
+.first-run .env__crest {
+  animation-duration: 520ms;
 }
 
 /* The envelope is the button, and the button is the whole screen. */
@@ -74,7 +113,7 @@
   /* sealed, it owns the screen; once open, it gives the room back to the wallet */
   min-height: min(68svh, 560px);
   transition:
-    min-height 900ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--act3) + 700ms),
+    min-height 420ms cubic-bezier(0.16, 1, 0.3, 1) 520ms,
     transform 140ms ease-out;
 }
 

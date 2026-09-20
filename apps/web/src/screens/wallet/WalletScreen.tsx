@@ -20,11 +20,17 @@ import '../../styles/wallet.css';
 
 const REFRESH_MS = 8000;
 /**
- * How long the opened envelope is held before the wallet takes its place. The flap takes
- * 260 + 420 ms and the note inside only starts rising at +520 ms over 900 ms, so anything
- * shorter than this cuts the envelope off before the money is out of it.
+ * How long the opened envelope is held before the wallet takes its place.
+ *
+ * This is the ceremony's own length plus a breath, and the two are written down together:
+ * styles/wallet.css tightens the opening to 980 ms for this screen, so the sun finishes
+ * swelling and the note finishes rising before anything replaces them.
+ *
+ * It used to be 1500 ms against a 1720 ms opening, and every motion was cut. It survived
+ * because `refresh` was slow enough to overrun the hold — so making the loading fast is what
+ * exposed it. The wait is deliberate now rather than borrowed from a slow network.
  */
-const OPEN_HOLD_MS = 1500;
+const OPEN_HOLD_MS = 1040;
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -158,6 +164,8 @@ export function WalletScreen() {
         // the length of the hold while the screen still shows it, and a second tap would ask
         // for a face again right after a successful one.
         await Promise.all([refresh(), pause(prefersReducedMotion() ? 0 : OPEN_HOLD_MS)]);
+        // The ceremony is over; the wallet, loaded behind it, takes the stage.
+        setOpened(false);
       } else if (kind === 'out') {
         await services.wallet.forget();
         setSheet(null);
@@ -224,7 +232,11 @@ export function WalletScreen() {
     </p>
   );
 
-  if (load.wallet === null) {
+  // The envelope holds the screen while there is no wallet **and** while the ceremony is still
+  // playing. Without that second clause the dashboard appears the instant `refresh` resolves,
+  // which is now a few milliseconds, and the opening is cut off almost before it starts. The
+  // hold was only ever a delay; this is what makes it a hold.
+  if (load.wallet === null || opened) {
     // Nothing but the envelope: one tap unlocks what is here, adopts the passkey this person
     // already has, or makes a new wallet. The animation and the passkey call start together,
     // because a timer between the tap and `navigator.credentials` loses the user activation
