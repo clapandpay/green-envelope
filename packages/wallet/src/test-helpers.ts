@@ -85,12 +85,14 @@ export function fakeAuthenticator(options: FakeAuthenticatorOptions = {}) {
 export function fakeEnv(
   authenticator: { credentials: Pick<CredentialsContainer, 'create' | 'get'> } | null,
   capabilities?: Record<string, boolean>,
+  /** False is a Mac with no Touch ID, whose passkeys live in a password manager. */
+  platformAuthenticator = true,
 ): KeyStoreEnv {
   const env: KeyStoreEnv = { crypto: globalThis.crypto, indexedDB: new IDBFactory() };
   if (authenticator !== null) {
     env.credentials = authenticator.credentials;
     env.publicKeyCredential = {
-      isUserVerifyingPlatformAuthenticatorAvailable: async () => true,
+      isUserVerifyingPlatformAuthenticatorAvailable: async () => platformAuthenticator,
       ...(capabilities === undefined ? {} : { getClientCapabilities: async () => capabilities }),
     };
   }

@@ -199,19 +199,35 @@ describe('passkeySupported', () => {
     expect(await supported(fakeEnv(auth, { 'extension:prf': false }))).toBe(false);
     expect(await supported(fakeEnv(auth, { conditionalGet: true }))).toBe(true);
 
-    const noPlatform = fakeEnv(auth);
-    noPlatform.publicKeyCredential = {
-      isUserVerifyingPlatformAuthenticatorAvailable: async () => false,
-    };
-    expect(await supported(noPlatform)).toBe(false);
+    // A Mac with no Touch ID still has passkeys, in 1Password or Apple Passwords. The built-in
+    // sensor is not the question, so its absence is not an answer.
+    const noPlatform = fakeEnv(auth, undefined, false);
+    expect(await supported(noPlatform)).toBe(true);
 
     const throwing = fakeEnv(auth);
     throwing.publicKeyCredential = {
-      isUserVerifyingPlatformAuthenticatorAvailable: () => Promise.reject(new Error('blocked')),
+      getClientCapabilities: () => Promise.reject(new Error('blocked')),
     };
     expect(await supported(throwing)).toBe(false);
     expect(auth.calls.create).toHaveLength(0);
     expect(auth.calls.get).toHaveLength(0);
+  });
+
+  it('never asks for the built-in sensor, so a password manager can answer', async () => {
+    // `authenticatorAttachment: 'platform'` would shut out 1Password, Apple Passwords and every
+    // security key. It has never been set here, and this test is what keeps it that way.
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const store = createKeyStore({
+      env: fakeEnv(auth, undefined, false),
+      storage: memoryStorage(),
+    });
+
+    const created = await store.create();
+
+    expect(created.kind).toBe('passkey');
+    const selection = auth.calls.create[0]?.publicKey?.authenticatorSelection;
+    expect(selection).not.toHaveProperty('authenticatorAttachment');
+    expect(selection?.residentKey).toBe('required'); // discoverable: found again on a new device
   });
 });
 

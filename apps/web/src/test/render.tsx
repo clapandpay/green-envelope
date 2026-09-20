@@ -5,12 +5,12 @@ import type { ComponentChildren } from 'preact';
 import { vi } from 'vitest';
 import { I18nProvider, type Lang } from '../i18n';
 import { ServicesProvider } from '../services/context';
-import { createMockServices, type MockFlag } from '../services/mock';
 import type { AppServices } from '../services/types';
+import { createFakeServices, type FakeFlag } from './fake-services';
 
-/** Mock services without waiting: no latency, confirmation after `confirmMs`. */
-export function fastMock(flags: MockFlag[] = [], confirmMs = 30): AppServices {
-  return createMockServices({ flags, latencyMs: 0, confirmMs, origin: 'https://ge.test' });
+/** In-memory services without waiting: no latency, confirmation after `confirmMs`. */
+export function fastMock(flags: FakeFlag[] = [], confirmMs = 30): AppServices {
+  return createFakeServices({ flags, latencyMs: 0, confirmMs, origin: 'https://ge.test' });
 }
 
 /** Amounts appear at once instead of counting up. */

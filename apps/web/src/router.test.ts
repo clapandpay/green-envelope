@@ -34,12 +34,17 @@ describe('matchRoute', () => {
 });
 
 describe('withStickyParams', () => {
-  it('carries the demo switch along and nothing else', () => {
-    expect(withStickyParams('/new', '?mock=slow&x=1')).toBe('/new?mock=slow');
-    expect(withStickyParams('/new?amount=5', '?mock=slow')).toBe('/new?amount=5&mock=slow');
-    expect(withStickyParams('/new?mock=empty', '?mock=slow')).toBe('/new?mock=empty');
+  it('carries the network along and nothing else', () => {
+    expect(withStickyParams('/new', '?net=testnet&x=1')).toBe('/new?net=testnet');
+    expect(withStickyParams('/new?amount=5', '?net=testnet')).toBe('/new?amount=5&net=testnet');
+    expect(withStickyParams('/new?net=main', '?net=testnet')).toBe('/new?net=main');
     expect(withStickyParams('/', '')).toBe('/');
-    expect(withStickyParams('/g/x#secret', '?mock=a')).toBe('/g/x?mock=a#secret');
+    // The secret lives in the fragment and must come through untouched.
+    expect(withStickyParams('/g/x#secret', '?net=testnet')).toBe('/g/x?net=testnet#secret');
+  });
+
+  it('no longer carries a demo switch, because there is no demo to switch to', () => {
+    expect(withStickyParams('/new', '?mock=slow')).toBe('/new');
   });
 });
 

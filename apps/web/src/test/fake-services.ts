@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// An in-memory AppServices for UI work, demos and tests. Deterministic: no Math.random, no
-// wall-clock decisions. Behaviour is switched with flags, in the browser through `?mock=a,b`.
-import { MAINNET, TESTNET11 } from '@ge/chia';
-import { accountFromSeed, type KeyStore, WalletError, type WalletKind } from '@ge/wallet';
+// An in-memory AppServices, for tests only. Deterministic: no Math.random, no wall-clock
+// decisions. Behaviour is switched with flags passed in code.
+//
+// This lives under test/ and nothing in the app imports it. It used to be reachable at runtime
+// through `?mock=` and a build flag, which meant the app a person was looking at might not be
+// the app at all. The app now has one set of services: the real ones.
 import type { NetworkName } from '../lib/network';
 import {
   type AppServices,
@@ -14,9 +16,9 @@ import {
   type SentEnvelope,
   ServiceError,
   type WalletInfo,
-} from './types';
+} from '../services/types';
 
-export const MOCK_FLAGS = [
+export const FAKE_FLAGS = [
   'empty', // every share of the envelope is opened
   'expired', // the sender took the envelope back
   'already', // this browser opened it before
@@ -33,10 +35,10 @@ export const MOCK_FLAGS = [
   'mainnet', // no testnet badge
   'nopasskey', // this device has no wallet and no passkey to sign in with
 ] as const;
-export type MockFlag = (typeof MOCK_FLAGS)[number];
+export type FakeFlag = (typeof FAKE_FLAGS)[number];
 
-export interface MockOptions {
-  flags?: Iterable<MockFlag>;
+export interface FakeOptions {
+  flags?: Iterable<FakeFlag>;
   /** Delay of every call. Default 400 ms (slow: 2500 ms). */
   latencyMs?: number;
   /** Time until a `confirmed` promise resolves. Default 6 s (slow: 20 s). */
@@ -45,18 +47,12 @@ export interface MockOptions {
   now?: () => number;
   /** Which chain the demo pretends to be on. Default: the `mainnet` flag, else testnet11. */
   network?: NetworkName;
-  /**
-   * A real keystore. Given one, the demo makes a real passkey and derives a real address from
-   * it: the money is invented but the way in is not. Without one it invents the wallet too,
-   * which is what tests want. `services/index.ts` passes the real keystore in a browser.
-   */
-  keyStore?: KeyStore;
 }
 
 const XCH = 1_000_000_000_000n;
 const MOCK_EUR_PER_XCH = 25;
 const WEEK_SECONDS = 7 * 24 * 60 * 60;
-const MOCK_ADDRESS = 'txch1h7kq3m0p9fj2u8s4x6w5e7r9t0y2a4c6d8g0l3n5v7z9k2m4p6q8s0sq4u';
+const FAKE_ADDRESS = 'txch1h7kq3m0p9fj2u8s4x6w5e7r9t0y2a4c6d8g0l3n5v7z9k2m4p6q8s0sq4u';
 // The demo envelope: 20 € at the mock price, five shares, two already gone. The next is 7.40 €.
 const DEMO_SHARES = [296_000_000_000n, 180_000_000_000n, 124_000_000_000n];
 const DEMO_TOTAL_SHARES = 5;
@@ -69,12 +65,6 @@ interface StoredEnvelope {
   sharesTotal: number;
   takenBack: boolean;
   sent: SentEnvelope | null;
-}
-
-/** Reads `?mock=slow,device` into flags; unknown words are ignored. */
-export function parseMockFlags(search: string): Set<MockFlag> {
-  const words = (new URLSearchParams(search).get('mock') ?? '').split(',');
-  return new Set(MOCK_FLAGS.filter((flag) => words.includes(flag)));
 }
 
 /** Small deterministic generator (mulberry32) so random splits are repeatable. */
@@ -118,38 +108,7 @@ function sum(amounts: readonly bigint[]): bigint {
 
 /** Creates the mock. All state lives in the returned object's closure. */
 
-/** Unlock what is here, else adopt the passkey from elsewhere, else make one. Real WebAuthn. */
-async function realOpen(
-  keyStore: KeyStore,
-  network: NetworkName,
-  preferDevice: boolean,
-): Promise<WalletInfo> {
-  const chain = network === 'mainnet' ? MAINNET : TESTNET11;
-  const unlock = async (): Promise<{ kind: WalletKind; seed: Uint8Array }> => {
-    if ((await keyStore.status()) !== null) return keyStore.unlock();
-    try {
-      return await keyStore.signIn();
-    } catch (error) {
-      if (!(error instanceof WalletError) || error.code !== 'no_wallet') throw error;
-      return keyStore.create(preferDevice ? { prefer: 'device' } : {});
-    }
-  };
-  const { kind, seed } = await unlock();
-  const account = accountFromSeed(seed, chain);
-  seed.fill(0);
-  return { kind, address: account.address };
-}
-
-/** A keystore failure in the demo reads the same as it would in the real app. */
-function toDemoError(error: unknown): ServiceError {
-  if (error instanceof WalletError) {
-    if (error.code === 'cancelled') return new ServiceError('wallet_cancelled');
-    if (error.code === 'no_wallet') return new ServiceError('no_wallet_here');
-  }
-  return error instanceof ServiceError ? error : new ServiceError('unknown');
-}
-
-export function createMockServices(options: MockOptions = {}): AppServices {
+export function createFakeServices(options: FakeOptions = {}): AppServices {
   const flags = new Set(options.flags ?? []);
   const slow = flags.has('slow');
   const latencyMs = options.latencyMs ?? (slow ? 2500 : 400);
@@ -187,7 +146,7 @@ export function createMockServices(options: MockOptions = {}): AppServices {
   }
 
   function newWallet(): WalletInfo {
-    return { kind: flags.has('device') ? 'device' : 'passkey', address: MOCK_ADDRESS };
+    return { kind: flags.has('device') ? 'device' : 'passkey', address: FAKE_ADDRESS };
   }
 
   function store(input: CreateEnvelopeInput): SentEnvelope {
@@ -312,21 +271,10 @@ export function createMockServices(options: MockOptions = {}): AppServices {
           return wallet;
         }),
       open: () =>
-        call(async () => {
+        call(() => {
           prompts += 1;
           if (flags.has('cancel') && prompts === 1) throw new ServiceError('wallet_cancelled');
-          const keyStore = options.keyStore;
-          if (keyStore === undefined) {
-            wallet ??= newWallet();
-            return wallet;
-          }
-          // The same three steps the real services take: what is here, what this person has
-          // elsewhere, then a new one. Only the money on the other side is invented.
-          try {
-            wallet = await realOpen(keyStore, network, flags.has('nopasskey'));
-          } catch (error) {
-            throw toDemoError(error);
-          }
+          wallet ??= newWallet();
           return wallet;
         }),
 
@@ -358,7 +306,7 @@ export function createMockServices(options: MockOptions = {}): AppServices {
           if (!/^[a-z0-9]{3,63}$/.test(handle)) throw new ServiceError('invalid_recipient');
           return {
             handle,
-            address: MOCK_ADDRESS,
+            address: FAKE_ADDRESS,
             pendingTransfer: handle === 'moving',
             // `@c1apandpay` is the demo's lookalike: one character off a handle already paid.
             imitates: handle === 'c1apandpay' ? '@clapandpay' : null,
@@ -375,7 +323,7 @@ export function createMockServices(options: MockOptions = {}): AppServices {
       canUpgradeToPasskey: () => call(() => wallet?.kind === 'device'),
       upgradeToPasskey: () =>
         call(() => {
-          wallet = { kind: 'passkey', address: MOCK_ADDRESS };
+          wallet = { kind: 'passkey', address: FAKE_ADDRESS };
           return wallet;
         }),
     },

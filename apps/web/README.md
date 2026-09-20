@@ -3,20 +3,23 @@
 The claim page and the small wallet. Preact, no router library, no state library.
 
 ```sh
-pnpm dev            # demo services, no chain, no money
-VITE_SERVICES=real pnpm dev
+pnpm dev            # the real app on testnet11
 pnpm --filter web build
 pnpm --filter web size   # the claim route must stay under 100 kB gzipped
 ```
 
-## Which services a build gets
+## There is one app
 
-**Real unless a demo is asked for.** `VITE_SERVICES=mock` picks the in-memory services;
-anything else, including nothing at all, talks to a real chain. `pnpm dev` gets the demo from
-`.env.development`, which Vite loads in dev only and never in a build.
+Real services, a real passkey and a real chain, in development and in the release alike. No
+build flag and no query parameter can put anything else in their place, so what is on screen is
+always the app.
 
-It is this way round on purpose: the opposite default meant a release could quietly ship the
-demo, with fake money and a fake balance, and nothing about the running app would say so.
+Development differs in one respect only: `.env.development` points it at testnet11, so a
+mistake while building costs nothing. Add `?net=main` when you mean mainnet.
+
+The in-memory services that used to back a demo now live in `src/test/fake-services.ts` and are
+imported by tests alone. Screen tests use them; `src/services/open.test.ts` and
+`src/services/real.test.ts` drive the real services over a fake chain instead.
 
 ## Which chain
 
@@ -35,7 +38,6 @@ only sign that a test chain is in use.
 
 | Variable | Default | |
 | --- | --- | --- |
-| `VITE_SERVICES` | real | `mock` for the demo services; anything else is real |
 | `VITE_NETWORK` | `mainnet` | `mainnet` or `testnet11`; `?net=` overrides it per link |
 | `VITE_CHAIN_ENDPOINTS` | the public Coinset URL of the network | comma-separated, tried in order |
 | `VITE_PUBLIC_ORIGIN` | the origin of the page | origin written into the links this app makes |
@@ -49,8 +51,8 @@ address works as it always does. A resolved name shows the address it pays befor
 sent, and is screened against the names this browser has paid before; see
 `apps/edge/README.md` for `POST /api/handle-check`.
 
-## Demo flags
+## Testing states
 
-`?mock=a,b` with the demo services: `empty`, `expired`, `already`, `bad`, `slow`, `offline`,
-`cancel`, `nopasskey`, `nopick`, `nohandles`, `mainnet`. The demo handles `@gone`, `@lapsed`,
-`@empty`, `@moving` and `@c1apandpay` show the states the send screen can be in.
+`src/test/fake-services.ts` takes flags in code: `empty`, `expired`, `already`, `bad`, `slow`,
+`offline`, `cancel`, `nopasskey`, `nopick`, `nohandles`, `mainnet`, and the stand-in handles
+`@gone`, `@lapsed`, `@empty`, `@moving` and `@c1apandpay`. None of it is reachable from the app.

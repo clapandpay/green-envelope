@@ -57,14 +57,21 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
     return defaultStorage;
   };
 
+  /**
+   * Whether it is worth offering a passkey here.
+   *
+   * The only clear no is a client that says it cannot evaluate PRF: a passkey there could never
+   * hold a wallet. Everything else is a yes, including a Mac with no Touch ID.
+   * `isUserVerifyingPlatformAuthenticatorAvailable` reports the built-in sensor and nothing
+   * else, so answering it with "no passkeys then" quietly hands the weaker device wallet to
+   * everyone whose passkeys live in 1Password, Apple Passwords or a security key. Offer it,
+   * and let `create()` fall back only when the authenticator really cannot do it.
+   */
   async function passkeySupported(): Promise<boolean> {
     const { credentials, publicKeyCredential: pkc } = env();
-    if (credentials === undefined || pkc === undefined) return false;
+    if (credentials === undefined) return false;
     try {
-      if ((await pkc.isUserVerifyingPlatformAuthenticatorAvailable?.()) !== true) return false;
-      const prf = (await pkc.getClientCapabilities?.())?.['extension:prf'];
-      // Unknown (older browsers) means "try and see": create() falls back if PRF is missing.
-      return prf !== false;
+      return (await pkc?.getClientCapabilities?.())?.['extension:prf'] !== false;
     } catch {
       return false;
     }
