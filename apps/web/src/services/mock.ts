@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // An in-memory AppServices for UI work, demos and tests. Deterministic: no Math.random, no
 // wall-clock decisions. Behaviour is switched with flags, in the browser through `?mock=a,b`.
+import { MAINNET, TESTNET11 } from '@ge/chia';
+import { accountFromSeed, type KeyStore, WalletError, type WalletKind } from '@ge/wallet';
 import type { NetworkName } from '../lib/network';
 import {
   type AppServices,
@@ -43,6 +45,12 @@ export interface MockOptions {
   now?: () => number;
   /** Which chain the demo pretends to be on. Default: the `mainnet` flag, else testnet11. */
   network?: NetworkName;
+  /**
+   * A real keystore. Given one, the demo makes a real passkey and derives a real address from
+   * it: the money is invented but the way in is not. Without one it invents the wallet too,
+   * which is what tests want. `services/index.ts` passes the real keystore in a browser.
+   */
+  keyStore?: KeyStore;
 }
 
 const XCH = 1_000_000_000_000n;
@@ -109,6 +117,38 @@ function sum(amounts: readonly bigint[]): bigint {
 }
 
 /** Creates the mock. All state lives in the returned object's closure. */
+
+/** Unlock what is here, else adopt the passkey from elsewhere, else make one. Real WebAuthn. */
+async function realOpen(
+  keyStore: KeyStore,
+  network: NetworkName,
+  preferDevice: boolean,
+): Promise<WalletInfo> {
+  const chain = network === 'mainnet' ? MAINNET : TESTNET11;
+  const unlock = async (): Promise<{ kind: WalletKind; seed: Uint8Array }> => {
+    if ((await keyStore.status()) !== null) return keyStore.unlock();
+    try {
+      return await keyStore.signIn();
+    } catch (error) {
+      if (!(error instanceof WalletError) || error.code !== 'no_wallet') throw error;
+      return keyStore.create(preferDevice ? { prefer: 'device' } : {});
+    }
+  };
+  const { kind, seed } = await unlock();
+  const account = accountFromSeed(seed, chain);
+  seed.fill(0);
+  return { kind, address: account.address };
+}
+
+/** A keystore failure in the demo reads the same as it would in the real app. */
+function toDemoError(error: unknown): ServiceError {
+  if (error instanceof WalletError) {
+    if (error.code === 'cancelled') return new ServiceError('wallet_cancelled');
+    if (error.code === 'no_wallet') return new ServiceError('no_wallet_here');
+  }
+  return error instanceof ServiceError ? error : new ServiceError('unknown');
+}
+
 export function createMockServices(options: MockOptions = {}): AppServices {
   const flags = new Set(options.flags ?? []);
   const slow = flags.has('slow');
@@ -129,7 +169,7 @@ export function createMockServices(options: MockOptions = {}): AppServices {
 
   const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-  async function call<T>(work: () => T): Promise<T> {
+  async function call<T>(work: () => T | PromiseLike<T>): Promise<T> {
     await wait(latencyMs);
     if (flags.has('offline')) {
       throw new ServiceError('network');
@@ -272,10 +312,21 @@ export function createMockServices(options: MockOptions = {}): AppServices {
           return wallet;
         }),
       open: () =>
-        call(() => {
+        call(async () => {
           prompts += 1;
           if (flags.has('cancel') && prompts === 1) throw new ServiceError('wallet_cancelled');
-          wallet ??= { kind: flags.has('nopasskey') ? 'device' : 'passkey', address: MOCK_ADDRESS };
+          const keyStore = options.keyStore;
+          if (keyStore === undefined) {
+            wallet ??= newWallet();
+            return wallet;
+          }
+          // The same three steps the real services take: what is here, what this person has
+          // elsewhere, then a new one. Only the money on the other side is invented.
+          try {
+            wallet = await realOpen(keyStore, network, flags.has('nopasskey'));
+          } catch (error) {
+            throw toDemoError(error);
+          }
           return wallet;
         }),
 
