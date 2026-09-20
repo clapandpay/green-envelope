@@ -71,3 +71,33 @@ describe('first run: the envelope and almost nothing else', () => {
     await waitFor(() => expect(document.querySelector('.env--sealed')).toBeTruthy());
   });
 });
+
+describe('a person who has never been here', () => {
+  it('is offered a new wallet when there is no passkey to open', async () => {
+    // `nopasskey` is a device with nothing on it. WebAuthn cannot tell that apart from a
+    // dismissed prompt, so the screen stops guessing and asks instead of looping.
+    renderScreen(<WalletScreen />, { services: fastMock(['nopasskey']) });
+
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+
+    const make = await screen.findByRole('button', { name: /start fresh/i });
+    expect(screen.getByRole('button', { name: /already have money here/i })).toBeTruthy();
+
+    fireEvent.click(make);
+    expect(await screen.findByText('Your money')).toBeTruthy();
+  });
+
+  it('never makes a wallet on its own when the prompt is only dismissed', async () => {
+    const services = fastMock(['cancel']);
+    const ensure = vi.spyOn(services.wallet, 'ensure');
+    renderScreen(<WalletScreen />, { services });
+
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+    expect(await screen.findByText(/tap again when you are ready/i)).toBeTruthy();
+
+    // The dangerous guess: a returning person whose money is in the wallet the passkey opens
+    // must never be handed a second, empty one because they hesitated.
+    expect(ensure).not.toHaveBeenCalled();
+    expect(screen.queryByText('Your money')).toBeNull();
+  });
+});

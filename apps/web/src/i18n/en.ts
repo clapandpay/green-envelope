@@ -132,6 +132,8 @@ export const en = {
     firstRunTitle: 'Tap the envelope to start',
     firstRunCue: 'Tap to open',
     firstRunOpened: 'Welcome',
+    firstRunMake: 'Start fresh',
+    firstRunRetry: 'I already have money here',
     start: 'Start here',
     starting: 'Getting ready…',
     secureTitle: 'Secure your money',

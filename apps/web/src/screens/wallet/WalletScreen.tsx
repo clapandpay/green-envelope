@@ -42,7 +42,9 @@ export function WalletScreen() {
   const { rate } = useRate();
   const [load, setLoad] = useState<Load>({ s: 'loading' });
   const [sheet, setSheet] = useState<'receive' | 'send' | null>(null);
-  const [working, setWorking] = useState<'start' | 'secure' | null>(null);
+  const [working, setWorking] = useState<'start' | 'secure' | 'make' | null>(null);
+  /** Shown once opening found nothing: the two things that could have meant. */
+  const [offering, setOffering] = useState(false);
   const [opened, setOpened] = useState(false);
   const [message, setMessage] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
   const alive = useRef(true);
@@ -88,12 +90,15 @@ export function WalletScreen() {
     return () => clearInterval(timer);
   }, [moving, settling, refresh]);
 
-  const run = async (kind: 'start' | 'secure') => {
+  const run = async (kind: 'start' | 'secure' | 'make') => {
     setWorking(kind);
     setMessage(null);
     try {
-      if (kind === 'start') {
-        await services.wallet.open();
+      if (kind === 'start' || kind === 'make') {
+        // `open` never creates, so nothing here can turn a returning person into a second,
+        // empty wallet. `ensure` is the asked-for step that makes one.
+        if (kind === 'make') await services.wallet.ensure();
+        else await services.wallet.open();
         // Let the envelope finish opening before the wallet replaces it.
         setOpened(true);
         setWorking(null);
@@ -105,6 +110,9 @@ export function WalletScreen() {
       await refresh();
     } catch (error) {
       setOpened(false);
+      // Nothing to open, or a prompt that was dismissed: WebAuthn says the same thing either
+      // way, so the screen stops guessing and asks.
+      setOffering(true);
       setMessage({ tone: 'bad', text: errorText(errorCode(error), t) });
     } finally {
       setWorking(null);
@@ -187,6 +195,27 @@ export function WalletScreen() {
           </span>
         </button>
         {notice}
+        {offering && (
+          <div class="first-run__choice">
+            <button
+              type="button"
+              class="btn btn--primary"
+              aria-busy={working === 'make'}
+              disabled={working !== null}
+              onClick={() => run('make')}
+            >
+              {t.wallet.firstRunMake}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              disabled={working !== null}
+              onClick={() => run('start')}
+            >
+              {t.wallet.firstRunRetry}
+            </button>
+          </div>
+        )}
       </div>
     );
   }

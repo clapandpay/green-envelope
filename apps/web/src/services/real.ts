@@ -314,18 +314,18 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           return info;
         }),
 
-      // One tap on the envelope: what is here, else what the person has elsewhere, else a new
-      // one. `signIn` tells "no passkey for this site" apart from "the prompt was dismissed",
-      // so a cancelled prompt never quietly makes a second wallet.
+      // One tap on the envelope: unlock what is on this device, otherwise open the wallet this
+      // person already has somewhere else.
+      //
+      // It never creates. WebAuthn answers "there is no passkey here" and "you dismissed the
+      // prompt" with the same NotAllowedError, so a keystore cannot tell a new person from a
+      // hesitant one, and guessing wrong either way is bad: guess "new" and a returning person
+      // gets a second, empty wallet while their money sits in the first; guess "hesitant" and
+      // a new person never gets a wallet at all. Making one is a separate, asked-for step.
       open: () =>
         guarded(async (): Promise<WalletInfo> => {
           if ((await keyStore.status()) !== null) return adopt(await keyStore.unlock());
-          try {
-            return adopt(await keyStore.signIn());
-          } catch (error) {
-            if (!(error instanceof WalletError) || error.code !== 'no_wallet') throw error;
-            return adopt(await keyStore.create());
-          }
+          return adopt(await keyStore.signIn());
         }),
 
       connectRequest: (search) =>

@@ -56,19 +56,26 @@ function appWith(keyStore: KeyStore): AppServices {
 }
 
 describe('one tap on the envelope', () => {
-  it('makes a passkey wallet when the device has nothing', async () => {
+  it('never makes a wallet: a device with nothing on it is reported, not filled in', async () => {
     const keyStore = stubKeyStore();
     const create = vi.spyOn(keyStore, 'create');
     const signIn = vi.spyOn(keyStore, 'signIn');
 
-    const wallet = await appWith(keyStore).wallet.open();
+    await expect(appWith(keyStore).wallet.open()).rejects.toMatchObject({
+      code: 'no_wallet_here',
+    });
 
+    expect(signIn).toHaveBeenCalledTimes(1);
+    // WebAuthn cannot tell "nothing here" from "dismissed", so creating on either answer
+    // would eventually hand a returning person a second, empty wallet.
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('makes one through ensure(), which is the step a person asks for', async () => {
+    const keyStore = stubKeyStore();
+    const wallet = await appWith(keyStore).wallet.ensure();
     expect(wallet.kind).toBe('passkey');
     expect(wallet.address.startsWith('txch1')).toBe(true);
-    // It looks for one elsewhere before making a new one, so a person with a passkey on
-    // another phone never ends up with two wallets.
-    expect(signIn).toHaveBeenCalledTimes(1);
-    expect(create).toHaveBeenCalledTimes(1);
   });
 
   it('unlocks the wallet already on this device, and makes nothing', async () => {
@@ -104,13 +111,17 @@ describe('one tap on the envelope', () => {
     await expect(appWith(keyStore).wallet.open()).rejects.toMatchObject({
       code: 'wallet_cancelled',
     });
-    // A dismissed prompt must never be read as "no passkey here" and quietly make a second one.
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('gives the same address every time for the same passkey', async () => {
-    const first = await appWith(stubKeyStore()).wallet.open();
-    const second = await appWith(stubKeyStore()).wallet.open();
-    expect(second.address).toBe(first.address);
+  it('gives the same address on any device the passkey reaches', async () => {
+    // The wallet is derived from the passkey, so signing in on a new phone lands on the same
+    // money rather than on an empty wallet that happens to share a name.
+    const elsewhere = stubKeyStore({
+      signIn: async () => ({ kind: 'passkey', seed: new Uint8Array(SEED) }),
+    });
+    const here = await appWith(stubKeyStore()).wallet.ensure();
+    const there = await appWith(elsewhere).wallet.open();
+    expect(there.address).toBe(here.address);
   });
 });

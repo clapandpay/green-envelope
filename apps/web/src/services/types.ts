@@ -121,9 +121,10 @@ export interface WalletService {
    */
   signIn(): Promise<WalletInfo>;
   /**
-   * One tap, whatever the situation: unlocks the wallet on this device, otherwise adopts the
-   * passkey wallet this person already has elsewhere, otherwise makes a new one. The only
-   * entry point the first-run screen needs.
+   * Unlocks the wallet on this device, or opens the one this person already has elsewhere with
+   * the passkey they already hold. **Never creates one**: rejects with `no_wallet_here` or
+   * `wallet_cancelled`, which a screen cannot tell apart because WebAuthn cannot either.
+   * `ensure()` is how a wallet is made, and it has to be asked for.
    */
   open(): Promise<WalletInfo>;
   /** Checks a `/connect` request (`location.search`). Rejects with `bad_request`. */

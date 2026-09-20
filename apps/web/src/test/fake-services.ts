@@ -270,10 +270,13 @@ export function createFakeServices(options: FakeOptions = {}): AppServices {
           wallet ??= newWallet();
           return wallet;
         }),
+      // Opens what exists; never makes one. `nopasskey` is a device with no passkey on it,
+      // which is what a person who has never been here looks like.
       open: () =>
         call(() => {
           prompts += 1;
           if (flags.has('cancel') && prompts === 1) throw new ServiceError('wallet_cancelled');
+          if (wallet === null && flags.has('nopasskey')) throw new ServiceError('no_wallet_here');
           wallet ??= newWallet();
           return wallet;
         }),

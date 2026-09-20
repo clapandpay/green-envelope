@@ -132,6 +132,8 @@ export const de: Dict = {
     firstRunTitle: 'Tippe den Umschlag an',
     firstRunCue: 'Zum Öffnen tippen',
     firstRunOpened: 'Willkommen',
+    firstRunMake: 'Neu anfangen',
+    firstRunRetry: 'Ich habe hier schon Geld',
     start: 'Hier anfangen',
     starting: 'Wird vorbereitet…',
     secureTitle: 'Sichere dein Geld',
