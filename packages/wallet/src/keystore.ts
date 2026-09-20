@@ -21,8 +21,14 @@ export interface UnlockedWallet {
 
 /** Creates, unlocks and forgets the one wallet of this browser profile. */
 export interface KeyStore {
-  /** What exists on this device, without prompting the user. */
-  status(): Promise<{ kind: WalletKind } | null>;
+  /**
+   * What exists on this device, without prompting the user.
+   *
+   * `restorable` is whether this wallet would come back if the record here were removed. Only
+   * a seed the passkey derives can: a device wallet's seed and an imported wallet's wrapped
+   * seed both live in this browser and nowhere else, so forgetting either loses the money.
+   */
+  status(): Promise<{ kind: WalletKind; restorable: boolean } | null>;
   /** WebAuthn with a user-verifying platform authenticator, and PRF not known to be missing. */
   passkeySupported(): Promise<boolean>;
   /** Creates a wallet and returns its 32-byte seed. Prefers passkey when `prefer` allows and it is supported. */
@@ -156,8 +162,12 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
     async status() {
       const stored = await storage().load();
       if (stored === null) return null;
-      // 'wrapped' is a storage detail: it opens with the passkey, so that is what it is.
-      return { kind: stored.kind === 'device' ? 'device' : 'passkey' };
+      // 'wrapped' is a storage detail: it opens with the passkey, so that is the kind. It is
+      // not restorable, though, because the wrapped seed is here and only here.
+      return {
+        kind: stored.kind === 'device' ? 'device' : 'passkey',
+        restorable: stored.kind === 'passkey',
+      };
     },
 
     passkeySupported,
@@ -186,7 +196,11 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
         return { kind: 'device', seed: await unlockDeviceWallet(env(), stored) };
       }
       if (stored.kind === 'wrapped') {
-        const { wrapKey } = await unlockPasskeyWallet(env(), rp, stored.credentialId);
+        const opened = await unlockPasskeyWallet(env(), rp, stored.credentialId);
+        // This wallet's seed is the wrapped one; the seed the passkey derives is not wanted
+        // here and does not get to linger on the heap.
+        opened.seed?.fill(0);
+        const { wrapKey } = opened;
         if (wrapKey === null) {
           throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
         }

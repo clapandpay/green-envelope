@@ -138,6 +138,13 @@ export const de: Dict = {
     starting: 'Wird vorbereitet…',
     secureAction: 'Jetzt sichern',
     securing: 'Wird gesichert…',
+    logOut: 'Abmelden',
+    logOutTitle: 'Abmelden?',
+    logOutSafe: 'Dein Geld bleibt, wo es ist. Komm jederzeit mit Gesicht oder Finger zurück.',
+    logOutLoses:
+      'Dieses Geld liegt nur in diesem Browser. Nach dem Abmelden ist es weg. Sichere es vorher mit Gesicht oder Finger.',
+    logOutConfirm: 'Ja, abmelden',
+    loggingOut: 'Wird abgemeldet…',
     secured: 'Erledigt. Dein Handy passt jetzt auf dein Geld auf.',
     sentTitle: 'Deine Umschläge',
     sentEmpty: 'Noch keiner. Na los, mach jemandem eine Freude.',

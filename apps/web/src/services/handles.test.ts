@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it, vi } from 'vitest';
-import { parseHandle, readHandle, resolveHandle } from './handles';
+import { handlesApiFor, parseHandle, readHandle, resolveHandle, XCHANDLES_API } from './handles';
 
 const PUZZLE_HASH = 'a'.repeat(64);
 const NOW = 1_700_000_000;
@@ -125,5 +125,36 @@ describe('resolveHandle', () => {
       code: 'invalid_recipient',
     });
     expect(fetchFn).not.toHaveBeenCalled();
+  });
+});
+
+describe('which registry a chain uses', () => {
+  it('is the XCHandles one on mainnet', () => {
+    expect(handlesApiFor('mainnet', undefined)).toBe(XCHANDLES_API);
+  });
+
+  it('is nothing on a test chain, because XCHandles does not index one', () => {
+    // Their `launcher_id` chooses between registries on one network, not between networks,
+    // and no testnet base URL is published. So the send screen says so instead of guessing.
+    expect(handlesApiFor('testnet11', undefined)).toBeNull();
+  });
+
+  it('is whatever a deployment names, on either chain', () => {
+    // The day a testnet registry exists, or somebody runs their own, it works here with no
+    // change to this file.
+    expect(handlesApiFor('testnet11', 'https://handles.test')).toBe('https://handles.test');
+    expect(handlesApiFor('mainnet', 'https://handles.test')).toBe('https://handles.test');
+    expect(handlesApiFor('testnet11', '   ')).toBeNull();
+  });
+
+  it('asks the registry it was given, not a hardcoded one', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(registryAnswer()), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    await resolveHandle('@anna', 'txch', fetchFn, NOW, 'https://handles.test/');
+    expect(String(fetchFn.mock.calls[0]?.[0])).toBe('https://handles.test/handle/anna');
   });
 });

@@ -34,9 +34,16 @@ export function parseAmount(text: string, unit: Unit, rate: Rate | null): bigint
   return cents === null || rate === null ? null : centsToMojos(cents, rate);
 }
 
-function checkFunds(total: bigint, balance: Balance | null): AmountError | null {
-  if (balance === null || total <= balance.confirmed) return null;
-  const arriving = balance.pending > 0n && total <= balance.confirmed + balance.pending;
+/**
+ * Whether the balance covers `total` **and the fee that goes with it**. The fee is paid out of
+ * the same coins, so leaving it out here let somebody send their exact balance, reach the
+ * confirm step and the passkey prompt, and only then be told there was not enough.
+ */
+function checkFunds(total: bigint, fee: bigint, balance: Balance | null): AmountError | null {
+  if (balance === null) return null;
+  const needed = total + fee;
+  if (needed <= balance.confirmed) return null;
+  const arriving = balance.pending > 0n && needed <= balance.confirmed + balance.pending;
   return arriving ? 'still_arriving' : 'insufficient_funds';
 }
 
@@ -46,12 +53,13 @@ export function checkAmount(
   unit: Unit,
   rate: Rate | null,
   balance: Balance | null,
+  fee = 0n,
 ): AmountCheck {
   if (text.trim() === '') return { total: null, error: null };
   if (unit === 'eur' && rate === null) return { total: null, error: 'no_price' };
   const total = parseAmount(text, unit, rate);
   if (total === null || total <= 0n) return { total: null, error: 'amount_invalid' };
-  return { total, error: checkFunds(total, balance) };
+  return { total, error: checkFunds(total, fee, balance) };
 }
 
 /** Checks the envelope form: the amount, the number of shares and the minimum per share. */
@@ -61,6 +69,7 @@ export function checkEnvelope(input: {
   shares: number;
   rate: Rate | null;
   balance: Balance | null;
+  fee?: bigint;
 }): AmountCheck {
   const { shares } = input;
   if (!Number.isInteger(shares) || shares < MIN_SHARES || shares > MAX_SHARES) {
@@ -71,7 +80,7 @@ export function checkEnvelope(input: {
   if (amount.total < MIN_SHARE_MOJOS * BigInt(shares)) {
     return { total: amount.total, error: 'min_per_share' };
   }
-  return { total: amount.total, error: checkFunds(amount.total, input.balance) };
+  return { total: amount.total, error: checkFunds(amount.total, input.fee ?? 0n, input.balance) };
 }
 
 /** Keeps the share count inside 1 to 100 whatever was typed or stepped. */
@@ -115,25 +124,28 @@ export interface RecipientCandidate {
  */
 export function scanRecipients(text: string): RecipientCandidate[] {
   const seen = new Set<string>();
-  const found: RecipientCandidate[] = [];
-  const add = (value: string, kind: 'handle' | 'address') => {
+  // The position is carried from the match, not looked up afterwards: a handle is stored
+  // lowercased, so `text.indexOf('@anna')` is -1 for a message that said "@Anna" and would
+  // sort it in front of everything.
+  const found: Array<RecipientCandidate & { at: number }> = [];
+  const add = (value: string, kind: 'handle' | 'address', at: number) => {
     if (seen.has(value)) return;
     seen.add(value);
-    found.push({ value, kind });
+    found.push({ value, kind, at });
   };
   for (const match of text.matchAll(ADDRESS_ANYWHERE)) {
     const value = match[1];
-    if (value !== undefined && ADDRESS_WHOLE.test(value)) add(value, 'address');
+    if (value !== undefined && ADDRESS_WHOLE.test(value)) add(value, 'address', match.index);
   }
   for (const match of text.matchAll(HANDLE_ANYWHERE)) {
     const value = match[1];
     if (value !== undefined) {
       const handle = `@${value.toLowerCase()}`;
-      if (HANDLE_WHOLE.test(handle)) add(handle, 'handle');
+      if (HANDLE_WHOLE.test(handle)) add(handle, 'handle', match.index);
     }
   }
   // Document order, so a picker lists them the way the message reads.
-  return found.sort((a, b) => text.indexOf(a.value) - text.indexOf(b.value));
+  return found.sort((a, b) => a.at - b.at).map(({ value, kind }) => ({ value, kind }));
 }
 
 /** Null for blank optional text, trimmed otherwise. */

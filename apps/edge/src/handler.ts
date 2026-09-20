@@ -5,7 +5,7 @@ import { readHandleQuestion, screenHandle } from './handle-screen';
 import { type AssetsFn, createPages } from './pages';
 import { createPriceSource, FRESH_SECONDS } from './price';
 import { pickRecipient, readRecipientQuestion } from './recipient';
-import { createRpcProxy, rpcError } from './rpc';
+import { createRpcProxy, isJsonContentType, readLimitedBody, rpcError } from './rpc';
 import { isHtml, securityHeaders, withHeaders } from './security';
 import { createShareStateLookup, type SharesFn } from './share-state';
 
@@ -39,6 +39,31 @@ function isAppRoute(path: string): boolean {
 
 function methodNotAllowed(allow: string): Response {
   return new Response(null, { status: 405, headers: { allow } });
+}
+
+/**
+ * The most a question may weigh. A pasted chat line and a dozen handles are a few hundred
+ * bytes; anything near this is not one. Both judgment routes are unauthenticated, so the body
+ * is bounded before it is buffered, the way the RPC proxy bounds its own.
+ */
+const MAX_JUDGMENT_BODY_BYTES = 16 * 1024;
+
+/** Reads and parses a judgment request's body, or the response that refuses it. */
+async function readJudgmentBody(
+  request: Request,
+): Promise<{ value: unknown; error: null } | { value: null; error: Response }> {
+  if (!isJsonContentType(request)) {
+    return { value: null, error: json({ error: 'json_required' }, 415, 'no-store') };
+  }
+  const bytes = await readLimitedBody(request, MAX_JUDGMENT_BODY_BYTES);
+  if (bytes === null) {
+    return { value: null, error: json({ error: 'body_too_large' }, 413, 'no-store') };
+  }
+  try {
+    return { value: JSON.parse(new TextDecoder().decode(bytes)), error: null };
+  } catch {
+    return { value: null, error: json({ error: 'bad_request' }, 400, 'no-store') };
+  }
 }
 
 function json(body: unknown, status: number, cacheControl: string): Response {
@@ -105,13 +130,9 @@ export function createHandler(deps: HandlerDeps): Handler {
     if (request.method !== 'POST') return methodNotAllowed('POST, OPTIONS');
     if (config.typesafeApiKey === null) return json({ value: null }, 200, 'no-store');
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return json({ error: 'bad_request' }, 400, 'no-store');
-    }
-    const asked = readRecipientQuestion(body);
+    const body = await readJudgmentBody(request);
+    if (body.error !== null) return body.error;
+    const asked = readRecipientQuestion(body.value);
     if (asked === null) return json({ error: 'bad_request' }, 400, 'no-store');
 
     const pick = await pickRecipient({ fetch: deps.fetch, apiKey: config.typesafeApiKey }, asked);
@@ -126,13 +147,9 @@ export function createHandler(deps: HandlerDeps): Handler {
     if (request.method !== 'POST') return methodNotAllowed('POST, OPTIONS');
     if (config.typesafeApiKey === null) return json({ imitates: null }, 200, 'no-store');
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return json({ error: 'bad_request' }, 400, 'no-store');
-    }
-    const asked = readHandleQuestion(body);
+    const body = await readJudgmentBody(request);
+    if (body.error !== null) return body.error;
+    const asked = readHandleQuestion(body.value);
     if (asked === null) return json({ error: 'bad_request' }, 400, 'no-store');
 
     const verdict = await screenHandle({ fetch: deps.fetch, apiKey: config.typesafeApiKey }, asked);

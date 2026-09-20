@@ -30,7 +30,8 @@ export function rpcError(status: number, error: string): Response {
   return new Response(JSON.stringify({ success: false, error }), { status, headers: JSON_HEADERS });
 }
 
-function isJsonContentType(request: Request): boolean {
+/** True when the request declares a JSON body. */
+export function isJsonContentType(request: Request): boolean {
   const type = request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
   return type === 'application/json';
 }

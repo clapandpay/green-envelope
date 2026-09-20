@@ -138,6 +138,13 @@ export const en = {
     starting: 'Getting ready…',
     secureAction: 'Secure now',
     securing: 'Securing…',
+    logOut: 'Log out',
+    logOutTitle: 'Log out?',
+    logOutSafe: 'Your money stays where it is. Come back any time with your face or finger.',
+    logOutLoses:
+      'This money lives only in this browser. Log out and it is gone for good. Lock it with your face or finger first.',
+    logOutConfirm: 'Yes, log out',
+    loggingOut: 'Logging out…',
     secured: 'Done. Your money is now protected by your phone.',
     sentTitle: 'Your envelopes',
     sentEmpty: 'None yet. Go on, make someone happy.',

@@ -24,7 +24,7 @@ function keyStoreFor(name: string): KeyStore {
   let exists = false;
   const unlockedWallet = () => ({ kind: 'device' as const, seed: sha256(text(`seed of ${name}`)) });
   return {
-    status: async () => (exists ? { kind: 'device' } : null),
+    status: async () => (exists ? { kind: 'device' as const, restorable: false } : null),
     passkeySupported: async () => false,
     create: async () => {
       exists = true;

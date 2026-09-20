@@ -17,8 +17,15 @@ export interface SentRecord {
 
 /** The remembered state, behind functions so it can be faked. */
 export interface LocalState {
-  wallet(): WalletInfo | null;
-  setWallet(info: WalletInfo): void;
+  /**
+   * The wallet remembered for `network`. A record made on another chain is not returned: an
+   * address carries its chain in its prefix, and handing a `txch1…` to somebody on mainnet
+   * gives them an address nobody can pay.
+   */
+  wallet(network: string): WalletInfo | null;
+  setWallet(network: string, info: WalletInfo): void;
+  /** Forgets the remembered wallet, whatever chain it was for. */
+  clearWallet(): void;
   /** What this browser got out of envelope `id`, or null. */
   openedAmount(id: string): bigint | null;
   setOpened(id: string, amount: bigint): void;
@@ -74,8 +81,15 @@ export function createLocalState(storage: StringStorage): LocalState {
   const opened = () => read<Record<string, string>>(KEY.opened, {});
 
   return {
-    wallet: () => read<WalletInfo | null>(KEY.wallet, null),
-    setWallet: (info) => write(KEY.wallet, info),
+    wallet: (network) => {
+      const stored = read<(WalletInfo & { network?: string }) | null>(KEY.wallet, null);
+      if (stored === null) return null;
+      // A record written before this field existed, or on another chain: not this one's.
+      if (stored.network !== network) return null;
+      return { kind: stored.kind, address: stored.address };
+    },
+    setWallet: (network, info) => write(KEY.wallet, { ...info, network }),
+    clearWallet: () => write(KEY.wallet, null),
 
     openedAmount(id) {
       const amount = opened()[id];

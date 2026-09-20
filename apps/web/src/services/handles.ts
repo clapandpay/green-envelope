@@ -7,9 +7,11 @@
 // nobody owns it, it lapsed, it owns no NFT to pay, the registry is down. Each gets its own code,
 // because "check the spelling" is wrong advice for three of the four.
 import { type Bytes, encodeAddress, fromHex } from '@ge/chia';
+import type { NetworkName } from '../lib/network';
 import { ServiceError } from './types';
 
-const API = 'https://api.xchandles.com';
+/** The registry XCHandles runs. It indexes mainnet; there is no testnet deployment of it. */
+export const XCHANDLES_API = 'https://api.xchandles.com';
 const BARE_HANDLE = /^[a-z0-9]{3,63}$/;
 const PUZZLE_HASH = /^[0-9a-f]{64}$/;
 const TIMEOUT_MS = 8000;
@@ -85,13 +87,14 @@ export async function resolveHandle(
   prefix: string,
   fetchFn: typeof fetch,
   nowSeconds: number,
+  api: string = XCHANDLES_API,
 ): Promise<ResolvedHandle> {
   const handle = parseHandle(input);
   if (handle === null) throw new ServiceError('invalid_recipient');
 
   let response: Response;
   try {
-    response = await fetchFn(`${API}/handle/${handle}`, {
+    response = await fetchFn(`${api.replace(/\/+$/, '')}/handle/${handle}`, {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
@@ -105,4 +108,22 @@ export async function resolveHandle(
 
   const data = (await response.json().catch(() => null)) as HandleResponse | null;
   return readHandle(handle, data, prefix, nowSeconds);
+}
+
+/**
+ * Where `@names` are resolved on a given chain, or null when none are.
+ *
+ * XCHandles indexes mainnet and publishes no testnet deployment: its `launcher_id` parameter
+ * chooses between registries on one network, not between networks, and its CLI's `--testnet11`
+ * flag switches consensus constants rather than the API it talks to. So a test chain has no
+ * registry, and a handle typed there is answered with "@names only work on the real network"
+ * instead of a complaint about spelling.
+ *
+ * `VITE_HANDLES_API` names one anyway — a registry run privately, or the day XCHandles deploys
+ * one — and handles begin working on that chain with no change here.
+ */
+export function handlesApiFor(network: NetworkName, configured: string | undefined): string | null {
+  const named = (configured ?? '').trim();
+  if (named !== '') return named;
+  return network === 'mainnet' ? XCHANDLES_API : null;
 }

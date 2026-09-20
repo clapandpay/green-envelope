@@ -39,8 +39,8 @@ import {
   WalletError,
   type WalletKind,
 } from '@ge/wallet';
-import { type NetworkName, resolveNetwork, withNetwork } from '../lib/network';
-import { resolveHandle } from './handles';
+import { builtNetwork, type NetworkName, resolveNetwork, withNetwork } from '../lib/network';
+import { handlesApiFor, parseHandle, resolveHandle } from './handles';
 import { createLocalState, type LocalState, type SentRecord } from './local-state';
 import {
   type AppServices,
@@ -66,6 +66,8 @@ export interface RealDeps {
   now: () => number;
   /** Network fee per transaction in mojos; a share pays its own. */
   fee: bigint;
+  /** Where `@names` are resolved, or null when no registry indexes this chain. */
+  handlesApi?: string | null;
   expirySeconds: number;
   /** How confirmations are polled; tests make it instant. */
   waiting?: Waiting;
@@ -171,6 +173,7 @@ async function readConnectRequest(search: string) {
 /** Builds the services from their dependencies. */
 export function createServicesFrom(deps: RealDeps): AppServices {
   const { network, chain, keyStore, state, fee } = deps;
+  const handlesApi = deps.handlesApi ?? null;
   let account: Account | null = null;
   /** Accepted by the network, not confirmed yet: positive is on its way in. */
   let pending = 0n;
@@ -191,7 +194,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     account = accountFromSeed(unlockedWallet.seed, network);
     unlockedWallet.seed.fill(0);
     const info: WalletInfo = { kind: unlockedWallet.kind, address: account.address };
-    state.setWallet(info);
+    state.setWallet(network.name, info);
     return info;
   }
 
@@ -201,7 +204,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     const { kind, seed } = existing === null ? await keyStore.create() : await keyStore.unlock();
     account = accountFromSeed(seed, network);
     seed.fill(0);
-    state.setWallet({ kind, address: account.address });
+    state.setWallet(network.name, { kind, address: account.address });
     return account;
   }
 
@@ -213,12 +216,20 @@ export function createServicesFrom(deps: RealDeps): AppServices {
   async function recipient(to: string): Promise<Bytes> {
     const text = to.trim();
     if (text.startsWith('@')) {
-      // The registry exists on mainnet only; on a test chain say so rather than blaming
-      // the spelling.
-      if (network.name !== 'mainnet') throw new ServiceError('handles_mainnet_only');
-      const resolved = await resolveHandle(text, network.addressPrefix, deps.fetch, deps.now());
-      // Only a handle that money actually went to counts as one this person trusts.
-      state.rememberPaidHandle(resolved.handle);
+      // No registry indexes this chain; say that rather than blaming the spelling.
+      if (handlesApi === null) throw new ServiceError('handles_mainnet_only');
+      const resolved = await resolveHandle(
+        text,
+        network.addressPrefix,
+        deps.fetch,
+        deps.now(),
+        handlesApi,
+      );
+      // Deliberately not remembered here. This runs at the start of `send`, before a coin is
+      // chosen or a bundle pushed, so recording it here would mark a name as trusted merely
+      // for having been typed — including the lookalike a person saw the warning about and
+      // backed out of, which would then never be warned about again. `send` remembers it
+      // after the push.
       return resolved.puzzleHash;
     }
     try {
@@ -294,17 +305,17 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     network: network.name,
 
     wallet: {
-      current: async () => state.wallet(),
+      current: async () => state.wallet(network.name),
 
       ensure: () =>
         guarded(async (): Promise<WalletInfo> => {
           const owner = await unlocked();
-          return state.wallet() ?? { kind: 'device', address: owner.address };
+          return state.wallet(network.name) ?? { kind: 'device', address: owner.address };
         }),
 
       balance: () =>
         guarded(async (): Promise<Balance> => {
-          const info = state.wallet();
+          const info = state.wallet(network.name);
           if (info === null) return { confirmed: 0n, pending: 0n };
           // The address is public: reading the balance never needs the key or a prompt.
           const { puzzleHash } = decodeAddress(info.address);
@@ -328,6 +339,10 @@ export function createServicesFrom(deps: RealDeps): AppServices {
             network,
           });
           await chain.pushTx(bundle);
+          // Accepted by the network: this is the first moment the name has been paid, and the
+          // only one that should make it a name this person trusts.
+          const handle = parseHandle(to);
+          if (to.trim().startsWith('@') && handle !== null) state.rememberPaidHandle(handle);
           const output: Coin = { parentCoinInfo: coinId(first), puzzleHash: toPuzzleHash, amount };
           return { confirmed: track(-(amount + fee), landed(first, output)) };
         }),
@@ -358,7 +373,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           const owner = accountFromSeed(seed, network);
           const master = masterSecretKey(seed);
           seed.fill(0);
-          state.setWallet({ kind, address: owner.address });
+          state.setWallet(network.name, { kind, address: owner.address });
           try {
             return await sealHandoffResponse(request, {
               v: 1,
@@ -373,12 +388,13 @@ export function createServicesFrom(deps: RealDeps): AppServices {
 
       lookupHandle: (input) =>
         guarded(async (): Promise<HandleLookup> => {
-          if (network.name !== 'mainnet') throw new ServiceError('handles_mainnet_only');
+          if (handlesApi === null) throw new ServiceError('handles_mainnet_only');
           const resolved = await resolveHandle(
             input,
             network.addressPrefix,
             deps.fetch,
             deps.now(),
+            handlesApi,
           );
           // Resolution is the answer; the screen is an extra sentence on top of it, so a
           // failure there must not fail the lookup.
@@ -415,6 +431,17 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       // same wallet, the same address and the same money, with a face or finger in front of
       // it: the seed is kept wrapped by a key only the passkey can derive. Nothing moves, so
       // there is no transaction here and nothing to lose in the middle.
+      canRestoreElsewhere: () =>
+        guarded(async () => (await keyStore.status())?.restorable === true),
+
+      forget: () =>
+        guarded(async () => {
+          await keyStore.forget();
+          state.clearWallet();
+          // The unlocked key is gone with the record; nothing may keep signing with it.
+          account = null;
+        }),
+
       canUpgradeToPasskey: () =>
         guarded(async () => {
           const stored = await keyStore.status();
@@ -523,7 +550,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       takeBack: (id) =>
         guarded(async () => {
           const record = state.sent().find((entry) => entry.id === id);
-          const info = state.wallet();
+          const info = state.wallet(network.name);
           if (record === undefined || info === null) throw new ServiceError('unknown');
           // The envelope's own secret signs; the wallet key is not needed, so no prompt.
           const link = decodeLink(record.link);
@@ -575,10 +602,18 @@ export function createRealServices(): AppServices {
     resolveNetwork(location.search, env.VITE_NETWORK) === 'testnet11' ? TESTNET11 : MAINNET;
   const direct =
     network.name === 'mainnet' ? 'https://api.coinset.org' : 'https://testnet11.api.coinset.org';
-  const configured = String(env.VITE_CHAIN_ENDPOINTS ?? '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== '');
+  // Configured endpoints belong to the chain the build was made for. When a link has moved the
+  // app to another one, they are the wrong nodes: bundles signed against one genesis challenge
+  // would be pushed to the other, and balances read from a chain the money is not on. Only the
+  // build's own network keeps them.
+  const built = builtNetwork(env.VITE_NETWORK);
+  const configured =
+    network.name === built
+      ? String(env.VITE_CHAIN_ENDPOINTS ?? '')
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter((entry) => entry !== '')
+      : [];
   return createServicesFrom({
     network,
     chain: createChainClient({ endpoints: configured.length > 0 ? configured : [direct] }),
@@ -588,6 +623,7 @@ export function createRealServices(): AppServices {
     fetch: (input, init) => fetch(input, init),
     now: () => Math.floor(Date.now() / 1000),
     fee: feeFromEnv(env.VITE_FEE_MOJOS, network.name),
+    handlesApi: handlesApiFor(network.name, env.VITE_HANDLES_API),
     expirySeconds: WEEK,
   });
 }

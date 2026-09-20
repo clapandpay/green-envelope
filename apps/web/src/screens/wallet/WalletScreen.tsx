@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
 import { Envelope, type EnvelopeState } from '../../components/Envelope';
 import { DownIcon, PlusIcon, UpIcon } from '../../components/icons';
+import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
 import { errorCode, errorText } from '../../lib/errors';
 import { formatMoney } from '../../lib/money';
@@ -32,6 +33,8 @@ interface WalletData {
   balance: Balance | null;
   sent: SentEnvelope[];
   canSecure: boolean;
+  /** False when logging out would take the money with it. */
+  restorable: boolean;
 }
 
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | ({ s: 'ready' } & WalletData);
@@ -41,8 +44,8 @@ export function WalletScreen() {
   const services = useServices();
   const { rate } = useRate();
   const [load, setLoad] = useState<Load>({ s: 'loading' });
-  const [sheet, setSheet] = useState<'receive' | 'send' | null>(null);
-  const [working, setWorking] = useState<'start' | 'secure' | 'make' | null>(null);
+  const [sheet, setSheet] = useState<'receive' | 'send' | 'out' | null>(null);
+  const [working, setWorking] = useState<'start' | 'secure' | 'make' | 'out' | null>(null);
   /** Shown once opening found nothing: the two things that could have meant. */
   const [offering, setOffering] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -57,8 +60,15 @@ export function WalletScreen() {
             services.wallet.balance(),
             services.envelopes.listSent(),
             services.wallet.canUpgradeToPasskey(),
-          ]).then(([balance, sent, canSecure]) => ({ wallet, balance, sent, canSecure }))
-        : { wallet: null, balance: null, sent: [], canSecure: false };
+            services.wallet.canRestoreElsewhere(),
+          ]).then(([balance, sent, canSecure, restorable]) => ({
+            wallet,
+            balance,
+            sent,
+            canSecure,
+            restorable,
+          }))
+        : { wallet: null, balance: null, sent: [], canSecure: false, restorable: false };
       if (alive.current) setLoad({ s: 'ready', ...data });
     } catch (error) {
       // Keep what is on screen when a background refresh fails.
@@ -90,7 +100,7 @@ export function WalletScreen() {
     return () => clearInterval(timer);
   }, [moving, settling, refresh]);
 
-  const run = async (kind: 'start' | 'secure' | 'make') => {
+  const run = async (kind: 'start' | 'secure' | 'make' | 'out') => {
     setWorking(kind);
     setMessage(null);
     try {
@@ -99,10 +109,16 @@ export function WalletScreen() {
         // empty wallet. `ensure` is the asked-for step that makes one.
         if (kind === 'make') await services.wallet.ensure();
         else await services.wallet.open();
-        // Let the envelope finish opening before the wallet replaces it.
+        // Let the envelope finish opening before the wallet replaces it. `working` stays set
+        // through the hold: clearing it here re-enables the envelope for a second and a half
+        // while the screen still shows it, and a second tap would ask for a face again
+        // straight after a successful one.
         setOpened(true);
-        setWorking(null);
         await pause(prefersReducedMotion() ? 0 : OPEN_HOLD_MS);
+      } else if (kind === 'out') {
+        await services.wallet.forget();
+        setSheet(null);
+        setOpened(false);
       } else {
         await services.wallet.upgradeToPasskey();
         setMessage({ tone: 'good', text: t.wallet.secured });
@@ -280,6 +296,49 @@ export function WalletScreen() {
         </h2>
         <SentList envelopes={load.sent} rate={rate} onChanged={refresh} />
       </section>
+
+      <button type="button" class="btn btn--plain wallet__out" onClick={() => setSheet('out')}>
+        {t.wallet.logOut}
+      </button>
+
+      {sheet === 'out' && (
+        <Sheet open title={t.wallet.logOutTitle} onClose={() => setSheet(null)}>
+          <div class="stack">
+            {/* What logging out costs is not the same for everyone, so neither is the warning. */}
+            <p
+              class={load.restorable ? 'soft' : 'notice'}
+              role={load.restorable ? undefined : 'alert'}
+            >
+              {load.restorable ? t.wallet.logOutSafe : t.wallet.logOutLoses}
+            </p>
+            {!load.restorable && load.canSecure && (
+              <button
+                type="button"
+                class="btn btn--primary"
+                disabled={working !== null}
+                onClick={() => {
+                  setSheet(null);
+                  run('secure');
+                }}
+              >
+                {t.wallet.secureAction}
+              </button>
+            )}
+            <button
+              type="button"
+              class="btn"
+              aria-busy={working === 'out'}
+              disabled={working !== null}
+              onClick={() => run('out')}
+            >
+              {working === 'out' ? t.wallet.loggingOut : t.wallet.logOutConfirm}
+            </button>
+            <button type="button" class="btn btn--plain" onClick={() => setSheet(null)}>
+              {t.common.cancel}
+            </button>
+          </div>
+        </Sheet>
+      )}
 
       {sheet === 'receive' && (
         <ReceiveSheet address={load.wallet.address} onClose={() => setSheet(null)} />

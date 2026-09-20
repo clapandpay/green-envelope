@@ -153,10 +153,16 @@ export function readRecipientQuestion(body: unknown): RecipientQuestion | null {
   if (typeof text !== 'string' || text === '') return null;
   if (!Array.isArray(candidates)) return null;
 
+  // Compared without case: a handle is sent lowercased, and the text it came from may have
+  // said "@Anna". An exact comparison refused those outright, so every paste containing a
+  // capitalised name lost its suggestion.
+  const haystack = text.toLowerCase();
   const clean: string[] = [];
   for (const candidate of candidates) {
     if (!isRecipientShape(candidate)) return null;
-    if (!text.includes(candidate)) return null; // it must actually be in the text it came from
+    // It must really be in the text it claims to come from, or this route would forward
+    // arbitrary strings of someone else's choosing.
+    if (!haystack.includes(candidate.toLowerCase())) return null;
     if (!clean.includes(candidate)) clean.push(candidate);
   }
   if (clean.length < 2 || clean.length > MAX_CANDIDATES) return null;

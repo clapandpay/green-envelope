@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Send: who and how much, then one look at the whole recipient before it goes.
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
 import { AmountField, type AmountValue } from '../../components/AmountField';
 import { TickIcon } from '../../components/icons';
@@ -79,6 +79,8 @@ export function SendSheet(props: {
   const [choices, setChoices] = useState<RecipientCandidate[]>([]);
   const [picking, setPicking] = useState(false);
   const [lookup, setLookup] = useState<Lookup>({ s: 'idle' });
+  /** Counts pastes, so a slow answer to an old one is dropped. */
+  const pasteRef = useRef(0);
 
   const recipient = to.trim();
   const kind = recipientKind(recipient);
@@ -142,19 +144,27 @@ export function SendSheet(props: {
       return;
     }
 
-    setTo(found[0]?.value ?? '');
+    const first = found[0]?.value ?? '';
+    setTo(first);
     setChoices(found);
     setPicking(true);
+    // The answer arrives after the picker is already on screen and tappable. If the person has
+    // chosen by then — or pasted again — their choice stands: a suggestion that quietly
+    // replaces a recipient somebody just picked is the one thing this must never do.
+    const ticket = ++pasteRef.current;
     services.wallet
       .pickRecipient(
         pasted,
         found.map((candidate) => candidate.value),
       )
       .then((pick) => {
-        if (pick?.value != null) setTo(pick.value);
+        if (ticket !== pasteRef.current) return;
+        setTo((current) => (current === first && pick?.value != null ? pick.value : current));
       })
       .catch(() => {})
-      .finally(() => setPicking(false));
+      .finally(() => {
+        if (ticket === pasteRef.current) setPicking(false);
+      });
   };
 
   const send = async () => {

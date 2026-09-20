@@ -144,7 +144,7 @@ describe('passkey wallet', () => {
     await store.create();
     auth.behaviour.failGet = 'NotAllowedError';
     expect((await errorOf(store.unlock())).code).toBe('cancelled');
-    expect(await store.status()).toEqual({ kind: 'passkey' });
+    expect(await store.status()).toEqual({ kind: 'passkey', restorable: true });
   });
 
   it('reports unsupported when the passkey exists but PRF does not answer on unlock', async () => {
@@ -167,7 +167,7 @@ describe('fallback to a device wallet', () => {
     const created = await store.create({ prefer: 'passkey' });
     expect(created.kind).toBe('device');
     expect(auth.calls.get).toHaveLength(gets);
-    expect(await store.status()).toEqual({ kind: 'device' });
+    expect(await store.status()).toEqual({ kind: 'device', restorable: false });
     expect(hexOf((await store.unlock()).seed)).toBe(hexOf(created.seed));
   });
 
@@ -250,7 +250,7 @@ describe('device wallet on IndexedDB', () => {
 
     // A second keystore over the same database is "the next page load".
     const again = createKeyStore({ env });
-    expect(await again.status()).toEqual({ kind: 'device' });
+    expect(await again.status()).toEqual({ kind: 'device', restorable: false });
     expect(hexOf((await again.unlock()).seed)).toBe(hexOf(created.seed));
     expect(hexOf((await again.unlock()).seed)).toBe(hexOf(created.seed));
   });
@@ -301,8 +301,8 @@ describe('status, forget, create twice', () => {
     expect(await store.status()).toBeNull();
     await store.create();
     const prompts = auth.calls.create.length + auth.calls.get.length;
-    expect(await store.status()).toEqual({ kind: 'passkey' });
-    expect(await createKeyStore({ env }).status()).toEqual({ kind: 'passkey' });
+    expect(await store.status()).toEqual({ kind: 'passkey', restorable: true });
+    expect(await createKeyStore({ env }).status()).toEqual({ kind: 'passkey', restorable: true });
     expect(auth.calls.create.length + auth.calls.get.length).toBe(prompts);
 
     await store.forget();
@@ -360,7 +360,7 @@ describe('signIn: a wallet made somewhere else', () => {
     expect(phone.calls.get.at(-1)?.publicKey?.allowCredentials).toEqual([]);
 
     // Remembered: from now on it is an ordinary unlock of that passkey.
-    expect(await safari.status()).toEqual({ kind: 'passkey' });
+    expect(await safari.status()).toEqual({ kind: 'passkey', restorable: true });
     expect(hex((await safari.unlock()).seed)).toBe(seed);
     expect(phone.calls.get.at(-1)?.publicKey?.allowCredentials).toHaveLength(1);
   });
@@ -431,7 +431,7 @@ describe('a wallet brought from somewhere else, kept behind a passkey', () => {
     const { store: keyStore } = store(auth);
 
     await keyStore.importWallet(IMPORTED);
-    expect(await keyStore.status()).toEqual({ kind: 'passkey' });
+    expect(await keyStore.status()).toEqual({ kind: 'passkey', restorable: false });
 
     const opened = await keyStore.unlock();
     expect(opened.kind).toBe('passkey');
@@ -546,7 +546,7 @@ describe('putting a device wallet behind a passkey', () => {
     const store = createKeyStore({ env: fakeEnv(auth), storage, rpName: 'Clap' });
     await store.secureWithPasskey();
 
-    expect(await store.status()).toEqual({ kind: 'passkey' });
+    expect(await store.status()).toEqual({ kind: 'passkey', restorable: false });
     expect(hexOf((await store.unlock()).seed)).toBe(hexOf(before.seed));
   });
 

@@ -140,6 +140,14 @@ export interface WalletService {
    * has paid before. Rejects with the `handle_*` code that says what is actually wrong.
    */
   lookupHandle(input: string): Promise<HandleLookup>;
+  /**
+   * Whether this wallet would come back after `forget()`. True only when the passkey derives
+   * the seed; a browser-only wallet and one brought from elsewhere are both kept here and
+   * nowhere else, so forgetting them loses the money.
+   */
+  canRestoreElsewhere(): Promise<boolean>;
+  /** Forgets the wallet on this device. Ask first: see `canRestoreElsewhere`. */
+  forget(): Promise<void>;
   canUpgradeToPasskey(): Promise<boolean>;
   upgradeToPasskey(): Promise<WalletInfo>;
 }

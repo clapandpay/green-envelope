@@ -289,3 +289,11 @@
 .wallet__secure {
   width: 100%;
 }
+
+/* Log out: present, but never competing with the things a person came here to do. */
+.wallet__out {
+  align-self: center;
+  margin-top: var(--gap-m);
+  color: var(--ink-soft);
+  font-size: var(--text-s);
+}

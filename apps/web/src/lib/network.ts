@@ -41,3 +41,9 @@ export function withNetwork(link: string, network: NetworkName): string {
   url.searchParams.set('net', network === 'testnet11' ? 'testnet' : network);
   return url.toString();
 }
+
+/** The network a build was made for, ignoring the link. Mainnet unless it says otherwise. Pure. */
+export function builtNetwork(built: string | undefined): NetworkName {
+  if (built === undefined) return 'mainnet';
+  return ALIASES[built.trim().toLowerCase()] ?? 'mainnet';
+}

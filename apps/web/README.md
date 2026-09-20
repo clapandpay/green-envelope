@@ -42,6 +42,7 @@ only sign that a test chain is in use.
 | `VITE_CHAIN_ENDPOINTS` | the public Coinset URL of the network | comma-separated, tried in order |
 | `VITE_PUBLIC_ORIGIN` | the origin of the page | origin written into the links this app makes |
 | `VITE_FEE_MOJOS` | `1000000` on mainnet, `0` on testnet11 | fee added to each transaction, in mojos |
+| `VITE_HANDLES_API` | XCHandles on mainnet, none on testnet11 | handle registry base URL |
 
 ## The fee
 
@@ -98,9 +99,15 @@ not reappear elsewhere when the passkey syncs.
 
 ## @names
 
-`@anna` is resolved through XCHandles, which **exists on mainnet only** — there is no testnet
-deployment. On a test chain the send screen says so rather than blaming the spelling, and an
-address works as it always does. A resolved name shows the address it pays before anything is
+`@anna` is resolved through a handle registry. XCHandles indexes **mainnet only**: its
+`launcher_id` parameter chooses between registries on one network rather than between networks,
+and its CLI's `--testnet11` flag switches consensus constants, not the API it talks to. So a
+test chain has no registry, the send screen says that instead of blaming the spelling, and an
+address works as it always does.
+
+Nothing about that is hardcoded to mainnet any more. `VITE_HANDLES_API` names a registry for
+whichever chain the app is on — one run privately, or the day XCHandles publishes a testnet
+deployment — and `@names` start working there with no change to the code. A resolved name shows the address it pays before anything is
 sent, and is screened against the names this browser has paid before; see
 `apps/edge/README.md` for `POST /api/handle-check`.
 

@@ -80,7 +80,9 @@ describe('one tap on the envelope', () => {
   });
 
   it('unlocks the wallet already on this device, and makes nothing', async () => {
-    const keyStore = stubKeyStore({ status: async () => ({ kind: 'passkey' }) });
+    const keyStore = stubKeyStore({
+      status: async () => ({ kind: 'passkey' as const, restorable: true }),
+    });
     const unlock = vi.spyOn(keyStore, 'unlock');
     const create = vi.spyOn(keyStore, 'create');
     const signIn = vi.spyOn(keyStore, 'signIn');

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/preact';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WalletInfo } from '../../services/types';
 import { fastMock, renderScreen, stillMotion } from '../../test/render';
@@ -121,5 +121,43 @@ describe('securing a browser-only wallet with a passkey', () => {
     // Accepted in the password manager, so it is done, and the offer is gone for good.
     await waitFor(() => expect(screen.queryByRole('button', { name: /secure now/i })).toBeNull());
     expect(await screen.findByText(/your money is now protected/i)).toBeTruthy();
+  });
+});
+
+describe('logging out', () => {
+  async function intoWallet(flags: Parameters<typeof fastMock>[0] = []) {
+    const services = fastMock(flags);
+    renderScreen(<WalletScreen />, { services });
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+    await screen.findByText('Your money');
+    return services;
+  }
+
+  it('is there once there is money to log out of, and takes you back to the envelope', async () => {
+    const services = await intoWallet();
+    const forget = vi.spyOn(services.wallet, 'forget');
+
+    fireEvent.click(screen.getByRole('button', { name: /^log out$/i }));
+    // A passkey wallet comes back, so this is a door, not a cliff.
+    expect(await screen.findByText(/come back any time/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /yes, log out/i }));
+    await waitFor(() => expect(forget).toHaveBeenCalledTimes(1));
+    // Back to the first screen, which is the envelope.
+    expect(await screen.findByRole('button', { name: /tap the envelope/i })).toBeTruthy();
+  });
+
+  it('says the money is lost when the browser is the only place it lives', async () => {
+    // A device wallet has no passkey behind it: forgetting it is forgetting the money.
+    await intoWallet(['device']);
+
+    fireEvent.click(screen.getByRole('button', { name: /^log out$/i }));
+
+    expect(await screen.findByText(/gone for good/i)).toBeTruthy();
+    expect(screen.queryByText(/come back any time/i)).toBeNull();
+    // And the safer way out is offered inside the sheet, before the way that loses it.
+    const sheet = screen.getByRole('dialog');
+    expect(within(sheet).getByRole('button', { name: /secure now/i })).toBeTruthy();
+    expect(within(sheet).getByRole('button', { name: /yes, log out/i })).toBeTruthy();
   });
 });

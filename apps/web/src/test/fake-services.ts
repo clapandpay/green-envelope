@@ -315,6 +315,15 @@ export function createFakeServices(options: FakeOptions = {}): AppServices {
           return { value: candidates[candidates.length - 1] ?? null, confidence: 0.92 };
         }),
 
+      // A device wallet is kept by the browser alone, so it would not come back.
+      canRestoreElsewhere: () => call(() => wallet !== null && wallet.kind === 'passkey'),
+      forget: () =>
+        call(() => {
+          wallet = null;
+          confirmed = 0n;
+          pending = 0n;
+        }),
+
       canUpgradeToPasskey: () => call(() => wallet?.kind === 'device'),
       upgradeToPasskey: () =>
         call(() => {
