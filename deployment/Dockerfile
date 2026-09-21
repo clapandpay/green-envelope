@@ -13,8 +13,10 @@
 
 # ---------------------------------------------------------------------------------------------
 # Build: the web bundle. Nothing from this stage reaches the runtime except apps/web/dist.
+# The bundle is the same for every platform, so in a multi-platform build this stage runs once,
+# natively on the builder, rather than once per platform under emulation.
 # ---------------------------------------------------------------------------------------------
-FROM node:24-slim AS build
+FROM --platform=$BUILDPLATFORM node:24-slim AS build
 WORKDIR /app
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
