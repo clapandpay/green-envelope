@@ -11,6 +11,10 @@ interface ImportMetaEnv {
   readonly VITE_FEE_MOJOS?: string;
   /** Handle registry base URL. Default: XCHandles on mainnet, none on a test chain. */
   readonly VITE_HANDLES_API?: string;
+  /** Set by vite.config.ts: the release number, from green-envelope/package.json. */
+  readonly APP_VERSION?: string;
+  /** Set by vite.config.ts: the short commit the bundle was built from. */
+  readonly APP_COMMIT?: string;
 }
 
 interface ImportMeta {

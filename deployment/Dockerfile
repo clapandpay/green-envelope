@@ -38,7 +38,10 @@ COPY . .
 # Which chain this image is for. Mainnet unless the build says otherwise; a person can still
 # open a single link on the other chain with `?net=`, which is what testnet links carry.
 ARG VITE_NETWORK=mainnet
-RUN VITE_NETWORK="$VITE_NETWORK" pnpm --filter web build
+# The commit the footer names next to the release number. The context has no .git, so the
+# release workflow passes it in.
+ARG GIT_COMMIT=unknown
+RUN VITE_NETWORK="$VITE_NETWORK" GIT_COMMIT="$GIT_COMMIT" pnpm --filter web build
 
 # ---------------------------------------------------------------------------------------------
 # Runtime: sources and production dependencies only. apps/edge and @ge/chia ship as TypeScript —

@@ -482,6 +482,12 @@ textarea.input {
   border: 0;
 }
 
+.footer__version {
+  flex-basis: 100%;
+  color: var(--ink-soft);
+  font-family: var(--font-num);
+}
+
 .lang {
   min-width: var(--touch);
   min-height: var(--touch);
