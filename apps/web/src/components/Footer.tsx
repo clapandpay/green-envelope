@@ -3,6 +3,10 @@ import { useState } from 'preact/hooks';
 import { LANGS, useI18n } from '../i18n';
 import { Sheet } from './Sheet';
 
+// `v0.1.0 · 3e7d6fc`. Empty outside a Vite build (the tests), where there is no release to name.
+const { APP_VERSION, APP_COMMIT } = import.meta.env;
+const BUILD = [APP_VERSION && `v${APP_VERSION}`, APP_COMMIT].filter(Boolean).join(' · ');
+
 export function Footer() {
   const { t, lang, setLang } = useI18n();
   const [howOpen, setHowOpen] = useState(false);
@@ -26,6 +30,7 @@ export function Footer() {
           </button>
         ))}
       </fieldset>
+      {BUILD && <small class="footer__version">{BUILD}</small>}
       <Sheet open={howOpen} title={t.footer.howTitle} onClose={() => setHowOpen(false)}>
         <ul class="how">
           {t.footer.howPoints.map((point) => (
