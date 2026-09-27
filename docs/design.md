@@ -50,3 +50,22 @@ The mark cannot be cut out of its background (the leaf and the envelope's V are 
 colour), so it is always shown as a tile on its own paper. To regenerate from a new original,
 square-crop it around the mark with about 9% margin on its own background colour and scale with
 ImageMagick; the commands are in the commit that added these files.
+
+## Illustration
+
+The page belongs to the Beidwerk family: printed paper, not clean SaaS green. The animated
+envelope (`apps/web/src/components/Envelope.tsx`, styled in `styles/claim.css`) is drawn in the
+logo's language, and new illustration should be too:
+
+- **Paper texture:** printed grain (an SVG noise filter) over coloured fields, a lighter grain on
+  paper; shadows are dither, never blur; no gradients.
+- **Dark green geometric fields:** the envelope is split down the middle, forest and black on one
+  side, black with leaf-green and verdigris arcs on the other, the way the logo is.
+- **Leaf and envelope intersections:** the ivory V where flap and pocket meet, and leaves that
+  grow out of the envelope and rise with the letter.
+- **Circular postal motifs:** the seal is a perforated ochre stamp whose four leaves fly apart when
+  it breaks; an ochre postmark with wavy cancellation lines sits behind the envelope; the letter
+  carries a perforated stamp and a postmark ring.
+- **Black-and-white documentary imagery:** photographs appear as halftone prints (the small
+  picture on the letter, the inside of the flap).
+- **Ochre is occasional:** seal, postmark, stamp edge. Never a large surface.
