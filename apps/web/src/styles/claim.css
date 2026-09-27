@@ -43,19 +43,25 @@
 }
 
 /* behind the envelope: the logo's split circle, and an ochre postmark */
+/* kept quiet: tints of the paper, so the envelope stays the subject */
 .env__sun-left {
-  fill: var(--green-deep);
+  fill: color-mix(in srgb, var(--green-deep) 16%, var(--paper));
 }
 
 .env__sun-right {
-  fill: var(--verdigris);
+  fill: color-mix(in srgb, var(--verdigris) 12%, var(--paper));
+}
+
+.env__sun .env__grain {
+  opacity: 0.18;
 }
 
 .env__postmark {
   fill: none;
   stroke: var(--ochre);
-  stroke-width: 1.5;
+  stroke-width: 1.2;
   stroke-linecap: round;
+  opacity: 0.5;
 }
 
 /* the envelope: forest pocket with black and leaf fields, split down the middle */
