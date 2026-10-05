@@ -1,0 +1,151 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* The front door at /hello. Tokens only; the envelope itself is drawn by the shared component. */
+
+.hello {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-s);
+  text-align: center;
+}
+
+.hello__hero {
+  position: relative;
+  width: min(72vw, 280px);
+  margin: var(--gap-xs) auto;
+}
+
+.hello__hero > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* the demo wears a diagonal ribbon across the envelope, so a screenshot cannot pass for money */
+.hello__hero--demo::after {
+  content: "DEMO";
+  position: absolute;
+  inset-inline: -8%;
+  top: 44%;
+  padding: 4px 0;
+  background: var(--sun);
+  color: var(--on-sun);
+  border-block: var(--line) solid var(--ink);
+  font-family: var(--font-num);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+
+.hello__stamp {
+  align-self: center;
+  padding: 6px 14px;
+  background: var(--sun);
+  color: var(--on-sun);
+  border: var(--line) dashed var(--ink);
+  border-radius: var(--radius-s);
+  font-family: var(--font-num);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hello__note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-xs);
+  padding: var(--gap-s) var(--gap-m);
+  background: var(--paper-raised);
+  border: var(--line) solid var(--ink);
+  border-radius: var(--radius);
+}
+
+.hello__note strong {
+  font-size: var(--text-m);
+}
+
+/* off-screen rather than display:none, because some bots skip fields that are not rendered */
+.hello__trap {
+  position: absolute;
+  inset-inline-start: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.hello__steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap-s);
+  margin: var(--gap-s) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-s);
+}
+
+.hello__steps li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap-xs);
+  min-width: 0;
+}
+
+.hello__num {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  background: var(--green);
+  color: var(--on-green);
+  border: var(--line) solid var(--ink);
+  border-radius: 50%;
+  font-family: var(--font-num);
+  font-weight: 700;
+}
+
+.hello__what {
+  font-size: var(--text-s);
+  color: var(--ink-soft);
+}
+
+.hello__what summary {
+  display: inline-block;
+  min-height: var(--touch);
+  padding-block: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hello__what p {
+  margin: 0;
+  text-align: start;
+}
+
+.hello__own {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-height: var(--touch);
+  padding-inline: var(--gap-s);
+  color: var(--ink);
+  font-weight: 650;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 380px) {
+  .hello__steps {
+    grid-template-columns: 1fr;
+  }
+
+  .hello__steps li {
+    flex-direction: row;
+    gap: var(--gap-s);
+    text-align: start;
+  }
+}

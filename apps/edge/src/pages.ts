@@ -5,6 +5,7 @@ import {
   allOpened,
   envelopeCopy,
   genericCopy,
+  helloCopy,
   type Language,
   MAX_FROM_CHARS,
   MAX_MESSAGE_CHARS,
@@ -25,6 +26,8 @@ export interface Pages {
   envelope(request: Request, url: URL, segment: string): Promise<Response>;
   /** The shell with generic tags, for the app's own routes. */
   generic(request: Request, url: URL, status: number): Promise<Response>;
+  /** The shell with the tags of the front door, `/hello`: the page the marketing site links to. */
+  hello(request: Request, url: URL): Promise<Response>;
 }
 
 /** Dependencies of `createPages`. */
@@ -128,8 +131,16 @@ export function createPages(deps: PagesDeps): Pages {
     return respond(loadShell(url.origin), language, genericCopy(language), page, []);
   };
 
+  const hello = (request: Request, url: URL): Promise<Response> => {
+    const origin = config.publicOrigin ?? url.origin;
+    const language = pickLanguage(request.headers.get('accept-language'));
+    const page = { status: 200, canonical: `${origin}/hello`, image: origin + OG_IMAGES.full };
+    return respond(loadShell(url.origin), language, helloCopy(language), page, []);
+  };
+
   return {
     generic,
+    hello,
     async envelope(request, url, segment) {
       const publicKey = parsePublicKey(segment);
       if (publicKey === null) return generic(request, url, 404);

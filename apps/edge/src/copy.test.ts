@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { allOpened, envelopeCopy, genericCopy, pickLanguage } from './copy';
+import { allOpened, envelopeCopy, genericCopy, helloCopy, pickLanguage } from './copy';
 
 describe('pickLanguage', () => {
   it.each([
@@ -56,5 +56,13 @@ describe('envelopeCopy', () => {
   it('has generic copy in both languages', () => {
     expect(genericCopy('en').title).toContain('Green Envelope');
     expect(genericCopy('de').title).toContain('Grüner Umschlag');
+  });
+});
+
+describe('helloCopy', () => {
+  it('invites in both languages', () => {
+    expect(helloCopy('en').title).toContain('Get your green envelope');
+    expect(helloCopy('de').title).toContain('grünen Umschlag');
+    expect(helloCopy('en').description).not.toMatch(/blockchain|crypto/i);
   });
 });

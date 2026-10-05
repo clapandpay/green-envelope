@@ -193,6 +193,19 @@ describe('static assets and the SPA fallback', () => {
     },
   );
 
+  it('serves the front door with its own preview tags', async () => {
+    const handler = createHandler(testDeps());
+    const en = await (await handler(get('/hello'))).text();
+    expect(metaContent(en, 'og:title')).toBe('🟢 Get your green envelope');
+    expect(metaContent(en, 'og:url')).toBe(`${PUBLIC}/hello`);
+    expect(metaContent(en, 'og:image')).toBe(`${PUBLIC}/og/envelope.png`);
+    const de = await handler(
+      new Request(`${ORIGIN}/hello`, { headers: { 'accept-language': 'de-AT' } }),
+    );
+    expect(metaContent(await de.text(), 'og:title')).toBe('🟢 Hol dir deinen grünen Umschlag');
+    expect((await handler(new Request(`${ORIGIN}/hello`, { method: 'POST' }))).status).toBe(405);
+  });
+
   it('passes other paths to the assets untouched', async () => {
     const handler = createHandler(testDeps());
     const script = await handler(get('/assets/app.js'));
