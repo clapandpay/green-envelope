@@ -49,12 +49,17 @@ Three hostnames, one machine, two containers, and Caddy in front (`compose.yaml`
 Klimper has no hostname of its own: it is an installed app, and its download page is
 `clapandpay.com/klimper`.
 
-Why not paths on one host: the wallet is on its own browser origin, so nothing that ever goes
-wrong on the marketing site can read the wallet's stored keys. The price is the passkey: the web
-wallet creates it for **`clapandpay.com`** on every subdomain of it (`src/lib/relying-party.ts`),
-which is what Klimper's own relying party is, so the same key comes back in the app. That choice
-cannot be undone after people have made wallets; localhost and self-hosted installs keep using
-their own host.
+Why not paths on one host: the wallet gets its own browser origin, so a flaw on the marketing site
+cannot read what the wallet keeps in the browser (a device wallet's seed, sent-envelope state).
+That is all the separation buys, and it is not the whole story: a passkey belongs to a
+*domain*, not to a page. The web wallet creates it for **`clapandpay.com`** on every subdomain of
+it (`src/lib/relying-party.ts`), which is what Klimper's own relying party is, so the same key
+comes back in the app. The consequence is that any page on `clapandpay.com` or a subdomain of it
+(the hub included) could ask for that passkey, and a person who approved the Face ID prompt would
+hand over the wallet key. So the hub must stay static and without third-party code (it is: no
+requests, no cookies, strict CSP), no untrusted site may ever be served from a subdomain, and the
+DNS and hosting accounts are part of the wallet's security. The choice cannot be undone after
+people have made wallets; localhost and self-hosted installs keep using their own host.
 
 Steps:
 
