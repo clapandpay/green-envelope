@@ -5,11 +5,13 @@
 # Built context is green-envelope/apps/site. Published by .github/workflows/images.yml.
 #
 # The site is plain HTML with its CSS, SVG and script inline: there is nothing to build, so the
-# image is the files and a server config. It makes no outgoing requests and sets no cookies.
+# image is the files and a server config, and the two domain files Apple and Android read. It makes no outgoing requests and sets no cookies.
 FROM nginxinc/nginx-unprivileged:1.29-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY security-headers.conf /etc/nginx/security-headers.conf
 COPY index.html stickers.html /usr/share/nginx/html/
+COPY .well-known /usr/share/nginx/html/.well-known
 
 EXPOSE 8080
 

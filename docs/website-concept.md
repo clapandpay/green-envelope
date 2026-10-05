@@ -44,8 +44,8 @@ animation, the clap shows a pressed pose and coins already at rest.
 
 | Question | Decision |
 | --- | --- |
-| Same origin? | Yes: clapandpay.com serves both site and app. The button is a plain `<a href="/hello">` so it works with no JS, in link previews, and in WhatsApp/Telegram in-app browsers |
-| What is `/hello`? | A new route in the green-envelope app (not yet built; today it knows `/`, `/new`, `/connect`, `/g/:id`). It runs the faucet: creates the passkey wallet if needed, requests one envelope from the faucet service, then replaces itself with `/g/<id>#<secret>` so the normal claim screen takes over. The secret never leaves the fragment |
+| Same origin? | No, on purpose: the hub is `clapandpay.com`, the app is `envelope.clapandpay.com`. The button is a plain `<a href="https://envelope.clapandpay.com/hello">`, so it works with no JS, in link previews, and in WhatsApp/Telegram in-app browsers |
+| What is `/hello`? | A route in the green-envelope app (built: `apps/web/src/screens/hello`). It shows the big envelope, asks the faucet (`docs/faucet.md`) for a link, and hands over to the normal claim ceremony at `/g/…`; without a configured faucet it shows a stamped demo envelope |
 | Which assets does `/hello` share with the site? | Nothing at build time. The site has its own CSS (it is not allowed to pull the app's bundle: 100 kB route budget) |
 | Deep links | `?net=` and other sticky params pass through; the site adds none. Shared envelope links `/g/...` bypass the site entirely |
 
@@ -83,13 +83,13 @@ site as Section 3; no `klimper/` change is needed.
 | Faucet abuse (one person, many envelopes) | Rate limit per passkey and per coarse network at the faucet service; one envelope per new wallet; the amount is small and capped per day globally. Not a site concern, but the site must not expose a one-click automatable endpoint: only `/hello`, which needs a passkey ceremony |
 | DDoS | The site is static files behind a CDN with long cache; nothing dynamic depends on origin. `/stats.json` is cached at the edge, so traffic never reaches the service |
 | Offline / flaky | The page is self-contained, so it renders from cache; the ceremony works offline, the CTA then lands on the app's own offline message. Service worker: not needed |
-| Fake sites | The CTA href is same-origin and relative; the footer shows the domain; no wallet or key is ever entered on the site itself |
+| Fake sites | The CTA href is absolute and fixed to the app's hostname; both hostnames show the domain; no wallet or key is ever entered on the site itself |
 
 ## Hosting and CI
 
 | Choice | Recommendation |
 | --- | --- |
-| Host | Same place as the app (static origin + CDN), with `/hello`, `/g/*`, `/connect`, `/new` falling through to the app's `index.html` and `/`, `/de/` to the site. The routing table is one config file |
+| Host | Two hostnames, two containers behind one Caddy: `clapandpay.com` is the hub (plus `/klimper`, `/.well-known/*`), `envelope.clapandpay.com` is the Green Envelope app. The wallet gets its own browser origin on purpose; its passkey is created for `clapandpay.com` so Klimper still gets the same key. See `deployment/README.md` |
 | Deploy | The site is `apps/site`: two static files, built into the `clapandpay-web` image (nginx, non-root, amd64 and arm64) by `.github/workflows/images.yml` on a `clapandpay-web-v*` release. **No schedule.** Any periodic work (refreshing the baked counter) is a script run by hand or done by the edge at request time |
 | CI cost | One runner per image, only on a published release; nothing runs on pull requests or merges |
 
@@ -98,4 +98,4 @@ site as Section 3; no `klimper/` change is needed.
 1. The TestFlight public link (placeholder `/klimper` in the prototype) and who sets it.
 2. Whether the faucet funds in euro terms or XCH; the site avoids stating an amount until decided.
 3. Imprint and privacy texts (German law requires an Impressum before launch).
-4. Build `/hello` in the app (separate task; this concept only fixes the contract above).
+4. `/hello` is built; the faucet service and its `FAUCET_URL` are the owner's.

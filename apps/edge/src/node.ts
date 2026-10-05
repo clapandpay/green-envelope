@@ -101,6 +101,7 @@ const handler = handlerFromEnv({
   CHAIN_ENDPOINTS: process.env.CHAIN_ENDPOINTS,
   NETWORK: process.env.NETWORK,
   PUBLIC_ORIGIN: process.env.PUBLIC_ORIGIN,
+  TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY,
   ASSETS: { fetch: assets },
 });
 const port = Number(process.env.PORT ?? '8787');
