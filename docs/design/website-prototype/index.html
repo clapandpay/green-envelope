@@ -1,0 +1,413 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Prototype of clapandpay.com. One file, inline CSS/SVG/JS, no requests, no fonts, no libraries.
+     Concept: ../../website-concept.md. Numbers in the counter are samples. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clap and Pay: tap, it's yours</title>
+<meta name="description" content="A green envelope with money in it. Tap, it's yours, pass it on. No app, no account.">
+<meta name="theme-color" content="#f4f0e6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12201a" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Clap and Pay">
+<meta property="og:title" content="Tap. It's yours.">
+<meta property="og:description" content="A green envelope with money in it. No app, no account.">
+<style>
+:root{color-scheme:light dark;
+--ivory:#f4f0e6;--near-black:#171918;--forest:#0f5a3a;--verdigris:#2b7a62;--leaf:#79a83b;--ochre:#c59a3a;--stone:#8a877f;--charcoal-green:#12201a;
+--paper:var(--ivory);--paper-raised:#fbf8f1;--paper-sunk:#e6e0d2;--ink:var(--near-black);--ink-soft:#5f5c55;--line-colour:var(--stone);
+--green:var(--forest);--green-deep:#0a4029;--green-soft:#d2dcb6;--on-green:var(--ivory);--sun:var(--ochre);--sun-deep:#9a7526;--on-sun:var(--near-black);
+--alert:#ad2417;--shadow:var(--near-black);--line:2px;--radius:4px;--drop:3px;
+--font-display:"Helvetica Neue",Helvetica,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+--font-num:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono","Droid Sans Mono",Menlo,Consolas,monospace;
+--touch:48px;--snap:90ms;--ease-pop:cubic-bezier(.2,1.4,.4,1);
+--kbg:var(--green-deep);}
+@media (prefers-color-scheme:dark){:root{
+--paper:var(--charcoal-green);--paper-raised:#1a2b23;--paper-sunk:#0c1712;--ink:var(--ivory);--ink-soft:#aba79d;--line-colour:#5c5a54;
+--green:var(--verdigris);--green-deep:var(--forest);--green-soft:#1a3b30;--sun-deep:#8e6c22;--alert:#ff9784;--shadow:#07100c;--kbg:var(--forest);}}
+*{box-sizing:border-box;margin:0}
+html{background:var(--paper);color:var(--ink);scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font:400 1.125rem/1.5 var(--font-display);overflow-x:hidden;min-height:100vh}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--sun);outline-offset:3px;box-shadow:0 0 0 6px var(--ink)}
+.w{width:min(100% - 32px,1280px);margin-inline:auto}
+.mono{font:700 .8125rem/1.3 var(--font-num);letter-spacing:.08em;text-transform:uppercase}
+.dither{height:16px;background:repeating-conic-gradient(var(--ink) 0% 25%,transparent 0% 50%) 0 0/4px 4px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+.top{display:flex;justify-content:space-between;align-items:center;padding:14px 0;gap:12px}
+.brand{display:flex;gap:10px;align-items:center;font-weight:900;letter-spacing:-.03em;text-decoration:none;font-size:1.25rem}
+.brand svg{width:34px;height:27px}
+.lang{display:flex;border:var(--line) solid var(--ink);border-radius:var(--radius);box-shadow:var(--drop) var(--drop) 0 var(--shadow)}
+.lang button{font:700 .8125rem var(--font-num);min-width:var(--touch);min-height:40px;border:0;background:none;color:var(--ink);cursor:pointer}
+.lang button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+
+/* hero */
+.hero{position:relative;display:grid;gap:8px;padding:8px 0 40px}
+h1{font-weight:900;letter-spacing:-.065em;line-height:.84;font-size:clamp(3.4rem,13.4vw,10.5rem);position:relative;z-index:3}
+h1 .l2{display:block}
+mark.yours{background:var(--sun);color:var(--on-sun);padding:0 .08em .06em;display:inline-block;transform:rotate(-2.5deg);box-shadow:6px 6px 0 var(--ink)}
+.lede{font-size:1.375rem;max-width:21em;font-weight:500;position:relative;z-index:3;margin-top:12px}
+.stage{position:relative;z-index:2;width:min(88vw,520px);justify-self:center;margin-top:-4px}
+.ghost{position:absolute;z-index:0;left:-6vw;top:34%;font-weight:900;font-size:clamp(9rem,44vw,34rem);line-height:.7;letter-spacing:-.08em;color:transparent;-webkit-text-stroke:2px var(--line-colour);opacity:.45;pointer-events:none;user-select:none;white-space:nowrap}
+.env-btn{display:block;width:100%;border:0;background:none;padding:0;cursor:pointer;color:inherit;font:inherit;-webkit-tap-highlight-color:transparent;transform:rotate(3deg)}
+.env-btn:focus-visible{outline-offset:6px}
+.env{display:block;width:100%;height:auto;overflow:visible}
+.hint{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;color:var(--ink-soft)}
+.hint i{width:12px;height:12px;border:var(--line) solid var(--ink);border-radius:50%;animation:ping 1.6s steps(5) infinite}
+@keyframes ping{50%{transform:scale(1.8);opacity:.2}}
+.get{display:none;text-align:center;margin-top:14px}
+.stage.opened .get{display:block;animation:pop .35s var(--ease-pop) .95s both}
+.stage.opened .hint,.stage.opened .skip{display:none}
+@keyframes pop{from{transform:scale(.6) rotate(-6deg);opacity:0}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:var(--touch);padding:12px 26px;font:900 1.25rem var(--font-display);letter-spacing:-.02em;text-decoration:none;background:var(--green);color:var(--on-green);border:var(--line) solid var(--ink);border-radius:var(--radius);box-shadow:3px 3px 0 var(--shadow),6px 6px 0 var(--shadow);transition:transform var(--snap) steps(2),box-shadow var(--snap) steps(2)}
+.btn:hover{transform:translate(3px,3px);box-shadow:3px 3px 0 var(--shadow)}
+.btn:active{transform:translate(6px,6px);box-shadow:none}
+.skip{display:block;text-align:center;margin-top:10px;color:var(--ink-soft)}
+.count{display:flex;flex-wrap:wrap;gap:6px 22px;border-block:var(--line) solid var(--ink);padding:12px 0;color:var(--ink-soft);position:relative;z-index:3}
+.count b{color:var(--ink);font-size:1.25em}
+.count i{font-style:normal}
+.count span::before{content:"";display:inline-block;width:8px;height:8px;background:var(--leaf);border-radius:50%;margin-right:8px;animation:blink 2s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* envelope parts */
+.env__dither-ink{fill:var(--ink)}
+.cast{fill:url(#d);opacity:.5}
+.grain{opacity:.55;pointer-events:none}.grain-l{opacity:.3}
+.s-l{fill:color-mix(in srgb,var(--green-deep) 16%,var(--paper))}.s-r{fill:color-mix(in srgb,var(--verdigris) 12%,var(--paper))}
+.pm{fill:none;stroke:var(--ochre);stroke-width:1.2;stroke-linecap:round;opacity:.6}
+.inside{fill:var(--near-black)}.pocket{fill:var(--forest)}
+.f-ink{fill:var(--near-black)}.f-leaf{fill:var(--leaf)}.f-ver{fill:var(--verdigris)}.f-for{fill:var(--forest)}
+.fl-l{fill:var(--leaf)}.fl-r{fill:var(--green-deep)}
+.v{fill:none;stroke:var(--ivory);stroke-width:7;stroke-linejoin:round;stroke-linecap:round}
+.edge{fill:none;stroke:var(--ivory);stroke-width:1;opacity:0}
+@media (prefers-color-scheme:dark){.edge{opacity:.3}}
+.fo{fill:var(--ivory)}.fo-p{fill:url(#h);opacity:.35}
+.slip{fill:var(--ivory)}.rule{fill:none;stroke:var(--near-black);stroke-width:.7;opacity:.45}
+.ht{fill:var(--near-black)}.ph-sun{fill:var(--ivory)}.ph-fr{fill:none;stroke:var(--near-black);stroke-width:1.2}
+.perf{fill:none;stroke:var(--ochre);stroke-width:2.4;stroke-dasharray:.1 3;stroke-linecap:round}
+.stamp{fill:var(--forest)}.st-leaf{fill:var(--leaf)}
+.ring{fill:none;stroke:var(--ochre);stroke-width:1.4;stroke-dasharray:2 1.6}
+.ink{fill:none;stroke:var(--near-black);stroke-width:1.8}
+.lf-i{fill:var(--ivory)}.lf-g{fill:var(--leaf)}.vein{fill:none;stroke:var(--near-black);stroke-width:.8;opacity:.5}
+.seal-d{fill:var(--ochre)}.seal-rim{fill:none;stroke:var(--sun-deep);stroke-width:1.4;stroke-dasharray:.1 2.6;stroke-linecap:round}
+.seal-ring{fill:none;stroke:var(--sun-deep);stroke-width:.8}.crest{fill:var(--forest)}
+/* idle: restless, in steps like the machine */
+.stage:not(.opened) .all{animation:wig 2.4s steps(1) infinite;transform-origin:120px 150px}
+@keyframes wig{0%,100%{transform:none}8%{transform:rotate(-1.4deg)}16%{transform:rotate(1.2deg)}24%{transform:rotate(-.8deg)}32%{transform:none}}
+/* ceremony: seal, flap, slip, then words */
+.sunwrap{transform-origin:120px 96px;transition:transform .5s var(--ease-pop) .5s}
+.seal-g{transform-origin:120px 162px;transition:transform .18s ease-in,opacity .18s}
+.crest{transition:transform .5s cubic-bezier(.2,.8,.3,1) .05s,opacity .5s .05s;transform-box:fill-box;transform-origin:center}
+.flap{transform-origin:120px 98px;transition:transform .16s ease-in .22s}
+.fo-g{transform-origin:120px 98px;transform:scaleY(0);transition:transform .22s cubic-bezier(.2,1.3,.4,1) .38s}
+.slip-g{transition:transform .9s cubic-bezier(.2,.9,.25,1.15) .55s}
+.opened .seal-g{transform:scale(1.3);opacity:0}
+.opened .crest{transform:translate(calc(var(--dx)*34px),calc(var(--dy)*34px)) rotate(calc(var(--dx)*40deg + var(--dy)*25deg))}
+.opened .flap{transform:scaleY(0)}
+.opened .fo-g{transform:scaleY(-1)}
+.opened .slip-g{transform:translateY(-78px)}
+.opened .sunwrap{transform:scale(1.12)}
+
+/* sections */
+.sec{padding:72px 0;position:relative}
+h2{font-weight:900;letter-spacing:-.06em;line-height:.86;font-size:clamp(3rem,12vw,9rem)}
+h3{font-weight:900;letter-spacing:-.03em;font-size:1.5rem;line-height:1.1;margin-bottom:6px}
+.eyebrow{display:inline-block;margin-bottom:14px;padding:4px 8px;background:var(--ink);color:var(--paper)}
+.loop{display:grid;gap:44px;margin-top:40px}
+.step{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;max-width:30rem}
+.num{font-weight:900;font-size:clamp(5.5rem,22vw,11rem);line-height:.75;letter-spacing:-.08em;color:transparent;-webkit-text-stroke:2.5px var(--ink)}
+.step p{color:var(--ink-soft)}
+.path{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;overflow:visible}
+.path path{fill:none;stroke:var(--ochre);stroke-width:3;stroke-dasharray:2 10;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.tree{margin-top:64px;border:var(--line) solid var(--ink);background:var(--paper-raised);box-shadow:8px 8px 0 var(--shadow);padding:20px 18px 14px;max-width:32rem}
+.row{display:flex;gap:8px;justify-content:center;margin:8px 0}
+.row svg{width:clamp(24px,7.4vw,40px);height:auto;display:block}
+.tree p{margin-top:8px;color:var(--ink-soft);font-size:.9375rem}
+
+/* klimper */
+.kl{--ink:var(--ivory);--ink-soft:#d8d2c2;--paper:var(--kbg);--shadow:#07100c;background:var(--paper);color:var(--ivory);margin-top:48px;position:relative}
+.kl .dither{position:absolute;top:-16px;left:0;right:0;background:repeating-conic-gradient(var(--kbg) 0% 25%,transparent 0% 50%) 0 0/4px 4px}
+.kl .wrap{display:grid;gap:36px;padding:64px 0 80px}
+.phone-w{width:min(76vw,320px);justify-self:center;transform:rotate(5deg)}
+.phone{display:block;width:100%;height:auto;overflow:visible}
+.kl .btn{background:var(--sun);color:var(--on-sun);border-color:var(--near-black);box-shadow:3px 3px 0 var(--near-black),6px 6px 0 var(--near-black)}
+.kl .btn:hover{box-shadow:3px 3px 0 var(--near-black)}
+.kl .btn:active{box-shadow:none}
+.kl .eyebrow{background:var(--ivory);color:var(--near-black)}
+.cta{display:flex;flex-wrap:wrap;gap:16px;margin:24px 0 8px}
+.connect{margin-top:28px;border:var(--line) dashed var(--ivory);padding:16px 18px;max-width:30rem}
+.connect ol{padding-left:1.2em;margin-top:8px;color:var(--ink-soft)}
+
+/* small print */
+.fine{display:grid;margin-top:36px;border-top:var(--line) solid var(--ink)}
+.fine div{display:grid;gap:4px 24px;padding:18px 0;border-bottom:var(--line) solid var(--ink)}
+.fine dt{font-weight:900;font-size:1.5rem;letter-spacing:-.03em;line-height:1.1}
+.fine dd{color:var(--ink-soft);max-width:34rem}
+footer{padding:48px 0 32px}
+.big{font-weight:900;letter-spacing:-.07em;line-height:.8;font-size:clamp(3.2rem,16vw,17rem);margin:24px 0 18px;white-space:nowrap}
+.big span{color:var(--green)}
+.foot{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;color:var(--ink-soft);font-size:.9375rem}
+.foot nav{display:flex;gap:18px;flex-wrap:wrap}
+
+@media (min-width:900px){
+ .hero{grid-template-columns:repeat(12,1fr);column-gap:24px;padding-top:24px;min-height:min(86vh,820px);align-content:start}
+ h1{grid-column:1/9;grid-row:1}
+ .lede{grid-column:1/6;grid-row:2;margin-top:40px}
+ .stage{grid-column:6/13;grid-row:1/4;width:min(100%,720px);justify-self:end;margin-top:-6px}
+ .hero .count{grid-column:1/7;grid-row:3;align-self:end}
+ .ghost{left:30%;top:8%}
+ .loop{grid-template-columns:repeat(3,1fr);gap:24px;align-items:start}
+ .step{grid-template-columns:1fr}
+ .step:nth-child(2){margin-top:90px}.step:nth-child(3){margin-top:180px}
+ .tree{margin-left:auto;margin-top:56px;transform:rotate(-1.5deg)}
+ .kl .wrap{grid-template-columns:5fr 7fr;align-items:center;gap:72px}
+ .phone-w{width:min(100%,400px);margin:-120px 0 -40px}
+ .fine div{grid-template-columns:5fr 7fr}
+}
+
+/* scroll moments: progressive enhancement, nothing here is needed to read the page */
+@supports (animation-timeline:view()){
+ @media (prefers-reduced-motion:no-preference){
+  .ghost{animation:drift linear both;animation-timeline:scroll(root);animation-range:0 90vh}
+  @keyframes drift{to{transform:translateX(-26vw) rotate(-4deg)}}
+  .path path{stroke-dasharray:1;stroke-dashoffset:1;animation:draw linear both;animation-timeline:view();animation-range:entry 10% cover 60%}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .phone-w{animation:rise linear both;animation-timeline:view();animation-range:entry 0% cover 45%}
+  @keyframes rise{from{transform:translateY(120px) rotate(-14deg)}to{transform:rotate(5deg)}}
+  .row{animation:grow linear both;animation-timeline:view();animation-range:entry 20% entry 120%}
+  .row:nth-of-type(2){animation-range:entry 35% entry 135%}.row:nth-of-type(3){animation-range:entry 50% entry 150%}.row:nth-of-type(4){animation-range:entry 65% entry 165%}
+  @keyframes grow{from{opacity:0;transform:translateY(24px) scale(.8)}}
+  .big{animation:track linear both;animation-timeline:view();animation-range:entry 0% cover 60%}
+  @keyframes track{from{letter-spacing:.1em;opacity:.2}}
+ }
+}
+@media (prefers-reduced-motion:reduce){
+ *,*::before,*::after{animation:none!important;transition:none!important}
+ html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+ <symbol id="mk" viewBox="0 0 28 22"><rect width="28" height="22" rx="3" fill="#0f5a3a"/><path d="M14 0H25Q28 0 28 3V19Q28 22 25 22H14Z" fill="#171918"/><path d="M28 22A12 12 0 0 1 16 10V22Z" fill="#79a83b"/><path d="M1 2 14 12 27 2" fill="none" stroke="#f4f0e6" stroke-width="2.6"/></symbol>
+</svg>
+
+<div class="w">
+<header class="top">
+ <a class="brand" href="/" aria-label="Clap and Pay"><svg viewBox="0 0 28 22" aria-hidden="true"><use href="#mk"/></svg><span>Clap and Pay</span></a>
+ <div class="lang" role="group" aria-label="Language"><button type="button" data-l="en" aria-pressed="true" lang="en">EN</button><button type="button" data-l="de" aria-pressed="false" lang="de">DE</button></div>
+</header>
+
+<main id="main">
+<section class="hero" aria-labelledby="h1">
+ <div class="ghost" aria-hidden="true">€</div>
+ <h1 id="h1"><span>Tap.</span> <span class="l2">It's <mark class="yours">yours.</mark></span></h1>
+ <p class="lede" data-de="Ein grüner Umschlag mit echtem Geld. Kein App-Download, kein Konto. Antippen, und es gehört dir.">A green envelope with real money in it. No app to install, no account. Tap it and it is yours.</p>
+ <div class="stage" id="stage">
+  <button class="env-btn" id="env" type="button" aria-expanded="false" aria-describedby="hint">
+   <span class="sr" data-de="Umschlag öffnen">Open the envelope</span>
+   <svg class="env" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
+    <defs>
+     <pattern id="d" width="2.4" height="2.4" patternUnits="userSpaceOnUse"><rect class="env__dither-ink" width="1.2" height="1.2"/><rect class="env__dither-ink" x="1.2" y="1.2" width="1.2" height="1.2"/></pattern>
+     <pattern id="h" width="3" height="3" patternUnits="userSpaceOnUse"><circle class="ht" cx="1.5" cy="1.5" r=".75"/></pattern>
+     <pattern id="h2" width="3" height="3" patternUnits="userSpaceOnUse"><circle class="ht" cx="1.5" cy="1.5" r="1.25"/></pattern>
+     <filter id="g" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="4"/><feColorMatrix values="0 0 0 0 .96 0 0 0 0 .94 0 0 0 0 .9 0 0 0 2.2 -1.25"/></filter>
+     <filter id="gi" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="11"/><feColorMatrix values="0 0 0 0 .09 0 0 0 0 .1 0 0 0 0 .09 0 0 0 2.4 -1.45"/></filter>
+     <clipPath id="c-sun"><circle cx="120" cy="96" r="64"/></clipPath>
+     <clipPath id="c-pk"><path d="M30 98L120 162L210 98V202Q210 208 204 208H36Q30 208 30 202Z"/></clipPath>
+     <clipPath id="c-fl"><polygon points="30,98 210,98 120,162"/></clipPath>
+     <clipPath id="c-l"><rect x="30" y="90" width="90" height="120"/></clipPath>
+     <clipPath id="c-r"><rect x="120" y="90" width="90" height="120"/></clipPath>
+     <clipPath id="c-ph"><rect x="58" y="116" width="62" height="40"/></clipPath>
+    </defs>
+    <g class="sunwrap">
+     <g clip-path="url(#c-sun)"><rect class="s-l" x="56" y="32" width="64" height="128"/><rect class="s-r" x="120" y="32" width="64" height="128"/><rect class="grain" style="opacity:.18" x="56" y="32" width="128" height="128" filter="url(#g)"/></g>
+     <g class="pm"><circle cx="190" cy="52" r="17"/><circle cx="190" cy="52" r="13" stroke-dasharray="1.6 2.2"/><path d="M152 44q5-4 10 0t10 0t10 0M148 52q5-4 10 0t10 0t10 0M152 60q5-4 10 0t10 0t10 0"/></g>
+    </g>
+    <g class="all">
+     <path class="cast" d="M30 98L120 162L210 98V202Q210 208 204 208H36Q30 208 30 202Z" transform="translate(6 7)"/>
+     <rect class="inside" x="30" y="98" width="180" height="110" rx="6"/>
+     <g class="fo-g"><polygon class="fo" points="30,98 210,98 120,162"/><polygon class="fo-p" points="30,98 210,98 120,162"/></g>
+     <g class="slip-g">
+      <path class="lf-i" d="M118 112C96 108 84 88 92 70C110 74 122 92 118 112Z"/>
+      <path class="lf-g" d="M122 112C124 88 138 70 160 66C164 88 146 108 122 112Z"/>
+      <path class="vein" d="M118 110C110 96 102 84 94 72M123 110C132 94 144 80 158 68"/>
+      <rect class="cast" x="53" y="109" width="140" height="92"/>
+      <rect class="slip" x="50" y="106" width="140" height="92"/>
+      <rect class="grain grain-l" x="50" y="106" width="140" height="92" filter="url(#gi)"/>
+      <rect class="rule" x="56" y="112" width="128" height="80"/>
+      <g clip-path="url(#c-ph)"><rect fill="url(#h)" x="58" y="116" width="62" height="40"/><circle class="ph-sun" cx="100" cy="134" r="7"/><path fill="url(#h2)" d="M58 146Q76 132 94 142T120 138V156H58Z"/></g>
+      <rect class="ph-fr" x="58" y="116" width="62" height="40"/>
+      <rect class="perf" x="140" y="116" width="36" height="42"/><rect class="stamp" x="143" y="119" width="30" height="36"/>
+      <path class="st-leaf" d="M158 150C150 142 150 130 158 124C166 130 166 142 158 150Z"/>
+      <circle class="ring" cx="142" cy="156" r="11"/>
+      <path class="ink" d="M58 168H176M58 176H150M58 184H122"/>
+     </g>
+     <path class="pocket" d="M30 98L120 162L210 98V202Q210 208 204 208H36Q30 208 30 202Z"/>
+     <g clip-path="url(#c-pk)">
+      <g clip-path="url(#c-l)"><circle class="f-ink" cx="92" cy="226" r="58"/></g>
+      <g clip-path="url(#c-r)"><rect class="f-ink" x="120" y="90" width="90" height="120"/><circle class="f-leaf" cx="214" cy="222" r="66"/><circle class="f-ver" cx="150" cy="222" r="40"/></g>
+      <rect class="grain" x="30" y="98" width="180" height="110" filter="url(#g)"/>
+     </g>
+     <path class="edge" d="M30 98L120 162L210 98V202Q210 208 204 208H36Q30 208 30 202Z"/>
+     <path class="v" d="M30 98L120 162L210 98"/>
+     <g class="flap">
+      <polygon class="cast" points="30,98 210,98 120,162" transform="translate(0 5)"/>
+      <polygon class="fl-l" points="30,98 120,98 120,162"/><polygon class="fl-r" points="120,98 210,98 120,162"/>
+      <g clip-path="url(#c-fl)"><circle class="f-for" cx="120" cy="98" r="30"/><rect class="grain" x="30" y="98" width="180" height="64" filter="url(#g)"/></g>
+      <path class="v" d="M30 98L120 162L210 98"/>
+     </g>
+     <g class="seal-g">
+      <circle class="cast" cx="122.5" cy="165" r="17"/><circle class="seal-d" cx="120" cy="162" r="17"/>
+      <circle class="seal-rim" cx="120" cy="162" r="15.2"/><circle class="seal-ring" cx="120" cy="162" r="12.6"/>
+     </g>
+     <g>
+      <path class="crest" style="--dx:0;--dy:-1" d="M120 160.6Q124.2 157.4 120 153Q115.8 157.4 120 160.6Z"/>
+      <path class="crest" style="--dx:-1;--dy:0" d="M118.6 162Q115.4 157.8 111 162Q115.4 166.2 118.6 162Z"/>
+      <path class="crest" style="--dx:1;--dy:0" d="M121.4 162Q124.6 157.8 129 162Q124.6 166.2 121.4 162Z"/>
+      <path class="crest" style="--dx:0;--dy:1" d="M120 163.4Q124.2 166.6 120 171Q115.8 166.6 120 163.4Z"/>
+     </g>
+    </g>
+   </svg>
+  </button>
+  <p class="hint mono" id="hint"><i></i><span data-de="Tipp auf den Umschlag">Tap the envelope</span></p>
+  <div class="get" role="status">
+   <a class="btn" href="/hello" id="go"><span data-de="Hol dir deinen Umschlag">Get your envelope</span> <span aria-hidden="true">→</span></a>
+   <p class="mono" style="margin-top:10px;color:var(--ink-soft)" data-de="Gratis. Mit Gesicht oder Fingerabdruck.">Free. Face or fingerprint.</p>
+  </div>
+  <a class="skip mono" href="/hello" data-de="Zeremonie überspringen">Skip the ceremony</a>
+ </div>
+ <p class="count mono"><span><b id="n1">12,408</b> <i data-de="Umschläge geöffnet">envelopes opened</i></span><span><b id="n2">2.3×</b> <i data-de="weitergereicht, im Schnitt">passed on, on average</i></span></p>
+</section>
+
+<section class="sec" aria-labelledby="h-loop">
+ <svg class="path" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M30 60C300 -20 380 260 520 220S800 140 980 560"/></svg>
+ <span class="eyebrow mono" data-de="Die Schleife">The loop</span>
+ <h2 id="h-loop"><span data-de="Tipp.">Tap.</span><br><span data-de="Deins.">Yours.</span><br><span data-de="Weiter.">Pass on.</span></h2>
+ <div class="loop">
+  <div class="step"><span class="num" aria-hidden="true">1</span>
+   <div><h3 data-de="Antippen">Tap the link</h3><p data-de="Jemand wirft einen Umschlag in den Gruppenchat. Du tippst, im Browser, ohne Installation.">Somebody drops an envelope in a group chat. You tap it, in the browser, nothing to install.</p></div>
+  </div>
+  <div class="step"><span class="num" aria-hidden="true">2</span>
+   <div><h3 data-de="Es ist deins">It is yours</h3><p data-de="Gesicht oder Fingerabdruck, ein paar Sekunden, und echtes Geld gehört dir. Niemand kann es dir nehmen, auch wir nicht.">Face or fingerprint, a few seconds, and real money is yours. Nobody can take it back, us included.</p></div>
+  </div>
+  <div class="step"><span class="num" aria-hidden="true">3</span>
+   <div><h3 data-de="Reich es weiter">Pass it on</h3><p data-de="Wirf einen Teil in deine Gruppe. Die Schleife läuft weiter, und jeder Umschlag bringt den nächsten Menschen.">Drop a part into your own group. Every envelope brings the next person.</p></div>
+  </div>
+ </div>
+ <div class="tree" role="img" aria-label="One envelope becomes two, then four, then eight.">
+  <div class="mono" style="color:var(--ink-soft)" data-de="Ein Umschlag wird zu vielen">One envelope becomes many</div>
+  <div class="row"><svg viewBox="0 0 28 22"><use href="#mk"/></svg></div>
+  <div class="row"><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg></div>
+  <div class="row"><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg></div>
+  <div class="row"><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg><svg viewBox="0 0 28 22"><use href="#mk"/></svg></div>
+  <p data-de="Wir zählen Umschläge, keine Menschen.">We count envelopes, never people.</p>
+ </div>
+</section>
+</main>
+</div>
+
+<section class="kl" aria-labelledby="h-kl">
+ <div class="dither" aria-hidden="true"></div>
+ <div class="w wrap">
+  <div class="phone-w">
+   <svg class="phone" viewBox="0 0 240 460" aria-hidden="true" focusable="false">
+    <defs><clipPath id="c-scr"><rect x="20" y="22" width="180" height="396" rx="22"/></clipPath><filter id="g3" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 .96 0 0 0 0 .94 0 0 0 0 .9 0 0 0 2.2 -1.25"/></filter></defs>
+    <rect x="28" y="30" width="200" height="420" rx="32" fill="url(#d)"/>
+    <rect x="10" y="8" width="200" height="420" rx="32" fill="#171918" stroke="#f4f0e6" stroke-width="1.5" stroke-opacity=".5"/>
+    <g clip-path="url(#c-scr)">
+     <rect x="20" y="22" width="180" height="396" fill="#f4f0e6"/>
+     <rect x="20" y="270" width="180" height="148" fill="#0f5a3a"/>
+     <circle cx="64" cy="440" r="86" fill="#171918"/>
+     <circle cx="196" cy="420" r="70" fill="#79a83b"/><circle cx="140" cy="420" r="44" fill="#2b7a62"/>
+     <rect x="20" y="270" width="180" height="148" filter="url(#g3)" opacity=".45"/>
+     <path d="M20 270L110 330L200 270" fill="none" stroke="#f4f0e6" stroke-width="7" stroke-linejoin="round"/>
+     <rect x="36" y="38" width="80" height="8" rx="2" fill="#171918"/>
+     <text x="36" y="110" font-family="Helvetica,Arial,sans-serif" font-weight="900" font-size="52" letter-spacing="-3" fill="#171918">7,40</text>
+     <text x="36" y="136" font-family="monospace" font-weight="700" font-size="11" letter-spacing="1.5" fill="#5f5c55">EURO · YOURS</text>
+     <circle cx="168" cy="96" r="20" fill="#c59a3a"/><circle cx="168" cy="96" r="16" fill="none" stroke="#9a7526" stroke-dasharray=".1 3" stroke-width="2" stroke-linecap="round"/><path d="M168 108C160 100 160 90 168 84C176 90 176 100 168 108Z" fill="#0f5a3a"/>
+     <rect x="36" y="170" width="148" height="40" rx="4" fill="#0f5a3a"/>
+     <text x="110" y="196" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-weight="900" font-size="15" fill="#f4f0e6">Send it on</text>
+     <rect x="36" y="222" width="148" height="34" rx="4" fill="none" stroke="#171918" stroke-width="2" stroke-dasharray="5 4"/>
+     <text x="110" y="244" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-weight="900" font-size="14" fill="#171918">Keep it</text>
+    </g>
+    <rect x="76" y="14" width="68" height="14" rx="7" fill="#171918" stroke="#f4f0e6" stroke-opacity=".4"/>
+    <g transform="translate(150 -22) rotate(14)"><use href="#mk" width="64" height="50"/></g>
+   </svg>
+  </div>
+  <div>
+   <span class="eyebrow mono" data-de="Klimper, die App">Klimper, the app</span>
+   <h2 id="h-kl"><span data-de="Bleib.">Stay.</span></h2>
+   <p class="lede" style="margin-top:22px" data-de="Der Umschlag bringt dich her. Klimper ist die kleine Wallet, in der das Geld bleibt: halten, weiterreichen, bezahlen. Teilen, Töpfe und Spiele kommen als Nächstes.">The envelope brings you here. Klimper is the small wallet where the money lives on: hold it, pass it on, spend it. Splits, pots and games come next.</p>
+   <div class="cta">
+    <a class="btn" href="/klimper"><span data-de="Klimper per TestFlight">Get Klimper on TestFlight</span> <span aria-hidden="true">→</span></a>
+   </div>
+   <p class="mono" style="color:var(--ink-soft)" data-de="iPhone · Beta · kostenlos">iPhone · beta · free</p>
+   <div class="connect">
+    <h3 data-de="Schon einen Umschlag geöffnet?">Opened an envelope already?</h3>
+    <ol>
+     <li data-de="In Klimper „Mein Clap-and-Pay-Geld nutzen“ antippen.">In Klimper tap “Use my Clap and Pay money”.</li>
+     <li data-de="Auf der Seite die sechs Ziffern vergleichen, bestätigen.">On the page, check the six digits and confirm.</li>
+     <li data-de="Einfügen. Dasselbe Geld, jetzt in der Tasche.">Paste. The same money, now in your pocket.</li>
+    </ol>
+   </div>
+  </div>
+ </div>
+</section>
+
+<div class="w">
+<section class="sec" aria-labelledby="h-fine">
+ <span class="eyebrow mono" data-de="Das Kleingedruckte">The small print</span>
+ <h2 id="h-fine" style="font-size:clamp(2.6rem,9vw,7rem)" data-de="Groß gedruckt.">In big print.</h2>
+ <dl class="fine">
+  <div><dt data-de="Dein Geld gehört dir.">Your money is yours.</dt><dd data-de="Wir verwahren nichts. Ein Umschlag ist kein Guthaben bei einer Firma. Niemand kann ihn dir nehmen, auch wir nicht.">We hold nothing. An envelope is not a balance at a company. Nobody can take it, us included.</dd></div>
+  <div><dt data-de="Der Link ist Bargeld.">The link is cash.</dt><dd data-de="Wer den Link hat, kann ihn öffnen. Teile ihn dort, wo du auch Bargeld herreichen würdest. Ungeöffnetes Geld geht nach Ablauf an den Absender zurück.">Whoever has the link can open it. Share it where you would hand over cash. Unopened money returns to the sender after it expires.</dd></div>
+  <div><dt data-de="Kein Konto, kein Passwort.">No account, no password.</dt><dd data-de="Gesicht, Fingerabdruck oder Geräte-PIN. Keine Seed-Phrase.">Face, fingerprint or device PIN. No seed phrase.</dd></div>
+  <div><dt data-de="Keine Cookies, keine Tracker.">No cookies, no trackers.</dt><dd data-de="Diese Seite lädt nichts von Dritten. Wir zählen Umschläge, keine Menschen.">This page loads nothing from third parties. We count envelopes, not people.</dd></div>
+  <div><dt data-de="Früh, also vorsichtig.">Early, so careful.</dt><dd data-de="Das ist eine frühe Version. Lege nicht mehr hinein, als du in der Hosentasche tragen würdest.">This is early software. Do not keep more in it than you would carry in your pocket.</dd></div>
+ </dl>
+</section>
+
+<footer>
+ <div class="dither" aria-hidden="true"></div>
+ <p class="big" aria-hidden="true">Clap<span>&amp;</span>Pay</p>
+ <div class="foot"><span>© Clap and Pay</span>
+  <nav aria-label="Footer"><a href="/impressum" data-de="Impressum">Imprint</a><a href="/datenschutz" data-de="Datenschutz">Privacy</a><a href="https://github.com/maximedogawa/clapandpay">GitHub</a></nav></div>
+</footer>
+</div>
+
+<script>
+(function(){
+var d=document,root=d.documentElement,stage=d.getElementById('stage'),btn=d.getElementById('env'),
+reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+btn.addEventListener('click',function(){
+ if(stage.classList.contains('opened'))return;
+ stage.classList.add('opened');btn.setAttribute('aria-expanded','true');
+ setTimeout(function(){d.getElementById('go').focus({preventScroll:true})},reduce?0:1300);
+});
+var els=[].slice.call(d.querySelectorAll('[data-de]'));
+els.forEach(function(e){e.setAttribute('data-en',e.innerHTML)});
+var TT={en:"Clap and Pay: tap, it's yours",de:'Clap and Pay: antippen, deins'};
+function lang(l){
+ root.lang=l;
+ els.forEach(function(e){e.innerHTML=e.getAttribute(l==='de'?'data-de':'data-en')});
+ d.title=TT[l];
+ [].forEach.call(d.querySelectorAll('.lang button'),function(b){b.setAttribute('aria-pressed',String(b.dataset.l===l))});
+ d.getElementById('h1').innerHTML=l==='de'?'<span>Tipp.</span> <span class="l2"><mark class="yours">Deins.</mark></span>':'<span>Tap.</span> <span class="l2">It\'s <mark class="yours">yours.</mark></span>';
+ try{localStorage.setItem('l',l)}catch(e){}
+}
+[].forEach.call(d.querySelectorAll('.lang button'),function(b){b.addEventListener('click',function(){lang(b.dataset.l)})});
+var l0='';try{l0=localStorage.getItem('l')||''}catch(e){}
+if(!l0)l0=(navigator.language||'').slice(0,2)==='de'?'de':'en';
+if(l0==='de')lang('de');
+// the quiet counter: same-origin JSON when served over http, the samples above otherwise
+if(/^https?:$/.test(location.protocol)){fetch('/stats.json',{credentials:'omit'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(j&&j.opened){d.getElementById('n1').textContent=Number(j.opened).toLocaleString(root.lang);if(j.passedOn)d.getElementById('n2').textContent=Number(j.passedOn).toFixed(1)+'×'}}).catch(function(){})}
+})();
+</script>
+</body>
+</html>
