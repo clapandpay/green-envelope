@@ -1013,7 +1013,9 @@
   .env *,
   .env *::before,
   .env *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every state rule */
     animation: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every state rule */
     transition: none !important;
   }
 
