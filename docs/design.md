@@ -69,3 +69,26 @@ logo's language, and new illustration should be too:
 - **Black-and-white documentary imagery:** photographs appear as halftone prints (the small
   picture on the letter, the inside of the flap).
 - **Ochre is occasional:** seal, postmark, stamp edge. Never a large surface.
+
+## The envelope as showpiece: motion rules
+
+The envelope and the claim moment are the piece of art; these rules keep them one family.
+
+- **Depth, not decoration:** layers sit at fixed depths (`.env__px--sun`, `--cast`, `--slip`,
+  `--leaves`, `--seal`). `useTilt` writes only `--tx`/`--ty` (-1..1) from the pointer or the
+  phone's gyroscope; CSS slides each layer by its depth and leans the whole piece in perspective.
+  Far layers move against the lean, near ones with it. Wrapper groups carry the parallax, so the
+  parts inside keep their own transforms.
+- **Transform and opacity only.** No blur, no gradients, no layout work. The one script loop is
+  the tilt easing, with passive listeners, stopped when settled and on unmount.
+- **Alive when sealed:** a slow float, the seal beating twice like a pulse, then a rock. Held
+  under a thumb the seal gives, the crest draws in and the paper trembles, then it cracks.
+- **Springs for paper:** `--spring` is a `linear()` spring (bezier fallback). Flap, letter and
+  the letter's leaves overshoot once and settle; machine motion (raster bars) stays stepped.
+- **Confetti is cut paper:** leaf, sliver, triangle, half-moon and parallelogram shards in ochre,
+  leaf, forest, ink and ivory, each two-faced (a different colour on the back) so they flip as
+  they fall. Positions are a deterministic golden-angle fan: no randomness.
+- **Haptics, no sound:** `navigator.vibrate` briefly on opening and on the open; never audio.
+- **Reduced motion:** no lean, no breathing, no springs, no confetti; the open state simply is.
+- **Colours from tokens only**, so dark mode follows. `Envelope` takes an optional `interactive`
+  (default on) for places that want it still.

@@ -4,6 +4,9 @@
 // leaves that grow out of it, and a circular postal seal in ochre. Shading is dither, texture is
 // grain, no gradients. One inline SVG; the states are CSS classes (styles/claim.css).
 
+import { useEffect, useRef } from 'preact/hooks';
+import { useTilt } from './useTilt';
+
 export type EnvelopeState = 'sealed' | 'opening' | 'open' | 'empty' | 'ghost';
 
 const FLAP = '30,98 210,98 120,162';
@@ -27,11 +30,46 @@ function crestLeaf(dx: number, dy: number): string {
   return `M${at(1.4, 0)} Q${at(4.6, 4.2)} ${at(9, 0)} Q${at(4.6, -4.2)} ${at(1.4, 0)} Z`;
 }
 
-/** Decorative: the text next to it says everything a screen reader needs. */
-export function Envelope(props: { state: EnvelopeState }) {
+/** Short, felt rather than heard: the seal breaks, and the hand knows. */
+function buzz(pattern: number | number[]) {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    // no haptics here; nothing to do
+  }
+}
+
+/**
+ * Decorative: the text next to it says everything a screen reader needs.
+ * `interactive` (default on) lets it lean toward the pointer or the phone's tilt, and lets the seal
+ * give under a held press; a showcase can switch it off. Layers sit at different depths (class
+ * env__px--*), so the lean reads as paper stacked in space.
+ */
+export function Envelope(props: { state: EnvelopeState; interactive?: boolean }) {
+  const ref = useRef<SVGSVGElement>(null);
+  const interactive = props.interactive !== false && props.state !== 'ghost';
+  useTilt(ref, interactive);
+
+  const previous = useRef(props.state);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = props.state;
+    if (before === props.state) return;
+    if (props.state === 'opening') buzz(10);
+    if (props.state === 'open' && before !== 'empty') buzz([16, 46, 30]);
+  }, [props.state]);
+
+  // press and hold: the seal gives under the thumb before it cracks (a class, no re-render)
+  const press = (on: boolean) => () => ref.current?.classList.toggle('env--press', on);
+
   return (
     <svg
+      ref={ref}
       class={`env env--${props.state}`}
+      onPointerDown={interactive ? press(true) : undefined}
+      onPointerUp={interactive ? press(false) : undefined}
+      onPointerCancel={interactive ? press(false) : undefined}
+      onPointerLeave={interactive ? press(false) : undefined}
       viewBox="0 0 240 240"
       aria-hidden="true"
       focusable="false"
@@ -79,28 +117,32 @@ export function Envelope(props: { state: EnvelopeState }) {
       </defs>
 
       {/* Behind the envelope: the logo's circle, split into two greens, and an ochre postmark. */}
-      <g class="env__sun">
-        <g clip-path="url(#env-sun-clip)">
-          <rect class="env__sun-left" x="56" y="32" width="64" height="128" />
-          <rect class="env__sun-right" x="120" y="32" width="64" height="128" />
-          <rect
-            class="env__grain"
-            x="56"
-            y="32"
-            width="128"
-            height="128"
-            filter="url(#env-grain)"
-          />
-        </g>
-        <g class="env__postmark">
-          <circle cx="190" cy="52" r="17" />
-          <circle cx="190" cy="52" r="13" stroke-dasharray="1.6 2.2" />
-          <path d="M152 44 q5 -4 10 0 t10 0 t10 0 M148 52 q5 -4 10 0 t10 0 t10 0 M152 60 q5 -4 10 0 t10 0 t10 0" />
+      <g class="env__px env__px--sun">
+        <g class="env__sun">
+          <g clip-path="url(#env-sun-clip)">
+            <rect class="env__sun-left" x="56" y="32" width="64" height="128" />
+            <rect class="env__sun-right" x="120" y="32" width="64" height="128" />
+            <rect
+              class="env__grain"
+              x="56"
+              y="32"
+              width="128"
+              height="128"
+              filter="url(#env-grain)"
+            />
+          </g>
+          <g class="env__postmark">
+            <circle cx="190" cy="52" r="17" />
+            <circle cx="190" cy="52" r="13" stroke-dasharray="1.6 2.2" />
+            <path d="M152 44 q5 -4 10 0 t10 0 t10 0 M148 52 q5 -4 10 0 t10 0 t10 0 M152 60 q5 -4 10 0 t10 0 t10 0" />
+          </g>
         </g>
       </g>
 
       <g class="env__all">
-        <path class="env__cast" d={POCKET} transform="translate(6 7)" />
+        <g class="env__px env__px--cast">
+          <path class="env__cast" d={POCKET} transform="translate(6 7)" />
+        </g>
         <rect class="env__inside" x="30" y="98" width="180" height="110" rx="6" />
         {/* the flap once it is open: its inside, printed in halftone */}
         <g class="env__flap-open">
@@ -108,47 +150,54 @@ export function Envelope(props: { state: EnvelopeState }) {
           <polygon class="env__flap-open-print" points={FLAP} />
         </g>
 
-        <g class="env__slip-group">
-          {/* two leaves grow out of the letter, the way they grow out of the logo */}
-          <path
-            class="env__leaf env__leaf--ivory"
-            d="M118 112 C 96 108, 84 88, 92 70 C 110 74, 122 92, 118 112 Z"
-          />
-          <path
-            class="env__leaf env__leaf--green"
-            d="M122 112 C 124 88, 138 70, 160 66 C 164 88, 146 108, 122 112 Z"
-          />
-          <path
-            class="env__leaf-vein"
-            d="M118 110 C 110 96, 102 84, 94 72 M123 110 C 132 94, 144 80, 158 68"
-          />
-          <rect class="env__slip-cast" x="53" y="109" width="140" height="92" />
-          <rect class="env__slip" x="50" y="106" width="140" height="92" />
-          <rect
-            class="env__slip-grain"
-            x="50"
-            y="106"
-            width="140"
-            height="92"
-            filter="url(#env-grain-ink)"
-          />
-          <rect class="env__slip-rule" x="56" y="112" width="128" height="80" />
-          {/* a small documentary photograph: horizon, hill, low sun, printed in halftone */}
-          <g clip-path="url(#env-photo-clip)">
-            <rect class="env__photo-sky" x="58" y="116" width="62" height="40" />
-            <circle class="env__photo-sun" cx="100" cy="134" r="7" />
-            <path class="env__photo-land" d="M58 146 Q 76 132 94 142 T 120 138 V156 H58 Z" />
+        <g class="env__px env__px--slip">
+          <g class="env__slip-group">
+            {/* two leaves grow out of the letter, the way they grow out of the logo; they unfold
+              from the letter's edge with a spring once it is out of the pocket */}
+            <g class="env__px env__px--leaves">
+              <g class="env__unfold">
+                <path
+                  class="env__leaf env__leaf--ivory"
+                  d="M118 112 C 96 108, 84 88, 92 70 C 110 74, 122 92, 118 112 Z"
+                />
+                <path
+                  class="env__leaf env__leaf--green"
+                  d="M122 112 C 124 88, 138 70, 160 66 C 164 88, 146 108, 122 112 Z"
+                />
+                <path
+                  class="env__leaf-vein"
+                  d="M118 110 C 110 96, 102 84, 94 72 M123 110 C 132 94, 144 80, 158 68"
+                />
+              </g>
+            </g>
+            <rect class="env__slip-cast" x="53" y="109" width="140" height="92" />
+            <rect class="env__slip" x="50" y="106" width="140" height="92" />
+            <rect
+              class="env__slip-grain"
+              x="50"
+              y="106"
+              width="140"
+              height="92"
+              filter="url(#env-grain-ink)"
+            />
+            <rect class="env__slip-rule" x="56" y="112" width="128" height="80" />
+            {/* a small documentary photograph: horizon, hill, low sun, printed in halftone */}
+            <g clip-path="url(#env-photo-clip)">
+              <rect class="env__photo-sky" x="58" y="116" width="62" height="40" />
+              <circle class="env__photo-sun" cx="100" cy="134" r="7" />
+              <path class="env__photo-land" d="M58 146 Q 76 132 94 142 T 120 138 V156 H58 Z" />
+            </g>
+            <rect class="env__photo-frame" x="58" y="116" width="62" height="40" />
+            {/* the stamp: perforated edge, a leaf, and the postmark ring over its corner */}
+            <rect class="env__stamp-perf" x="140" y="116" width="36" height="42" />
+            <rect class="env__stamp" x="143" y="119" width="30" height="36" />
+            <path
+              class="env__stamp-leaf"
+              d="M158 150 C 150 142, 150 130, 158 124 C 166 130, 166 142, 158 150 Z"
+            />
+            <circle class="env__slip-sun" cx="142" cy="156" r="11" />
+            <path class="env__slip-ink" d="M58 168 H176 M58 176 H150 M58 184 H122" />
           </g>
-          <rect class="env__photo-frame" x="58" y="116" width="62" height="40" />
-          {/* the stamp: perforated edge, a leaf, and the postmark ring over its corner */}
-          <rect class="env__stamp-perf" x="140" y="116" width="36" height="42" />
-          <rect class="env__stamp" x="143" y="119" width="30" height="36" />
-          <path
-            class="env__stamp-leaf"
-            d="M158 150 C 150 142, 150 130, 158 124 C 166 130, 166 142, 158 150 Z"
-          />
-          <circle class="env__slip-sun" cx="142" cy="156" r="11" />
-          <path class="env__slip-ink" d="M58 168 H176 M58 176 H150 M58 184 H122" />
         </g>
 
         <path class="env__pocket" d={POCKET} />
@@ -193,20 +242,22 @@ export function Envelope(props: { state: EnvelopeState }) {
           <path class="env__v" d={V} />
         </g>
 
-        <g class="env__seal">
-          <circle class="env__seal-cast" cx="122.5" cy="165" r="17" />
-          <circle class="env__seal-disc" cx={SEAL.cx} cy={SEAL.cy} r="17" />
-          {/* a postal stamp's perforated outer edge and a fine inner line */}
-          <circle class="env__seal-rim" cx={SEAL.cx} cy={SEAL.cy} r="15.2" />
-          <circle class="env__seal-ring" cx={SEAL.cx} cy={SEAL.cy} r="12.6" />
-          {CREST.map(([dx, dy]) => (
-            <path
-              key={`${dx}.${dy}`}
-              class="env__crest"
-              d={crestLeaf(dx, dy)}
-              style={`--dx:${dx};--dy:${dy}`}
-            />
-          ))}
+        <g class="env__px env__px--seal">
+          <g class="env__seal">
+            <circle class="env__seal-cast" cx="122.5" cy="165" r="17" />
+            <circle class="env__seal-disc" cx={SEAL.cx} cy={SEAL.cy} r="17" />
+            {/* a postal stamp's perforated outer edge and a fine inner line */}
+            <circle class="env__seal-rim" cx={SEAL.cx} cy={SEAL.cy} r="15.2" />
+            <circle class="env__seal-ring" cx={SEAL.cx} cy={SEAL.cy} r="12.6" />
+            {CREST.map(([dx, dy]) => (
+              <path
+                key={`${dx}.${dy}`}
+                class="env__crest"
+                d={crestLeaf(dx, dy)}
+                style={`--dx:${dx};--dy:${dy}`}
+              />
+            ))}
+          </g>
         </g>
       </g>
     </svg>
