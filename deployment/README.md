@@ -69,10 +69,10 @@ Steps:
    Copy `compose.yaml`, `Caddyfile` and `launch.env.example` (as `.env`) to it.
 3. **Images.** Publish a release tagged `green-envelope-v<version>` (it must match
    `package.json`) and one tagged `clapandpay-web-v<version>`. `images.yml` builds both.
-4. **Apple and Android.** Put the Apple team id into
-   `apps/site/.well-known/apple-app-site-association` and the release signing fingerprint into
-   `assetlinks.json` before releasing the site; the workflow warns while a placeholder is left.
-   Without them the passkey handoff and universal links do not work.
+4. **Android.** The Apple file already carries the team id. Put the release signing fingerprint
+   into `apps/site/.well-known/assetlinks.json` before releasing the site; the workflow warns
+   while a placeholder is left. Without the right ids the passkey handoff and universal links do
+   not work.
 5. **Faucet.** Set the repository variable `FAUCET_URL` (Settings, Variables), for example
    `https://envelope.clapandpay.com/api/faucet`, and release the app image again: it is a build
    setting. Until then `/hello` shows the demo envelope. See `docs/faucet.md`.
