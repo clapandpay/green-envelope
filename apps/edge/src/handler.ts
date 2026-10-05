@@ -24,7 +24,7 @@ export interface HandlerDeps {
 export type Handler = (request: Request) => Promise<Response>;
 
 /** Routes of the single-page app that have no file behind them and get the shell. */
-export const APP_ROUTES: readonly string[] = ['/', '/new'];
+export const APP_ROUTES: readonly string[] = ['/', '/new', '/hello'];
 
 const RPC_PREFIX = '/api/rpc/';
 const ENVELOPE_PREFIX = '/g/';
@@ -169,6 +169,7 @@ export function createHandler(deps: HandlerDeps): Handler {
     const isEnvelope = path.startsWith(ENVELOPE_PREFIX) || path === '/g';
     if ((isEnvelope || isAppRoute(path)) && !isRead(request)) return methodNotAllowed('GET, HEAD');
     if (isEnvelope) return pages.envelope(request, url, path.slice(ENVELOPE_PREFIX.length));
+    if (path === '/hello') return pages.hello(request, url);
     if (isAppRoute(path)) return pages.generic(request, url, 200);
     const asset = await deps.assets(request);
     return isHtml(asset) ? withHeaders(asset, headers) : asset;

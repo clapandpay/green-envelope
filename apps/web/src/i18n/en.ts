@@ -197,6 +197,54 @@ export const en = {
     ],
     howClose: 'Got it',
   },
+  hello: {
+    eyebrow: 'Try it',
+    title: 'Get your green envelope',
+    lead: 'A real envelope with real money in it. Free, and it is yours.',
+    get: 'Get your envelope',
+    getting: 'Fetching your envelope…',
+    stepsLabel: 'How it works',
+    steps: [
+      { title: 'Tap', body: 'Get your envelope.' },
+      { title: 'It is yours', body: 'Open it. The money is on your phone.' },
+      { title: 'Pass it on', body: 'Send it to a friend with one tap.' },
+    ],
+    makeOwn: 'Make your own envelope',
+    whatTitle: 'What is this?',
+    whatBody:
+      'This is real money on a public network, not a game. The link is like cash: whoever has it can open it, so send it only to people you mean. You need no app and no account.',
+    honeypot: 'Leave this empty',
+    // already got one on this device
+    alreadyTitle: 'You already have one',
+    alreadyBody: 'One envelope each, so there is enough for everyone. Yours is waiting.',
+    alreadyOpen: 'Open my envelope',
+    alreadyMoney: 'Go to my money',
+    // the faucet is dry
+    emptyTitle: 'All envelopes are in flight',
+    emptyBody:
+      'Every envelope for today is on its way to somebody. Come back soon, or make one yourself.',
+    emptyAgain: 'Check again',
+    // too many requests
+    limitedTitle: 'Lots of people are tapping',
+    limitedBody: 'Give it a moment. We will let you try again.',
+    limitedWait: (seconds: number) => `Try again in ${seconds} s`,
+    // no answer
+    offlineTitle: 'No connection',
+    offlineBody:
+      'Your envelope is not lost, we just cannot reach it. Check your internet and try again.',
+    brokenTitle: 'That did not work',
+    brokenBody: 'Something went wrong on our side. Please try again in a moment.',
+    // demo: the faucet is not switched on
+    demoTag: 'Demo · not real money',
+    demoTitle: 'A demo envelope',
+    demoLead: 'Try the opening. This one holds no money at all.',
+    demoOpen: 'Open the demo',
+    demoOpening: 'Opening…',
+    demoDoneTitle: 'That is how it feels',
+    demoDoneBody:
+      'This was a rehearsal: nothing arrived, nothing was spent. Real envelopes open just like this.',
+    demoAgain: 'Open it again',
+  },
   notFound: {
     title: 'Nothing here',
     body: 'This page does not exist. Your money is fine.',

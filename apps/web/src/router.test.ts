@@ -13,6 +13,9 @@ describe('matchRoute', () => {
     expect(matchRoute('/new/')).toEqual({ name: 'create', amount: null });
     expect(matchRoute('/g/abc_DEF-123')).toEqual({ name: 'claim', id: 'abc_DEF-123' });
     expect(matchRoute('/g/abc/')).toEqual({ name: 'claim', id: 'abc' });
+    expect(matchRoute('/hello')).toEqual({ name: 'hello' });
+    expect(matchRoute('/hello/')).toEqual({ name: 'hello' });
+    expect(matchRoute('/hello', '?net=testnet')).toEqual({ name: 'hello' });
   });
 
   it('reads the prefilled amount as a bigint, or not at all', () => {
@@ -27,7 +30,7 @@ describe('matchRoute', () => {
   });
 
   it('sends everything else to notFound', () => {
-    for (const path of ['/g', '/g/', '/g/a/b', '/wallet', '/new/x']) {
+    for (const path of ['/g', '/g/', '/g/a/b', '/wallet', '/new/x', '/hello/x']) {
       expect(matchRoute(path), path).toEqual({ name: 'notFound' });
     }
   });

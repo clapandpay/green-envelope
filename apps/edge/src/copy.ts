@@ -29,6 +29,8 @@ interface Strings {
   readonly tapToOpen: string;
   readonly genericTitle: string;
   readonly genericDescription: string;
+  readonly helloTitle: string;
+  readonly helloDescription: string;
 }
 
 const STRINGS: Readonly<Record<Language, Strings>> = {
@@ -40,6 +42,9 @@ const STRINGS: Readonly<Record<Language, Strings>> = {
     tapToOpen: 'Tap to open',
     genericTitle: `Green Envelope · ${SITE_NAME}`,
     genericDescription: 'Money as a link in the group chat. Tap, open, and it is yours.',
+    helloTitle: '🟢 Get your green envelope',
+    helloDescription:
+      'Tap, and an envelope with real money is yours. Then pass it on. No app, no account.',
   },
   de: {
     titleFrom: (from) => `🟢 Grüner Umschlag von ${from}`,
@@ -49,6 +54,9 @@ const STRINGS: Readonly<Record<Language, Strings>> = {
     tapToOpen: 'Tippen zum Öffnen',
     genericTitle: `Grüner Umschlag · ${SITE_NAME}`,
     genericDescription: 'Geld als Link im Gruppenchat. Tippen, öffnen, und es gehört dir.',
+    helloTitle: '🟢 Hol dir deinen grünen Umschlag',
+    helloDescription:
+      'Tippen, und ein Umschlag mit echtem Geld gehört dir. Dann gib ihn weiter. Keine App, kein Konto.',
   },
 };
 
@@ -86,4 +94,10 @@ export function envelopeCopy(
 export function genericCopy(language: Language): PreviewCopy {
   const strings = STRINGS[language];
   return { title: strings.genericTitle, description: strings.genericDescription };
+}
+
+/** Preview copy of the front door, `/hello`. */
+export function helloCopy(language: Language): PreviewCopy {
+  const strings = STRINGS[language];
+  return { title: strings.helloTitle, description: strings.helloDescription };
 }
