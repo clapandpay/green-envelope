@@ -28,4 +28,5 @@ pnpm verify:spends  # runs TypeScript-built spend bundles through the Rust simul
 Rules: TypeScript strict and no `any`; bytes are `Uint8Array`, amounts are `bigint`; no code that
 builds a spend merges without a simulator check; the claim route stays under 100 kB gzipped.
 
-Licence: AGPL-3.0-or-later. Commercial licences: `../COMMERCIAL-LICENSE.md`.
+Licence: AGPL-3.0-or-later with the app store exception (`../LICENSE-APP-STORE-EXCEPTION.md`).
+Commercial licences: `../COMMERCIAL-LICENSE.md`.
