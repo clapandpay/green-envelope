@@ -1,39 +1,44 @@
 # clapandpay.com: website concept
 
 Status: proposal. Prototype: `docs/design/website-prototype/index.html` (open it from disk; one
-file, about 41 kB raw and 13 kB gzipped, no requests). Brand: [clapandpay-brand.md](clapandpay-brand.md).
-The clap counter is local to the tab; the faucet state is optional.
+file, about 87 kB raw, no requests) and the hand sticker sheet `stickers.html` next to it. Brand:
+[clapandpay-brand.md](clapandpay-brand.md). The clap counter is local to the tab; the faucet
+state is optional.
 
 ## The one big idea
 
-**The site is the hub, and the hub is a clap.** Clap and Pay is also the family around the
-Klimper wallet, so the site is not the Green Envelope's brochure: it is an art piece in the
-brand's own look (Klimper's palette and coin, with motion, in Beidwerk's Kinetic Humanism). Two big
-hands approach, meet, and coins jingle out and settle. The visitor can clap. Below that, a tap
-and a loop explain the product in gestures, then three doors lead into the family. Green Envelope
-is a guest in its own forest green; Klimper is the wallet; Play is coming soon.
+**The site is the hub, and the hub is a clap.** Clap and Pay is the family around the Klimper
+wallet, so the site is not the Green Envelope's brochure: it is an editorial page in the brand's
+own look (the Klimper icon's blue, red and yellow on warm off-white, Beidwerk's Kinetic Humanism).
+Two friendly hands approach, meet in a spark, and coins in the icon's three colours jingle out and
+settle. The visitor can clap. The Green Envelope is a guest with its own full-width chapter in its
+own green paper world, the most beautiful part of the page; Klimper is the wallet. The hub shows
+only what exists today.
 
 ## Scroll narrative
 
 | # | Section | What happens |
 | --- | --- | --- |
-| 1 | **Hero: "Clap. Pay."** | Two hands fly in and clap: squash, flash, echo ring, a shower of up to 26 coins that settle as a pile. Click, tap or space claps again, the headline letters hop, a local counter counts. Idle breathing. Primary button to `/hello` |
-| 2 | **Tap** | A phone cut-out; a finger approaches, a ripple, a coin drops in, the number settles. Tap the phone to repeat |
-| 3 | **Loop: Clap, Tap, Pay** | Three calm looping cards |
-| 4 | **The family** | Doors: Green Envelope (live mini envelope opens on hover, focus or when in view, links to `/hello`), Klimper (`/klimper`, placeholder for TestFlight, "Use Clap and Pay money"), Play (preview chips: who pays tonight) |
-| 5 | **Plain words** | Money stays yours, a link is cash, no account or password, technology out of sight, no cookies, early software |
-| 6 | **Footer** | The hands drifted apart on scroll and meet again for a last clap; DE/EN, imprint, privacy, GitHub |
+| 1 | **Hero: "Clap. Pay."** | Editorial split: headline and promise left, the hands right. Two hands fly in and clap: squash, spark, two ticks, echo ring, up to 30 coins that settle as a pile. Idle: hands breathe, fingers wag, one beckons. Click, tap or space claps again; a second click within 0.9 s is a high five; five fast claps rain more coins and show a silly line. Letters hop, a local counter counts |
+| 2 | **Two ways in** | Two doors: Green Envelope (scrolls to its chapter) and Klimper |
+| 3 | **How it works: Clap. Tap. Pay.** | Three numbered steps with hand stickers, then a phone demo: a pointing hand taps, a coin drops in, the number settles |
+| 4 | **Green Envelope chapter** | A change of room (dither edge, leaf-green paper, a drifting euro sign). A large tappable envelope with the opening ceremony (seal breaks, flap, letter), then the loop with a self-drawing postal route, then the 1, 2, 4, 8 envelope tree that grows branch by branch, then the button to `/hello` |
+| 5 | **Klimper** | The three-coin mark bumps together with its spark and ticks; three facts; TestFlight button (placeholder `/klimper`); how to bring an opened envelope |
+| 6 | **Plain words** | Why it is safe in six lines, and who is behind it (open source, AGPL, built on Sage) |
+| 7 | **Footer** | A last clap with hands in cream sticker edges, then real columns: products, trust, legal (imprint and privacy placeholders), GitHub |
 
-Scroll-driven part: hands drift apart as you leave the hero and re-meet at the footer, CSS
-`animation-timeline` behind `@supports`; without it nothing moves and the page is simply laid out.
+Scroll-driven parts (euro drift, route drawing) use CSS `animation-timeline` behind `@supports`;
+without it nothing moves and the page is simply laid out.
 
 ## Art direction
 
-See [clapandpay-brand.md](clapandpay-brand.md). In short: Klimper tokens only, sun gradient only on
-the primary action and coins, ink on sun, system rounded type, no stock imagery, no sound,
-animate transform and opacity only, particles capped, pause off-screen and in hidden tabs.
-Dark mode follows the system with a manual toggle (stored only after a click). Reduced motion:
-no animation, the clap shows a pressed pose and coins already at rest.
+See [clapandpay-brand.md](clapandpay-brand.md). In short: the icon's three colours, flat, with a
+white highlight arc as the only gloss; friendly chubby ink-outlined hands in yellow with coloured
+cuffs; a faint offset print under them; a 12-column editorial grid with hairline rules and
+numbered mono labels; hard offset shadows, no blur; a faint static paper grain; no stock imagery,
+no sound; transform and opacity only; particles capped; pause off-screen and in hidden tabs.
+Dark mode follows the system with a manual toggle (stored only after a click). Reduced motion: no
+animation, the clap shows a pressed pose and coins already at rest.
 
 ## Handoff to the app
 
@@ -67,8 +72,8 @@ site as Section 3; no `klimper/` change is needed.
 | Cookies, tracking | None. No consent banner needed. Language choice in `localStorage` only after the person clicks DE/EN |
 | Analytics | **None third-party.** The counter is the product's own aggregate (envelopes opened, mean hops) from the envelope service, never per-visitor. If funnel numbers are wanted later, count `GET /hello` server-side in the edge logs without IPs; still no cookie |
 | Languages | Separate static documents: `/` (English) and `/de/` with `hreflang` both ways. Default by `Accept-Language` is a hint link, not a redirect, so crawlers and link previews stay stable. The prototype toggles in place to show both |
-| SEO and Open Graph | One `h1`, real text, `description`, canonical, `hreflang`, JSON-LD `Organization` only. OG card is a static 1200x630 PNG in the ink/ivory language (the two hands and the coin, no text smaller than 60 px). `twitter:card=summary_large_image` |
-| Accessibility | Real buttons for clap, phone and language/theme; the hand SVGs are `aria-hidden`; space claps; teal 3 px focus ring; 44 to 48 px targets; AA contrast (ink on sun); keyboard, zoom to 200 %, and without JS the hands, the coin pile and all links are static and work |
+| SEO and Open Graph | One `h1`, real text, `description`, canonical, `hreflang`, JSON-LD `Organization` only. OG card is a static 1200x630 PNG in the ink/ivory language (the three-coin mark and the two hands, no text smaller than 60 px). `twitter:card=summary_large_image` |
+| Accessibility | Real buttons for clap, phone and language/theme; the hand SVGs are `aria-hidden`; space claps; blue 3 px focus ring; 44 to 48 px targets; AA contrast; keyboard, zoom to 200 %, and without JS the hands, the coin pile and all links are static and work |
 
 ## Robustness
 
