@@ -17,5 +17,5 @@ not_found_handling = "none"
 
 [vars]
 NETWORK = "mainnet"
-PUBLIC_ORIGIN = "https://clapandpay.com"
+PUBLIC_ORIGIN = "https://envelope.clapandpay.com"
 CHAIN_ENDPOINTS = "https://api.coinset.org"

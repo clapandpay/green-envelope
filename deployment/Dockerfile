@@ -41,7 +41,14 @@ ARG VITE_NETWORK=mainnet
 # The commit the footer names next to the release number. The context has no .git, so the
 # release workflow passes it in.
 ARG GIT_COMMIT=unknown
-RUN VITE_NETWORK="$VITE_NETWORK" GIT_COMMIT="$GIT_COMMIT" pnpm --filter web build
+# The faucet behind /hello (docs/faucet.md). Empty means /hello shows the stamped demo envelope
+# and never touches the network. These are read at build time, so they belong to the image: set
+# the repository variable FAUCET_URL (images.yml passes it) or build with --build-arg.
+ARG VITE_FAUCET_URL=
+ARG VITE_FAUCET_ORIGINS=
+RUN VITE_NETWORK="$VITE_NETWORK" GIT_COMMIT="$GIT_COMMIT" \
+    VITE_FAUCET_URL="$VITE_FAUCET_URL" VITE_FAUCET_ORIGINS="$VITE_FAUCET_ORIGINS" \
+    pnpm --filter web build
 
 # ---------------------------------------------------------------------------------------------
 # Runtime: sources and production dependencies only. apps/edge and @ge/chia ship as TypeScript —

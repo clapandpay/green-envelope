@@ -40,6 +40,7 @@ import {
   type WalletKind,
 } from '@ge/wallet';
 import { builtNetwork, type NetworkName, resolveNetwork, withNetwork } from '../lib/network';
+import { relyingPartyId } from '../lib/relying-party';
 import { handlesApiFor, parseHandle, resolveHandle } from './handles';
 import { createLocalState, type LocalState, type SentRecord } from './local-state';
 import {
@@ -53,13 +54,19 @@ import {
   type WalletInfo,
 } from './types';
 
+/** `{ rpId }` where the passkey belongs to clapandpay.com, nothing where the browser decides. */
+function rpIdOption(hostname: string): { rpId?: string } {
+  const rpId = relyingPartyId(hostname);
+  return rpId === undefined ? {} : { rpId };
+}
+
 /** Everything the real services need from the outside; all of it replaceable in tests. */
 export interface RealDeps {
   network: Network;
   chain: ChainClient;
   keyStore: KeyStore;
   state: LocalState;
-  /** Where envelope links point, e.g. https://clapandpay.com */
+  /** Where envelope links point, e.g. https://envelope.clapandpay.com */
   origin: string;
   fetch: typeof fetch;
   /** Unix seconds. */
@@ -617,7 +624,7 @@ export function createRealServices(): AppServices {
   return createServicesFrom({
     network,
     chain: createChainClient({ endpoints: configured.length > 0 ? configured : [direct] }),
-    keyStore: createKeyStore({ rpName: 'Clap and Pay' }),
+    keyStore: createKeyStore({ rpName: 'Clap and Pay', ...rpIdOption(location.hostname) }),
     state: createLocalState(localStorage),
     origin: String(env.VITE_PUBLIC_ORIGIN ?? location.origin),
     fetch: (input, init) => fetch(input, init),
