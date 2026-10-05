@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
-// Talks to the real testnet11 and waits for blocks. Run on purpose: `pnpm e2e:testnet`.
+// Run on purpose: `pnpm e2e:testnet` talks to the real testnet11 and waits for blocks;
+// `pnpm e2e:handoff` drives the Klimper handoff in headless Chrome.
 export default defineConfig({
   test: {
     include: ['apps/web/src/**/*.e2e.ts'],
