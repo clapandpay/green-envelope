@@ -6,7 +6,7 @@ import preact from '@preact/preset-vite';
 import { defineConfig } from 'vite';
 
 // The release number is green-envelope/package.json's version; a release tag must match it
-// (release.yml). The commit comes from GIT_COMMIT where the build has no .git (the Docker
+// (.github/workflows/images.yml). The commit comes from GIT_COMMIT where the build has no .git (the Docker
 // image), otherwise from git itself, marked -dirty when the tree has uncommitted changes.
 const root = fileURLToPath(new URL('../..', import.meta.url)); // green-envelope/
 const { version } = JSON.parse(readFileSync(`${root}/package.json`, 'utf8')) as {

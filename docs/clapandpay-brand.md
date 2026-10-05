@@ -1,7 +1,7 @@
 # Clap and Pay: brand
 
-Status: proposal, with the hub prototype (`design/website-prototype/index.html`) and the hand
-sticker sheet (`design/website-prototype/stickers.html`) as the reference. The method is
+Status: proposal, with the hub prototype (`../apps/site/index.html`) and the hand
+sticker sheet (`../apps/site/stickers.html`) as the reference. The method is
 Beidwerk's Kinetic Humanism; the mark and the colours are the Klimper app icon's
 (`klimper/src/icon-light.png`, `icon-dark.png`).
 

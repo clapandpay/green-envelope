@@ -1,6 +1,6 @@
 # clapandpay.com: website concept
 
-Status: proposal. Prototype: `docs/design/website-prototype/index.html` (open it from disk; one
+Status: proposal. Prototype: `apps/site/index.html` (open it from disk; one
 file, about 87 kB raw, no requests) and the hand sticker sheet `stickers.html` next to it. Brand:
 [clapandpay-brand.md](clapandpay-brand.md). The clap counter is local to the tab; the faucet
 state is optional.
@@ -90,8 +90,8 @@ site as Section 3; no `klimper/` change is needed.
 | Choice | Recommendation |
 | --- | --- |
 | Host | Same place as the app (static origin + CDN), with `/hello`, `/g/*`, `/connect`, `/new` falling through to the app's `index.html` and `/`, `/de/` to the site. The routing table is one config file |
-| Deploy | Piggyback on the existing `ci.yml`/`release.yml` (the build step of `green-envelope/`); the site folder is just more files in the same artifact. **No new workflow, no schedule.** Any periodic work (refreshing the baked counter) is a script run by hand or done by the edge at request time |
-| CI cost | Nothing added: `apps/site` falls under the existing `green-envelope/**` path filter; the size test runs inside `pnpm check` on pull requests only |
+| Deploy | The site is `apps/site`: two static files, built into the `clapandpay-web` image (nginx, non-root, amd64 and arm64) by `.github/workflows/images.yml` on a `clapandpay-web-v*` release. **No schedule.** Any periodic work (refreshing the baked counter) is a script run by hand or done by the edge at request time |
+| CI cost | One runner per image, only on a published release; nothing runs on pull requests or merges |
 
 ## Open points for the owner
 
