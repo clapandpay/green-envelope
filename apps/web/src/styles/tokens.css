@@ -1,27 +1,39 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Design tokens. Cut paper on a quiet ground: washi, sumi ink, one green, one vermilion.
-   Flat colour, hard edges, shading by dither instead of gradients. No blue. */
+/* Design tokens. Cut paper on a quiet ground: warm ivory, near-black ink, deep forest green with
+   verdigris and leaf, ochre as the one warm counter-accent. Flat colour, hard edges, shading by
+   dither instead of gradients. No blue. Palette: docs/design.md. */
 
 :root {
   color-scheme: light dark;
 
-  /* colour */
-  --paper: #ebe6da;
-  --paper-raised: #f6f2e8;
-  --paper-sunk: #d9d2c0;
-  --ink: #15151a;
-  --ink-soft: #5f5c55;
-  --green: #1d6b4a;
-  --green-deep: #124a33;
-  --green-soft: #bcd4c5;
-  --on-green: #f6f2e8;
-  --sun: #d8432b;
-  --sun-deep: #a32c18;
-  --on-sun: #15151a;
+  /* palette */
+  --ivory: #f4f0e6;
+  --near-black: #171918;
+  --forest: #0f5a3a;
+  --verdigris: #2b7a62;
+  --leaf: #79a83b;
+  --ochre: #c59a3a;
+  --stone: #8a877f;
+  --charcoal-green: #12201a;
+
+  /* colour roles */
+  --paper: var(--ivory);
+  --paper-raised: #fbf8f1;
+  --paper-sunk: #e6e0d2;
+  --ink: var(--near-black);
+  --ink-soft: #5f5c55; /* stone darkened: #8a877f is 3.2:1 on ivory, too faint for text */
+  --line-colour: var(--stone);
+  --green: var(--forest);
+  --green-deep: #0a4029;
+  --green-soft: #d2dcb6; /* leaf on ivory */
+  --on-green: var(--ivory);
+  --sun: var(--ochre);
+  --sun-deep: #9a7526;
+  --on-sun: var(--near-black);
   --alert: #ad2417;
   --alert-soft: #ffe0d8;
-  --shadow: #1b1a17;
-  --qr-dark: #1b1a17;
+  --shadow: var(--near-black);
+  --qr-dark: var(--near-black);
   --qr-light: #fffaf0;
 
   /* shape */
@@ -60,19 +72,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #0e0e11;
-    --paper-raised: #17171c;
-    --paper-sunk: #1c1c22;
-    --ink: #ece7db;
-    --ink-soft: #a29e93;
-    --green: #2a8a61;
-    --green-deep: #15513a;
-    --green-soft: #1c3a2c;
-    --on-green: #f6f2e8;
-    --sun: #e2543a;
-    --sun-deep: #a8341e;
+    --paper: var(--charcoal-green);
+    --paper-raised: #1a2b23;
+    --paper-sunk: #0c1712;
+    --ink: var(--ivory);
+    --ink-soft: #aba79d;
+    --line-colour: #5c5a54;
+    --green: var(--verdigris);
+    --green-deep: var(--forest);
+    --green-soft: #1a3b30;
+    --on-green: var(--ivory);
+    --sun: var(--ochre);
+    --sun-deep: #8e6c22;
     --alert: #ff9784;
     --alert-soft: #4a1f18;
-    --shadow: #060705;
+    --shadow: #07100c;
   }
 }

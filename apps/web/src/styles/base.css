@@ -136,9 +136,11 @@ svg {
   text-decoration: none;
 }
 
-.brand svg {
-  width: 28px;
-  height: 22px;
+.brand img {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
 }
 
 .title {

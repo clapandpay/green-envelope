@@ -19,120 +19,214 @@
   fill: var(--ink);
 }
 
-/* the sun: raster bars, thinning towards the horizon */
-.env__sun {
-  fill: var(--sun);
-}
-
-.env__sun rect {
-  transform-box: fill-box;
-  transform-origin: 50% 50%;
-}
-
 /* shadows are dithered, never blurred */
 .env__cast,
 .env__flap-cast,
 .env__seal-cast,
 .env__slip-cast {
   fill: url("#env-dither");
+  opacity: 0.5;
+}
+
+/* printed grain over the dark fields; a lighter touch over paper */
+.env__grain {
   opacity: 0.55;
+  pointer-events: none;
 }
 
-/* the key fret: paper showing through the green, the way a printed band would */
-.env__fret {
-  fill: url("#env-fret");
-  opacity: 0.55;
+.env__slip-grain {
+  opacity: 0.35;
 }
 
-.env__fret-line {
-  stroke: #f6f2e8;
-  stroke-width: 1.6;
-  stroke-linecap: square;
+.env__halftone-dot {
+  fill: var(--near-black);
 }
 
-/* the seal: a carved stone, vermilion on green, with a heavy outer rim */
-.env__seal-rim {
+/* behind the envelope: the logo's split circle, and an ochre postmark */
+/* kept quiet: tints of the paper, so the envelope stays the subject */
+.env__sun-left {
+  fill: color-mix(in srgb, var(--green-deep) 16%, var(--paper));
+}
+
+.env__sun-right {
+  fill: color-mix(in srgb, var(--verdigris) 12%, var(--paper));
+}
+
+.env__sun .env__grain {
+  opacity: 0.18;
+}
+
+.env__postmark {
   fill: none;
-  stroke: var(--on-sun);
-  stroke-width: 1.4;
-  opacity: 0.28;
+  stroke: var(--ochre);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  opacity: 0.5;
 }
 
-.env__wave-ground {
-  fill: #f6f2e8;
-}
-
-.env__wave-line {
-  fill: none;
-  stroke: #1d6b4a;
-  stroke-width: 0.9;
-}
-
+/* the envelope: forest pocket with black and leaf fields, split down the middle */
 .env__inside {
+  fill: var(--near-black);
+}
+
+.env__pocket {
+  fill: var(--forest);
+}
+
+.env__field--ink {
+  fill: var(--near-black);
+}
+
+.env__field--leaf {
+  fill: var(--leaf);
+}
+
+.env__field--verdigris {
+  fill: var(--verdigris);
+}
+
+.env__field--forest {
+  fill: var(--forest);
+}
+
+.env__flap-face--left {
+  fill: var(--leaf);
+}
+
+.env__flap-face--right {
   fill: var(--green-deep);
 }
 
-.env__flap-open {
-  fill: url("#env-waves");
-}
-
-.env__pocket,
-.env__flap {
-  fill: var(--green);
-}
-
-/* origami facets: one face catches the light, one falls into dither */
-.env__facet-light {
-  fill: #f6f2e8;
-  opacity: 0.1;
-}
-
-.env__facet-shade,
-.env__flap-shade {
-  fill: url("#env-dither");
-  opacity: 0.22;
-}
-
-.env__fold {
+/* the ivory V of the logo, where flap and pocket meet */
+.env__v {
   fill: none;
-  stroke: var(--green-deep);
-  stroke-width: 1;
+  stroke: var(--ivory);
+  stroke-width: 7;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
+/* on dark paper the black fields need an edge */
+.env__edge {
+  fill: none;
+  stroke: var(--ivory);
+  stroke-width: 1;
+  opacity: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .env__edge {
+    opacity: 0.3;
+  }
+}
+
+/* the inside of the flap, seen once it is open: a halftone print on ivory */
+.env__flap-open-paper {
+  fill: var(--ivory);
+}
+
+.env__flap-open-print {
+  fill: url("#env-halftone");
+  opacity: 0.35;
+}
+
+/* the letter */
 .env__slip {
-  fill: #f6f2e8;
+  fill: var(--ivory);
 }
 
 .env__slip-rule {
   fill: none;
-  stroke: #15151a;
+  stroke: var(--near-black);
   stroke-width: 0.7;
-  opacity: 0.5;
+  opacity: 0.45;
+}
+
+.env__photo-sky {
+  fill: url("#env-halftone");
+}
+
+.env__photo-sun {
+  fill: var(--ivory);
+}
+
+.env__photo-land {
+  fill: url("#env-halftone-dense");
+}
+
+.env__photo-frame {
+  fill: none;
+  stroke: var(--near-black);
+  stroke-width: 1.2;
+}
+
+.env__stamp-perf {
+  fill: none;
+  stroke: var(--ochre);
+  stroke-width: 2.4;
+  stroke-dasharray: 0.1 3;
+  stroke-linecap: round;
+}
+
+.env__stamp {
+  fill: var(--forest);
+}
+
+.env__stamp-leaf {
+  fill: var(--leaf);
 }
 
 .env__slip-sun {
-  fill: #d8432b;
+  fill: none;
+  stroke: var(--ochre);
+  stroke-width: 1.4;
+  stroke-dasharray: 2 1.6;
 }
 
 .env__slip-ink {
   fill: none;
-  stroke: #15151a;
+  stroke: var(--near-black);
   stroke-width: 1.8;
 }
 
+.env__leaf--ivory {
+  fill: var(--ivory);
+}
+
+.env__leaf--green {
+  fill: var(--leaf);
+}
+
+.env__leaf-vein {
+  fill: none;
+  stroke: var(--forest);
+  stroke-width: 1.1;
+  opacity: 0.6;
+}
+
+/* the seal: an ochre postal stamp, perforated rim, four ivory leaves */
 .env__seal-disc {
-  fill: var(--sun);
+  fill: var(--ochre);
+}
+
+.env__seal-rim {
+  fill: none;
+  stroke: var(--near-black);
+  stroke-width: 1.3;
+  stroke-dasharray: 0.1 2.6;
+  stroke-linecap: round;
+  opacity: 0.55;
 }
 
 .env__seal-ring {
   fill: none;
-  stroke: #f6f2e8;
+  stroke: var(--ivory);
   stroke-width: 0.9;
-  opacity: 0.75;
+  opacity: 0.8;
 }
 
 .env__crest {
-  fill: #f6f2e8;
+  fill: var(--ivory);
 }
 
 /* ----- moving parts ----- */
@@ -182,10 +276,6 @@
 /* act 1: restless. Two seconds of stillness, then it rocks like a caught thing. */
 .env--sealed .env__all {
   animation: env-rock 2800ms cubic-bezier(0.36, 0, 0.64, 1) 900ms infinite;
-}
-
-.env--sealed .env__sun rect {
-  animation: env-bar-breathe 2800ms steps(6, end) infinite;
 }
 
 /* act 2: faster, and the seal strains */
@@ -246,14 +336,16 @@
 }
 
 .env--ghost .env__pocket,
-.env--ghost .env__flap,
+.env--ghost .env__flap-face,
 .env--ghost .env__inside {
   fill: var(--paper-sunk);
 }
 
 .env--ghost .env__seal,
 .env--ghost .env__sun,
-.env--ghost .env__facet-light {
+.env--ghost .env__field,
+.env--ghost .env__grain,
+.env--ghost .env__v {
   visibility: hidden;
 }
 
@@ -300,16 +392,6 @@
 @keyframes env-strain {
   50% {
     transform: scale(1.14);
-  }
-}
-
-@keyframes env-bar-breathe {
-  0%,
-  100% {
-    transform: scaleX(1);
-  }
-  50% {
-    transform: scaleX(0.94);
   }
 }
 

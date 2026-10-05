@@ -3,7 +3,6 @@
 // create and wallet arrive on demand.
 import type { ComponentType } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { EnvelopeMark } from './components/Envelope';
 import { Footer } from './components/Footer';
 import { I18nProvider, type Lang, useI18n } from './i18n';
 import { onLinkClick, type Route, useRoute } from './router';
@@ -104,7 +103,11 @@ function Shell() {
       </a>
       <header class="topbar">
         <a class="brand" href="/" onClick={onLinkClick}>
-          <EnvelopeMark />
+          {/* The logo on its own paper: ivory by day, black at night. Files in public/. */}
+          <picture>
+            <source srcset="/logo-dark.png" media="(prefers-color-scheme: dark)" />
+            <img src="/logo-light.png" width={32} height={32} alt="" decoding="async" />
+          </picture>
           {t.common.appName}
         </a>
       </header>
