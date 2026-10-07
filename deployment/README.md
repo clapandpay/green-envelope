@@ -43,11 +43,14 @@ Three hostnames, one machine, two containers, and Caddy in front (`compose.yaml`
 
 | Hostname | Container | Serves |
 | --- | --- | --- |
-| `clapandpay.com` (`www` redirects to it) | `clapandpay-web` | the hub, `/klimper` (redirect to the download), `/.well-known/apple-app-site-association` and `assetlinks.json` |
+| `clapandpay.com` (`www` redirects to it) | `clapandpay-web` | the hub, `/klimper` (redirect to the download, `KLIMPER_DOWNLOAD_URL` in `.env`), `/pair` and `/req` (where a phone without Klimper lands when a website opens an Xchonnect link), `/.well-known/apple-app-site-association` and `assetlinks.json` |
 | `envelope.clapandpay.com` | `green-envelope` | `/hello`, `/g/*`, `/new`, `/connect`, `/api/*`, `/og/*` |
 
 Klimper has no hostname of its own: it is an installed app, and its download page is
-`clapandpay.com/klimper`.
+`clapandpay.com/klimper`. That path is a redirect whose target comes from `KLIMPER_DOWNLOAD_URL`
+in `.env`: the TestFlight public link during the beta, the App Store link afterwards, and the
+Klimper section of the page while neither exists. Change the value and `docker compose up -d
+site`; the image stays the same.
 
 Why not paths on one host: the wallet gets its own browser origin, so a flaw on the marketing site
 cannot read what the wallet keeps in the browser (a device wallet's seed, sent-envelope state).

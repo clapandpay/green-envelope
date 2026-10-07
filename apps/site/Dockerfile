@@ -8,9 +8,12 @@
 # image is the files and a server config, and the two domain files Apple and Android read. It makes no outgoing requests and sets no cookies.
 FROM nginxinc/nginx-unprivileged:1.29-alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# The server config is a template: the image's entrypoint renders it with the environment at
+# start, which is how /klimper learns the download link without a new image.
+ENV KLIMPER_DOWNLOAD_URL=/#klimper
+COPY templates /etc/nginx/templates
 COPY security-headers.conf /etc/nginx/security-headers.conf
-COPY index.html stickers.html /usr/share/nginx/html/
+COPY index.html stickers.html pair.html /usr/share/nginx/html/
 COPY .well-known /usr/share/nginx/html/.well-known
 
 EXPOSE 8080
