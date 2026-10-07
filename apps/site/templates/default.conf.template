@@ -1,10 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright 2026 the Clap and Pay authors
+#
+# Rendered to /etc/nginx/conf.d/default.conf when the container starts (the nginx image's
+# entrypoint runs envsubst over /etc/nginx/templates). Only variables that exist in the
+# environment are substituted, so nginx's own $uri and friends are left alone. The one value:
+# KLIMPER_DOWNLOAD_URL, where /klimper sends people (deployment/launch.env.example).
 server {
   listen 8080;
   server_name _;
   root /usr/share/nginx/html;
   index index.html;
+  # Caddy terminates TLS in front: a relative redirect must stay relative, or nginx would make it
+  # http://<host>:8080/... from its own listen port.
+  absolute_redirect off;
 
   # No cookies, no third parties: the policy says so and the browser enforces it.
   include /etc/nginx/security-headers.conf;
@@ -28,12 +36,23 @@ server {
     try_files $uri =404;
   }
 
-  # The Klimper download. Until the TestFlight public link exists this lands on the Klimper
-  # section of the page. Put the link here and release the site again: it is the one place.
+  # The Klimper download: the TestFlight public link today, the App Store link once the listing
+  # is live. Set in the deployment's .env, no new image needed; unset, it lands on the Klimper
+  # section of the page (the Dockerfile's default).
   location = /klimper {
     add_header Cache-Control "no-cache" always;
     include /etc/nginx/security-headers.conf;
-    return 302 /#klimper;
+    return 302 ${KLIMPER_DOWNLOAD_URL};
+  }
+
+  # Where a phone without Klimper lands when a website opens an Xchonnect link. With the app
+  # installed iOS hands these URLs to Klimper (apple-app-site-association above) and the page
+  # is never fetched. The pairing parameters are in the fragment: the browser never sends them,
+  # and the page makes no requests (pair.html).
+  location ~ ^/(pair|req)$ {
+    add_header Cache-Control "no-cache" always;
+    include /etc/nginx/security-headers.conf;
+    try_files /pair.html =404;
   }
 
   location / {

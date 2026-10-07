@@ -30,9 +30,19 @@ services:
   site:
     image: ghcr.io/maximedogawa/clapandpay/clapandpay-web:${SITE_TAG:-latest}
     restart: unless-stopped
+    environment:
+      # Where clapandpay.com/klimper sends people (launch.env.example).
+      KLIMPER_DOWNLOAD_URL: ${KLIMPER_DOWNLOAD_URL:-/#klimper}
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      # The nginx entrypoint renders its config template here at start; it runs as the
+      # unprivileged nginx user, so the mount has to be writable for it (sticky, like /tmp).
+      - type: tmpfs
+        target: /etc/nginx/conf.d
+        tmpfs:
+          mode: 0o1777
     security_opt:
       - no-new-privileges:true
 
