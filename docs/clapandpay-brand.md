@@ -120,7 +120,7 @@ Every sequence is state A, transition, contact, resolved state.
 | Combo | five fast claps rain more coins; a short, silly line appears (and is announced politely) |
 | Particles | at most 30 on the hero, 12 in the footer; transform and opacity only; paused off-screen and in hidden tabs |
 | Reduced motion | no animation and no transitions; a clap shows the pressed pose for 220 ms and drops the coins already resting |
-| Sound | none, ever. The jingle is only drawn |
+| Sound | none, ever, on the website. The jingle is only drawn here; the Klimper app is the one place it is heard (decision-009, `klimper/docs/sound.md`) |
 
 ## Voice
 
