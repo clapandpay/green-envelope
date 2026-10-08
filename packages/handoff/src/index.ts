@@ -3,7 +3,13 @@ export {
   createHandoffRequest,
   HandoffError,
   type HandoffErrorCode,
+  type HandoffOpened,
   type HandoffPayload,
   type HandoffRequest,
 } from './receiver';
-export { type ParsedRequest, parseHandoffRequest, sealHandoffResponse } from './sender';
+export {
+  type ParsedRequest,
+  parseHandoffRequest,
+  type SealedResponse,
+  sealHandoffResponse,
+} from './sender';

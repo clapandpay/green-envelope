@@ -203,7 +203,7 @@ it.skipIf(!existsSync(CHROME))(
 
     // 2. Klimper asks for it: one-time key pair, the page's /connect address.
     const request = await createHandoffRequest(origin);
-    expect(request.url.startsWith(`${origin}/connect?v=1&k=`)).toBe(true);
+    expect(request.url.startsWith(`${origin}/connect#v=1&k=`)).toBe(true);
     await page.send('Page.navigate', { url: request.url });
     const shown = await page.waitFor<string>(
       `document.querySelector('.connect__code strong')?.textContent`,
@@ -217,7 +217,7 @@ it.skipIf(!existsSync(CHROME))(
     const answer = await page.waitFor<string>('window.__copied', 'the copied answer');
 
     // 4. Klimper opens it: only this request can, and it is the page's wallet.
-    const payload = await request.open(answer);
+    const { payload } = await request.open(answer);
     expect(payload.network).toBe('testnet11');
     expect(payload.masterSk).toMatch(/^[0-9a-f]{64}$/);
     expect(firstAddress(payload.masterSk)).toBe(payload.address);

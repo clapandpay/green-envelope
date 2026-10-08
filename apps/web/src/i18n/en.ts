@@ -71,6 +71,7 @@ export const en = {
     working: 'Waiting for your phone…',
     doneTitle: 'Ready',
     doneBody: 'Copy this and go back to Klimper. Only your Klimper can read it.',
+    answerLabel: 'Klimper shows this number after you paste',
     copy: 'Copy',
     copied: 'Copied. Now go back to Klimper.',
     badTitle: 'This did not come from Klimper',

@@ -71,6 +71,7 @@ export const de: Dict = {
     working: 'Warte auf dein Handy…',
     doneTitle: 'Fertig',
     doneBody: 'Kopier das und geh zurück zu Klimper. Nur dein Klimper kann es lesen.',
+    answerLabel: 'Klimper zeigt diese Zahl nach dem Einfügen',
     copy: 'Kopieren',
     copied: 'Kopiert. Jetzt zurück zu Klimper.',
     badTitle: 'Das kam nicht von Klimper',
