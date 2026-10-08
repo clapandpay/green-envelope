@@ -27,12 +27,15 @@ export function ConnectScreen(props: { search: string }) {
   const { t } = useI18n();
   const { wallet } = useServices();
   const [state, setState] = useState<State>({ s: 'checking' });
+  // Read once: the fragment is taken out of the address bar below, and a later render (a
+  // language switch) passes an empty one.
+  const [search] = useState(props.search);
 
   useEffect(() => {
     let current = true;
     // The key is read from props from here on: take it out of the address bar and the history.
     history.replaceState(history.state, '', location.pathname);
-    wallet.connectRequest(props.search).then(
+    wallet.connectRequest(search).then(
       ({ checkCode }) =>
         current && setState({ s: 'ask', checkCode, working: false, problem: null }),
       () => current && setState({ s: 'bad' }),
@@ -40,12 +43,12 @@ export function ConnectScreen(props: { search: string }) {
     return () => {
       current = false;
     };
-  }, [props.search, wallet]);
+  }, [search, wallet]);
 
   async function approve(checkCode: string) {
     setState({ s: 'ask', checkCode, working: true, problem: null });
     try {
-      const { response, answerCode } = await wallet.connectApprove(props.search);
+      const { response, answerCode } = await wallet.connectApprove(search);
       setState({ s: 'done', response, answerCode, copied: false });
     } catch (error) {
       const code = errorCode(error);

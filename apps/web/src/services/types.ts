@@ -122,7 +122,7 @@ export interface WalletService {
    * `ensure()` is how a wallet is made, and it has to be asked for.
    */
   open(): Promise<WalletInfo>;
-  /** Checks a `/connect` request (`location.hash`, or an older app's query). Rejects with `bad_request`. */
+  /** Checks a `/connect` request (`location.hash`). Rejects with `bad_request`. */
   connectRequest(search: string): Promise<ConnectRequest>;
   /**
    * Hands the wallet to the app that made the request, after a fresh unlock. The returned line
