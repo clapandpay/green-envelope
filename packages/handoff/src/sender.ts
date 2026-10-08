@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Handoff, the sending side: the clapandpay.com page. See receiver.ts for the protocol.
 import {
-  answerCodeOf,
   checkCodeOf,
   fromBase64Url,
   HANDOFF,
@@ -17,12 +16,10 @@ export interface ParsedRequest {
   checkCode: string;
 }
 
-/**
- * Reads the request out of the page's own URL: its fragment (`location.hash`), or the query
- * string an older app sent (`location.search`). Throws `HandoffError('bad_request')`.
- */
-export async function parseHandoffRequest(part: string): Promise<ParsedRequest> {
-  const params = new URLSearchParams(part.replace(/^[#?]/, ''));
+/** Reads the request out of the page's URL fragment. Throws `HandoffError('bad_request')`. */
+export async function parseHandoffRequest(hash: string): Promise<ParsedRequest> {
+  if (!hash.startsWith('#')) throw new HandoffError('bad_request');
+  const params = new URLSearchParams(hash.slice(1));
   const receiverKey = fromBase64Url(params.get('k') ?? '');
   if (params.get('v') !== '1' || receiverKey === null) throw new HandoffError('bad_request');
   // An uncompressed P-256 point: 0x04 and two coordinates. importKey checks it is on the curve.
@@ -51,7 +48,12 @@ export async function sealHandoffResponse(
   const { subtle } = crypto;
   const pair = await subtle.generateKey(HANDOFF.CURVE, false, ['deriveBits']);
   const senderRaw = new Uint8Array(await subtle.exportKey('raw', pair.publicKey));
-  const key = await sharedKey(pair.privateKey, request.receiverKey, request.receiverKey, senderRaw);
+  const { key, answerCode } = await sharedKey(
+    pair.privateKey,
+    request.receiverKey,
+    request.receiverKey,
+    senderRaw,
+  );
   const iv = crypto.getRandomValues(new Uint8Array(HANDOFF.IV_BYTES));
   const plain = new TextEncoder().encode(JSON.stringify(payload));
   const sealed = new Uint8Array(
@@ -68,6 +70,6 @@ export async function sealHandoffResponse(
   out.set(sealed, senderRaw.length + iv.length);
   return {
     response: HANDOFF.RESPONSE_PREFIX + toBase64Url(out),
-    answerCode: await answerCodeOf(request.receiverKey, senderRaw),
+    answerCode,
   };
 }

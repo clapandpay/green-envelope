@@ -258,7 +258,7 @@ describe('handing the wallet to Klimper', () => {
 
     const other = await createHandoffRequest('https://clapandpay.test');
     await expect(other.open(response)).rejects.toMatchObject({ code: 'wrong_receiver' });
-    await expect(kai.wallet.connectRequest('?v=1&k=nope')).rejects.toMatchObject({
+    await expect(kai.wallet.connectRequest('#v=1&k=nope')).rejects.toMatchObject({
       code: 'bad_request',
     });
   });

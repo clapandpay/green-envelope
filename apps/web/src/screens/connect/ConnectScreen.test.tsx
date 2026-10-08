@@ -59,7 +59,7 @@ describe('connect: handing the wallet to Klimper', () => {
   it('refuses a link that did not come from the app, before asking for anything', async () => {
     const services = createWorld().services;
     const approve = vi.spyOn(services.wallet, 'connectApprove');
-    renderScreen(<ConnectScreen search="?v=1&k=short" />, { services });
+    renderScreen(<ConnectScreen search="#v=1&k=short" />, { services });
     expect(
       await screen.findByRole('heading', { name: 'This did not come from Klimper' }),
     ).toBeTruthy();

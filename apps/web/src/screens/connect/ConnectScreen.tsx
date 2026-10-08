@@ -30,6 +30,8 @@ export function ConnectScreen(props: { search: string }) {
 
   useEffect(() => {
     let current = true;
+    // The key is read from props from here on: take it out of the address bar and the history.
+    history.replaceState(history.state, '', location.pathname);
     wallet.connectRequest(props.search).then(
       ({ checkCode }) =>
         current && setState({ s: 'ask', checkCode, working: false, problem: null }),

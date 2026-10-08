@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
@@ -41,10 +42,25 @@ describe('handoff', () => {
     expect((await request.open(forged.response)).answerCode).not.toBe(answerCode);
   });
 
-  it('still reads a request from an older app, in the query string', async () => {
+  it('reads the request from the fragment only, never the query string', async () => {
     const request = await createHandoffRequest('https://clapandpay.test');
     const query = `?${new URL(request.url).hash.slice(1)}`;
-    expect((await parseHandoffRequest(query)).checkCode).toBe(request.checkCode);
+    await expect(parseHandoffRequest(query)).rejects.toMatchObject({ code: 'bad_request' });
+  });
+
+  it('draws the answer code from the shared secret, not from the public keys', async () => {
+    // Two answers from one page key pair and one app key differ only by the secret: if the code
+    // came from the public keys alone, anyone who saw the answer could compute the page's code.
+    const { request, response, answerCode } = await roundTrip();
+    const senderRaw = Buffer.from(response.slice(4), 'base64url').subarray(0, 65);
+    const receiverRaw = new URLSearchParams(new URL(request.url).hash.slice(1)).get('k');
+    const publicOnly = createHash('sha256')
+      .update(Buffer.concat([Buffer.from(receiverRaw ?? '', 'base64url'), senderRaw]))
+      .digest();
+    const [a = 0, b = 0, c = 0] = publicOnly;
+    const guess = String(((a << 16) | (b << 8) | c) % 1e6);
+    expect(answerCode).toMatch(/^\d{6}$/);
+    expect(answerCode).not.toBe(guess.padStart(6, '0'));
   });
 
   it('reveals nothing in the response text', async () => {
@@ -88,7 +104,7 @@ describe('handoff', () => {
     const url = new URL((await createHandoffRequest('https://x.test')).url);
     const good = new URLSearchParams(url.hash.slice(1)).get('k');
     const notOnCurve = Buffer.concat([Buffer.from([4]), Buffer.alloc(64, 7)]).toString('base64url');
-    for (const search of ['', '?v=1', `?v=2&k=${good}`, '?v=1&k=AAAA', `?v=1&k=${notOnCurve}`]) {
+    for (const search of ['', '#v=1', `#v=2&k=${good}`, '#v=1&k=AAAA', `#v=1&k=${notOnCurve}`]) {
       await expect(parseHandoffRequest(search)).rejects.toMatchObject({ code: 'bad_request' });
     }
   });
