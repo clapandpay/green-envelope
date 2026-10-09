@@ -11,7 +11,7 @@ import { ChainError } from '@ge/chain';
 import type { Coin } from '@ge/chia';
 import { decodeAddress, MAINNET, sha256, TESTNET11 } from '@ge/chia';
 import type { KeyStore, UnlockedWallet, WalletKind } from '@ge/wallet';
-import { accountFromSeed, WalletError } from '@ge/wallet';
+import { accountFromSeed, seedFromEntropy, WalletError } from '@ge/wallet';
 import type { NetworkName } from '../lib/network';
 import { createLocalState } from '../services/local-state';
 import { createServicesFrom } from '../services/real';
@@ -92,13 +92,14 @@ function memoryStorage() {
 function scriptedKeyStore(script: KeyStoreScript, seed: () => Uint8Array): KeyStore {
   const kind = script.kind ?? 'passkey';
   const earlier = script.earlier;
-  const unlocked = (): UnlockedWallet => ({
-    kind,
-    version: 1,
-    seed: seed(),
-    entropy: null,
-    ...(earlier === undefined ? {} : { earlierSeed: earlierSeedOf(earlier) }),
-  });
+  // A 24-word wallet unless the script is about an older one: entropy named after the person,
+  // and the real BIP-39 seed of its words, so the words a handoff carries give this address.
+  const unlocked = async (): Promise<UnlockedWallet> => {
+    const extra = earlier === undefined ? {} : { earlierSeed: earlierSeedOf(earlier) };
+    if (script.version === 1) return { kind, version: 1, seed: seed(), entropy: null, ...extra };
+    const entropy = seed();
+    return { kind, version: 2, seed: await seedFromEntropy(entropy), entropy, ...extra };
+  };
   let exists = script.exists ?? false;
   let prompts = 0;
   const prompt = () => {
@@ -113,7 +114,7 @@ function scriptedKeyStore(script: KeyStoreScript, seed: () => Uint8Array): KeySt
     create: async (opts) => {
       if (opts?.prefer === 'device') {
         exists = true;
-        return { ...unlocked(), kind: 'device' };
+        return { ...(await unlocked()), kind: 'device' };
       }
       prompt();
       if (script.noPrf === true) throw new WalletError('unsupported');
@@ -133,7 +134,7 @@ function scriptedKeyStore(script: KeyStoreScript, seed: () => Uint8Array): KeySt
       exists = true;
       return unlocked();
     },
-    secureWithPasskey: async () => unlocked(),
+    secureWithPasskey: () => unlocked(),
     importWallet: async (imported) => ({
       kind,
       version: 1,

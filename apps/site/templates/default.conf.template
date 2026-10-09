@@ -55,6 +55,15 @@ server {
     try_files /pair.html =404;
   }
 
+  # The answer of "Use my Clap and Pay money" (TASK-129). With Klimper installed the phone hands
+  # it to the app (apple-app-site-association) and this is never fetched; the page says what to
+  # do without it. The sealed answer is in the fragment, never sent.
+  location = /klimper/return {
+    add_header Cache-Control "no-cache" always;
+    include /etc/nginx/security-headers.conf;
+    try_files /klimper-return.html =404;
+  }
+
   location / {
     # The page is one file that changes with a release: let a browser keep it, but ask each time.
     add_header Cache-Control "no-cache" always;

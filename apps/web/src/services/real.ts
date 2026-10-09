@@ -49,6 +49,7 @@ import { createLocalState, type LocalState, type SentRecord } from './local-stat
 import {
   type AppServices,
   type Balance,
+  type ConnectRequest,
   type EnvelopeView,
   type HandleLookup,
   type RecipientPick,
@@ -495,34 +496,37 @@ export function createServicesFrom(deps: RealDeps): AppServices {
         }),
 
       connectRequest: (search) =>
-        guarded(async () => ({ checkCode: (await readConnectRequest(search)).checkCode })),
+        guarded(async (): Promise<ConnectRequest> => {
+          await readConnectRequest(search);
+          return {};
+        }),
 
       connectApprove: (search) =>
         guarded(async () => {
           const request = await readConnectRequest(search);
-          const { sealHandoffResponse } = await import('@ge/handoff');
+          const [{ sealHandoffResponse }, { mnemonicFromEntropy }] = await Promise.all([
+            import('@ge/handoff'),
+            import('@ge/wallet/mnemonic'),
+          ]);
           // Always a fresh prompt: handing over the wallet is never done on a remembered unlock.
           const opened = await keyStore.signIn();
-          const { kind, seed } = opened;
+          let words: string;
           let owner: Account;
-          let master: Uint8Array;
           try {
-            owner = accountFromSeed(seed, network);
-            master = masterSecretKey(seed);
+            if (opened.entropy === null) throw new ServiceError('wallet_too_old');
+            owner = accountFromSeed(opened.seed, network);
+            words = mnemonicFromEntropy(opened.entropy);
           } finally {
             wipe(opened);
           }
-          state.setWallet(network.name, { kind, address: owner.address });
-          try {
-            return await sealHandoffResponse(request, {
-              v: 1,
-              network: network.name,
-              address: owner.address,
-              masterSk: toHex(master),
-            });
-          } finally {
-            master.fill(0);
-          }
+          state.setWallet(network.name, { kind: opened.kind, address: owner.address });
+          // The words are a string and cannot be wiped; they live for this one seal.
+          return sealHandoffResponse(request, {
+            v: 2,
+            network: network.name,
+            address: owner.address,
+            words,
+          });
         }),
 
       lookupHandle: (input) =>

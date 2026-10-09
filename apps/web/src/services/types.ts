@@ -31,6 +31,7 @@ export type ServiceErrorCode =
   | 'no_wallet_here' // nothing to open on this device: no wallet in this browser, no passkey
   | 'passkey_unavailable' // this browser cannot keep a passkey wallet (no PRF): say so, offer the browser-only one
   | 'bad_request' // a connect link that did not come from the app, or came damaged
+  | 'wallet_too_old' // a wallet from before recovery words: it has none to hand to Klimper
   | 'wallet_cancelled' // the user dismissed the passkey prompt
   | 'network'
   | 'unknown';
@@ -81,10 +82,8 @@ export interface SentEnvelope {
 }
 
 /** The Klimper app asking this page for the wallet. */
-export interface ConnectRequest {
-  /** Six digits the app shows too. */
-  checkCode: string;
-}
+/** A well-formed request from Klimper (`/connect#v=2&k=…&n=…`); nothing in it to show. */
+export type ConnectRequest = Record<string, never>;
 
 /** What an `@name` stands for, and whether it is dressed up as one you already trust. */
 export interface HandleLookup {
@@ -153,11 +152,12 @@ export interface WalletService {
   /** Checks a `/connect` request (`location.hash`). Rejects with `bad_request`. */
   connectRequest(search: string): Promise<ConnectRequest>;
   /**
-   * Hands the wallet to the app that made the request, after a fresh unlock. The returned line
-   * of text can only be read by that app; `answerCode` is shown next to it, and the app shows
-   * the same digits before it imports anything.
+   * Hands the wallet's 24 words to the app that made the request, after a fresh unlock, as a
+   * clapandpay.com return link that the system gives only to Klimper (TASK-129). The page
+   * opens that link; there is nothing to copy. Rejects with `wallet_too_old` for a wallet from
+   * before recovery words, which has none to hand over.
    */
-  connectApprove(search: string): Promise<{ response: string; answerCode: string }>;
+  connectApprove(search: string): Promise<{ returnUrl: string }>;
   /**
    * Chooses between recipients found in one pasted block of text. Only asked when the browser
    * found more than one; resolves to null when there is no suggestion, and the screen then asks

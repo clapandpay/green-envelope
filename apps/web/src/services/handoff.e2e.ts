@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The handoff into Klimper, end to end, in a real browser (TASK-065): a passkey wallet is made on
-// the dev server by a virtual authenticator with PRF, Klimper's own receiver
+// The handoff into Klimper, end to end, in a real browser (TASK-065, version 2 TASK-129): a passkey
+// wallet is made on the dev server by a virtual authenticator with PRF, Klimper's own receiver
 // (klimper/src/lib/clapandpayHandoff.ts) makes the request, the /connect page approves it with a
-// fresh passkey prompt, and what comes back must decrypt to the key of the address the page shows.
+// fresh passkey prompt, and the return link must open to the 24 words of the address the page shows.
 // Needs Google Chrome; run on purpose: `pnpm e2e:handoff`. CHROME_PATH picks another binary.
 import { type ChildProcess, spawn } from 'node:child_process';
+import { pbkdf2Sync } from 'node:crypto';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import {
   deriveUnhardened,
   encodeAddress,
+  keyGen,
   publicKey,
   type SecretKey,
   standardPuzzleHash,
@@ -30,10 +32,10 @@ const WALLET_PATH = [12381, 8444, 2, 0];
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** The first address of the standard wallet path, from a master secret key, as Sage derives it. */
-function firstAddress(masterSkHex: string): string {
-  const master = Uint8Array.from(Buffer.from(masterSkHex, 'hex'));
-  const walletSk = WALLET_PATH.reduce<SecretKey>(deriveUnhardened, master);
+/** The first address of the standard wallet path from 24 words, as Sage derives it. */
+function firstAddress(words: string): string {
+  const seed = new Uint8Array(pbkdf2Sync(words, 'mnemonic', 2048, 64, 'sha512'));
+  const walletSk = WALLET_PATH.reduce<SecretKey>(deriveUnhardened, keyGen(seed));
   const puzzleHash = standardPuzzleHash(publicKey(syntheticSecretKey(walletSk)));
   return encodeAddress(puzzleHash, TESTNET11.addressPrefix);
 }
@@ -188,43 +190,41 @@ afterAll(async () => {
 });
 
 it.skipIf(!existsSync(CHROME))(
-  'hands a passkey wallet made on the dev server to Klimper',
+  'hands the 24 words of a passkey wallet made on the dev server to Klimper only',
   async () => {
-    // 1. A person opens the page for the first time and makes a wallet with a passkey.
+    // 1. A person opens the page for the first time; one tap makes a wallet with a passkey.
     await page.send('Page.navigate', { url: `${origin}/` });
     await page.waitFor(`document.querySelector('.first-run__open')`, 'the first-run envelope');
     await page.eval(`document.querySelector('.first-run__open').click()`);
-    await page.click('Start fresh');
-    await page.waitFor(
-      `!document.querySelector('.first-run')`,
-      'the wallet to open after "Start fresh"',
-      30_000,
-    );
+    await page.waitFor(`!document.querySelector('.first-run')`, 'the wallet to open', 30_000);
 
-    // 2. Klimper asks for it: one-time key pair, the page's /connect address.
+    // 2. Klimper asks for it: one-time key pair and nonce, the page's /connect address.
     const request = await createHandoffRequest(origin);
-    expect(request.url.startsWith(`${origin}/connect#v=1&k=`)).toBe(true);
+    expect(request.url).toMatch(new RegExp(`^${origin}/connect#v=2&k=[\\w-]+&n=[\\w-]+$`));
     await page.send('Page.navigate', { url: request.url });
-    const shown = await page.waitFor<string>(
-      `document.querySelector('.connect__code strong')?.textContent`,
-      'the check code',
+
+    // 3. The person says yes; the passkey is asked again; the page offers one link back.
+    await page.click('Yes, bring it to Klimper');
+    const href = await page.waitFor<string>(
+      `[...document.querySelectorAll('a')].find((a) => a.textContent.includes('Open Klimper'))?.getAttribute('href')`,
+      'the link back to Klimper',
     );
-    expect(shown.replace(/\s/g, '')).toBe(request.checkCode);
+    // Nothing to copy, and the only way out is the clapandpay.com return path, whatever the
+    // request said: that path is what the phone hands to the signed Klimper app alone.
+    expect(href.startsWith('https://clapandpay.com/klimper/return#cp2.')).toBe(true);
+    expect(await page.eval<boolean>(`window.__copied === undefined`)).toBe(true);
 
-    // 3. The person says yes; the passkey is asked again; the page offers the answer to copy.
-    await page.click('Yes, it is me');
-    await page.click('Copy');
-    const answer = await page.waitFor<string>('window.__copied', 'the copied answer');
-
-    // 4. Klimper opens it: only this request can, and it is the page's wallet.
-    const { payload } = await request.open(answer);
+    // 4. Klimper opens it: the words of the page's wallet, once.
+    const payload = await request.open(href);
     expect(payload.network).toBe('testnet11');
-    expect(payload.masterSk).toMatch(/^[0-9a-f]{64}$/);
-    expect(firstAddress(payload.masterSk)).toBe(payload.address);
+    expect(payload.words.split(' ')).toHaveLength(24);
+    expect(firstAddress(payload.words)).toBe(payload.address);
+    await expect(request.open(href)).rejects.toMatchObject({ code: 'used' });
 
-    // 5. Another Klimper, or anybody else holding the text, gets nothing.
+    // 5. A request made by anybody else (another app, a website with its own key) never opens
+    //    this answer: the words are sealed to Klimper's one-time key and nonce.
     const other = await createHandoffRequest(origin);
-    await expect(other.open(answer)).rejects.toMatchObject({ code: 'wrong_receiver' });
+    await expect(other.open(href)).rejects.toMatchObject({ code: 'wrong_receiver' });
   },
   120_000,
 );

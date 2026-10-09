@@ -6,7 +6,8 @@
   "license": "AGPL-3.0-or-later",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mnemonic": "./src/mnemonic.ts"
   },
   "dependencies": {
     "@ge/chain": "workspace:*",
