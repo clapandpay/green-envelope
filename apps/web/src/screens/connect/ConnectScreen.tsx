@@ -82,7 +82,12 @@ export function ConnectScreen(props: { search: string }) {
         <p>{t.connect.doneBody}</p>
         {/* A link the person taps, not a script that navigates: a tap is what a phone hands to
             the app the domain names; a navigation started by script may stay in the browser. */}
-        <a class="btn btn--primary btn--huge" href={state.returnUrl}>
+        <a
+          class="btn btn--primary btn--huge"
+          href={state.returnUrl}
+          // The closest this page gets to knowing the money is in Klimper (TASK-131).
+          onClick={() => wallet.markBackedUp()}
+        >
           {t.connect.open}
         </a>
         <p class="soft">{t.connect.doneNoApp}</p>

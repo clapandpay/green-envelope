@@ -44,6 +44,8 @@ export const en = {
     youGot: 'You got',
     onItsWay: 'On its way · about a minute',
     arrived: 'Arrived. It is yours.',
+    backupNote:
+      'Back it up in Klimper. If the passkey your face or finger opens is ever lost, and the money is not in Klimper, it is gone.',
     announce: (amount: string) => `You got ${amount}`,
     sendOn: 'Send it on',
     keep: 'Keep it',
@@ -157,6 +159,13 @@ export const en = {
     earlierMoving: 'Moving…',
     earlierMoved: 'On its way. It arrives in about a minute.',
     earlierMore: 'Part of it is on its way. Tap again for the rest.',
+    backupTitle: 'Back it up in Klimper',
+    backupBody:
+      'Only the passkey your face or finger opens holds this money. Lose it (a lost phone and Apple or Google account) before the money is in Klimper, and it is gone: nobody can get it back.',
+    backupBodyDevice:
+      'This money lives only in this browser. Clear it, or lose this phone, before bringing the money into Klimper, and it is gone.',
+    backupHow: 'Get Klimper, open it, and tap "Use my Clap and Pay money".',
+    backupGet: 'Get Klimper',
     logOut: 'Log out',
     logOutTitle: 'Log out?',
     logOutSafe: 'Your money stays where it is. Come back any time with your face or finger.',

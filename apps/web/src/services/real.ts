@@ -432,6 +432,16 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           }
         }),
 
+      backedUp: async () => {
+        const info = state.wallet(network.name);
+        return info === null || state.backedUp(network.name, info.address);
+      },
+
+      markBackedUp: () => {
+        const info = state.wallet(network.name);
+        if (info !== null) state.markBackedUp(network.name, info.address);
+      },
+
       canMakeNew: () =>
         guarded(async () => {
           const stored = await keyStore.status();

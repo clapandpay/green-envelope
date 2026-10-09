@@ -32,6 +32,13 @@ export interface LocalState {
    */
   earlierAddress(network: string): string | null;
   setEarlierAddress(network: string, address: string): void;
+  /**
+   * Whether the wallet at `address` was handed to Klimper from this browser (TASK-131): the
+   * person tapped "Open Klimper" on /connect. Klimper's import cannot be seen from here, so this
+   * is the closest signal; clearing site data forgets it, which errs on the safe side.
+   */
+  backedUp(network: string, address: string): boolean;
+  markBackedUp(network: string, address: string): void;
   /** What this browser got out of envelope `id`, or null. */
   openedAmount(id: string): bigint | null;
   setOpened(id: string, amount: bigint): void;
@@ -54,6 +61,7 @@ const KEY = {
   counter: 'ge.counter',
   paidHandles: 'ge.paidHandles',
   earlier: 'ge.earlier',
+  backedUp: 'ge.backedUp',
 };
 
 /** How many paid handles are remembered; enough to be the person's circle, not their history. */
@@ -105,6 +113,13 @@ export function createLocalState(storage: StringStorage): LocalState {
       return stored !== null && stored.network === network ? stored.address : null;
     },
     setEarlierAddress: (network, address) => write(KEY.earlier, { network, address }),
+    backedUp: (network, address) =>
+      read<string[]>(KEY.backedUp, []).includes(`${network}:${address}`),
+    markBackedUp: (network, address) => {
+      const entry = `${network}:${address}`;
+      const all = read<string[]>(KEY.backedUp, []);
+      if (!all.includes(entry)) write(KEY.backedUp, [...all, entry]);
+    },
 
     openedAmount(id) {
       const amount = opened()[id];

@@ -44,6 +44,8 @@ export const de: Dict = {
     youGot: 'Du bekommst',
     onItsWay: 'Unterwegs · etwa eine Minute',
     arrived: 'Angekommen. Es gehört dir.',
+    backupNote:
+      'Sichere es in Klimper. Geht der Passkey, den dein Gesicht oder Finger öffnet, je verloren und das Geld ist nicht in Klimper, ist es weg.',
     announce: (amount) => `Du bekommst ${amount}`,
     sendOn: 'Weiterschenken',
     keep: 'Behalten',
@@ -157,6 +159,13 @@ export const de: Dict = {
     earlierMoving: 'Wird geholt…',
     earlierMoved: 'Unterwegs. In etwa einer Minute ist es da.',
     earlierMore: 'Ein Teil ist unterwegs. Tipp nochmal für den Rest.',
+    backupTitle: 'In Klimper sichern',
+    backupBody:
+      'Nur der Passkey, den dein Gesicht oder Finger öffnet, hält dieses Geld. Geht er verloren (Handy und Apple- oder Google-Konto weg), bevor das Geld in Klimper ist, ist es weg: Niemand kann es zurückholen.',
+    backupBodyDevice:
+      'Dieses Geld liegt nur in diesem Browser. Löschst du ihn oder verlierst das Handy, bevor das Geld in Klimper ist, ist es weg.',
+    backupHow: 'Hol dir Klimper, öffne es und tippe auf „Mein Clap-and-Pay-Geld nutzen“.',
+    backupGet: 'Klimper holen',
     logOut: 'Abmelden',
     logOutTitle: 'Abmelden?',
     logOutSafe: 'Dein Geld bleibt, wo es ist. Komm jederzeit mit Gesicht oder Finger zurück.',

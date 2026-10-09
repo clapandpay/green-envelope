@@ -58,6 +58,11 @@ describe('connect: handing the 24 words to Klimper (TASK-129)', () => {
 
     const other = await createHandoffRequest('https://ge.test');
     await expect(other.open(href)).rejects.toMatchObject({ code: 'wrong_receiver' });
+
+    // Tapping it is what records the backup (TASK-131).
+    expect(await services.wallet.backedUp()).toBe(false);
+    fireEvent.click(link);
+    expect(await services.wallet.backedUp()).toBe(true);
   });
 
   it('refuses a link that did not come from the app, before asking for anything', async () => {

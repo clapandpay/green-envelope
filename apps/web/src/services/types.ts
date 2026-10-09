@@ -132,6 +132,13 @@ export interface WalletService {
    * again, because the money stays at the earlier address until it is moved.
    */
   moveEarlier(): Promise<{ amount: bigint; confirmed: Promise<void>; more: boolean }>;
+  /**
+   * Whether this wallet has been handed to Klimper from this browser, its only backup
+   * (TASK-131). True when there is no wallet. Never prompts.
+   */
+  backedUp(): Promise<boolean>;
+  /** Records that this wallet was handed to Klimper: "Open Klimper" was tapped on /connect. */
+  markBackedUp(): void;
   /** Whether `makeNew` is possible: a version 2 passkey wallet, which sign-in brings back. */
   canMakeNew(): Promise<boolean>;
   /**

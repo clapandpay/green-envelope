@@ -268,3 +268,23 @@ describe('claim: the other states', () => {
     await waitFor(() => expect(inspect).toHaveBeenCalledTimes(2));
   });
 });
+
+describe('claim: the Klimper backup (TASK-131)', () => {
+  it('says plainly, under the amount, that the money needs a Klimper backup', async () => {
+    const world = await anEnvelope();
+    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    expect(await screen.findByText('€7.40')).toBeTruthy();
+    expect(await screen.findByText(/Back it up in Klimper/)).toBeTruthy();
+  });
+
+  it('does not say it once the wallet is backed up', async () => {
+    const world = await anEnvelope();
+    // The sender's wallet opens the envelope here; it was handed to Klimper before.
+    world.services.wallet.markBackedUp();
+    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    expect(await screen.findByText('€7.40')).toBeTruthy();
+    expect(screen.queryByText(/Back it up in Klimper/)).toBeNull();
+  });
+});

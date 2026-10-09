@@ -7,6 +7,7 @@ import { DownIcon, PlusIcon, UpIcon } from '../../components/icons';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
 import { errorCode, errorText } from '../../lib/errors';
+import { KLIMPER_DOWNLOAD } from '../../lib/klimper';
 import { formatMoney } from '../../lib/money';
 import { prefersReducedMotion } from '../../lib/motion';
 import { useRate } from '../../lib/use-rate';
@@ -47,6 +48,8 @@ interface WalletData {
   canMakeNew: boolean;
   /** Money at the address from before 24 words, to move here once (TASK-128). */
   earlier: { balance: bigint } | null;
+  /** Handed to Klimper from this browser, its only backup (TASK-131). */
+  backedUp: boolean;
 }
 
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | ({ s: 'ready' } & WalletData);
@@ -91,14 +94,16 @@ export function WalletScreen() {
             restorable: false,
             canMakeNew: false,
             earlier: null,
+            backedUp: true,
           });
         }
         return;
       }
-      const [canSecure, restorable, canMakeNew] = await Promise.all([
+      const [canSecure, restorable, canMakeNew, backedUp] = await Promise.all([
         services.wallet.canUpgradeToPasskey(),
         services.wallet.canRestoreElsewhere(),
         services.wallet.canMakeNew(),
+        services.wallet.backedUp(),
       ]);
       if (!alive.current) return;
       setLoad((current) => ({
@@ -110,6 +115,7 @@ export function WalletScreen() {
         canSecure,
         restorable,
         canMakeNew,
+        backedUp,
         earlier: current.s === 'ready' ? current.earlier : null,
       }));
 
@@ -357,6 +363,21 @@ export function WalletScreen() {
       </div>
 
       {notice}
+      {!load.backedUp && (
+        // Never in the way: everything above and below keeps working (TASK-131).
+        <section class="card stack" aria-labelledby="backup-title">
+          <h2 id="backup-title" class="wallet__h2">
+            {t.wallet.backupTitle}
+          </h2>
+          <p class="notice">
+            {load.wallet.kind === 'device' ? t.wallet.backupBodyDevice : t.wallet.backupBody}
+          </p>
+          <p class="soft">{t.wallet.backupHow}</p>
+          <a class="btn" href={KLIMPER_DOWNLOAD}>
+            {t.wallet.backupGet}
+          </a>
+        </section>
+      )}
       {load.earlier !== null && (
         <section class="card stack" aria-labelledby="earlier-title">
           <h2 id="earlier-title" class="wallet__h2">

@@ -147,8 +147,10 @@ describe('securing a browser-only wallet with a passkey', () => {
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
 
     const secure = await screen.findByRole('button', { name: /secure now/i });
-    // One line and one tap: no paragraph explaining what the phone is about to do anyway.
-    expect(screen.queryByText(/lives only in this browser/i)).toBeNull();
+    // One line and one tap: no paragraph explaining what the phone is about to do anyway. The
+    // one place that says where the money lives is the backup card (TASK-131).
+    expect(screen.getAllByText(/lives only in this browser/i)).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: 'Back it up in Klimper' })).toBeTruthy();
 
     fireEvent.click(secure);
     await waitFor(() => expect(upgrade).toHaveBeenCalledTimes(1));
@@ -289,5 +291,32 @@ describe('money from before 24 words (TASK-128)', () => {
     renderScreen(<WalletScreen />, { services: world.services });
     expect(await screen.findByText('Your money')).toBeTruthy();
     expect(screen.queryByText('Money from before')).toBeNull();
+  });
+});
+
+describe('the Klimper backup (TASK-131)', () => {
+  it('asks for it, with the download and the way in, and the wallet keeps working', async () => {
+    const services = createWorld().services;
+    renderScreen(<WalletScreen />, { services });
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+
+    expect(await screen.findByRole('heading', { name: 'Back it up in Klimper' })).toBeTruthy();
+    expect(screen.getByText(/nobody can get it back/i)).toBeTruthy();
+    expect(screen.getByText(/Use my Clap and Pay money/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Get Klimper' }).getAttribute('href')).toBe(
+      'https://clapandpay.com/klimper',
+    );
+    // Not in the way: sending and making envelopes are still there.
+    expect(screen.getByRole('button', { name: 'Send' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /new envelope/i })).toBeTruthy();
+  });
+
+  it('stops once the wallet was handed to Klimper from this browser', async () => {
+    const services = createWorld().services;
+    await services.wallet.ensure();
+    services.wallet.markBackedUp();
+    renderScreen(<WalletScreen />, { services });
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Back it up in Klimper' })).toBeNull();
   });
 });
