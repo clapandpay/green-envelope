@@ -28,6 +28,8 @@ export function errorText(code: ServiceErrorCode, t: Dict): string {
       return t.errors.handlesUnavailable;
     case 'handles_mainnet_only':
       return t.errors.handlesMainnetOnly;
+    case 'passkey_unavailable':
+      return t.errors.passkeyUnavailable;
     default:
       return t.errors.unknown;
   }

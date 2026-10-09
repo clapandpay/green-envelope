@@ -8,15 +8,35 @@ import {
   type RelyingParty,
   unlockPasskeyWallet,
 } from './passkey';
-import { indexedDbStorage, type KeyStoreStorage, type StoredWallet } from './storage';
+import {
+  indexedDbStorage,
+  type KeyStoreStorage,
+  type StoredWallet,
+  type WalletVersion,
+} from './storage';
 
 /** How the wallet's seed is protected. */
 export type WalletKind = 'passkey' | 'device';
 
-/** An unlocked wallet: its kind and its 32-byte seed. */
+/**
+ * An unlocked wallet.
+ *
+ * `seed` is what `accountFromSeed` and `masterSecretKey` take: for version 2 the 64-byte BIP-39
+ * seed of the wallet's words, for version 1 the 32-byte seed itself. `entropy` is the 24 words
+ * of a version 2 wallet (`mnemonicFromEntropy`), null for version 1, which has none. The caller
+ * wipes both when done.
+ */
 export interface UnlockedWallet {
   kind: WalletKind;
+  version: WalletVersion;
   seed: Uint8Array;
+  entropy: Uint8Array | null;
+}
+
+/** Wipes what an unlocked wallet holds: its seed and its words. */
+export function wipeUnlocked(wallet: UnlockedWallet): void {
+  wallet.seed.fill(0);
+  wallet.entropy?.fill(0);
 }
 
 /** Creates, unlocks and forgets the one wallet of this browser profile. */
@@ -31,8 +51,22 @@ export interface KeyStore {
   status(): Promise<{ kind: WalletKind; restorable: boolean } | null>;
   /** WebAuthn with a user-verifying platform authenticator, and PRF not known to be missing. */
   passkeySupported(): Promise<boolean>;
-  /** Creates a wallet and returns its 32-byte seed. Prefers passkey when `prefer` allows and it is supported. */
-  create(opts?: { prefer?: WalletKind }): Promise<UnlockedWallet>;
+  /**
+   * Creates a version 2 wallet (24 words). A passkey wallet unless `prefer` is `'device'`;
+   * never a device wallet in its place: without PRF it rejects with `unsupported`, so the
+   * person is told and can choose a device wallet themselves (audit M2). `label` is the
+   * passkey's user name, which tells one wallet from another in the phone's passkey list.
+   *
+   * `replace` makes a new passkey wallet in place of the passkey wallet remembered here. Only
+   * a derived one: it stays in the person's passkey list and comes back with `signIn()`.
+   * A device or wrapped wallet lives only here, so it is never replaced (`exists`). The old
+   * record is overwritten only once the new passkey exists.
+   */
+  create(opts?: {
+    prefer?: WalletKind;
+    label?: string;
+    replace?: boolean;
+  }): Promise<UnlockedWallet>;
   /** Returns the seed of the existing wallet (passkey: prompts biometrics). */
   unlock(): Promise<UnlockedWallet>;
   /**
@@ -81,6 +115,7 @@ async function wrapSeed(
   wrapKey: CryptoKey,
   credentialId: Uint8Array<ArrayBuffer>,
   seed: Uint8Array,
+  version: WalletVersion,
 ): Promise<WrappedRecord> {
   const iv = env.crypto.getRandomValues(new Uint8Array(IV_BYTES));
   // An ArrayBuffer-backed copy: WebCrypto wants one, and the caller's array may be a view on
@@ -90,7 +125,7 @@ async function wrapSeed(
     const ciphertext = new Uint8Array(
       await env.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, wrapKey, owned),
     );
-    return { kind: 'wrapped', credentialId, iv, ciphertext };
+    return { kind: 'wrapped', version, credentialId, iv, ciphertext };
   } finally {
     owned.fill(0);
   }
@@ -119,6 +154,22 @@ async function unwrapSeed(
     throw new WalletError('corrupt', 'the stored seed has a wrong length');
   }
   return seed;
+}
+
+/**
+ * The unlocked wallet of a record's 32 secret bytes. Takes ownership of `secret`: for version 2
+ * it becomes `entropy`, for version 1 it is the seed.
+ */
+async function unlockedFrom(
+  kind: WalletKind,
+  version: WalletVersion,
+  secret: Uint8Array,
+): Promise<UnlockedWallet> {
+  if (version === 1) return { kind, version, seed: secret, entropy: null };
+  // Loaded when a wallet opens, not with the page: the word list is most of its size, and the
+  // claim route has a budget (`pnpm --filter web size`).
+  const { seedFromEntropy } = await import('./mnemonic');
+  return { kind, version, seed: await seedFromEntropy(secret), entropy: secret };
 }
 
 /** Creates the keystore. Nothing is touched until a method is called. */
@@ -155,7 +206,7 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
   async function createDevice(): Promise<UnlockedWallet> {
     const { seed, record } = await createDeviceWallet(env());
     await storage().save(record);
-    return { kind: 'device', seed };
+    return unlockedFrom('device', record.version, seed);
   }
 
   return {
@@ -173,44 +224,59 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
     passkeySupported,
 
     async create(createOpts) {
-      if ((await storage().load()) !== null) {
+      const existing = await storage().load();
+      const replaceable =
+        createOpts?.replace === true &&
+        existing?.kind === 'passkey' &&
+        createOpts.prefer !== 'device';
+      if (existing !== null && !replaceable) {
         throw new WalletError('exists', 'a wallet already exists on this device');
       }
-      if (createOpts?.prefer === 'device' || !(await passkeySupported())) return createDevice();
+      if (createOpts?.prefer === 'device') return createDevice();
+      if (!(await passkeySupported())) {
+        throw new WalletError('unsupported', 'no passkey wallet can be made in this browser');
+      }
       let made: Awaited<ReturnType<typeof createPasskeyWallet>>;
       try {
-        made = await createPasskeyWallet(env(), rp);
+        made = await createPasskeyWallet(env(), rp, createOpts?.label);
       } catch (error) {
         if (error instanceof WalletError) throw error; // cancelled: the user decides what is next
-        return createDevice(); // a broken WebAuthn stack must never block a claim
+        // A broken WebAuthn stack: say so, and let the person choose a device wallet.
+        throw new WalletError('unsupported', 'the passkey could not be made', { cause: error });
       }
-      if (made.seed === null || made.credentialId === null) return createDevice(); // no PRF here
-      await storage().save({ kind: 'passkey', credentialId: made.credentialId });
-      return { kind: 'passkey', seed: made.seed };
+      made.seed?.fill(0); // the version 1 seed: not this wallet
+      if (made.entropy === null || made.credentialId === null) {
+        throw new WalletError('unsupported', 'this passkey cannot evaluate PRF');
+      }
+      await storage().save({ kind: 'passkey', version: 2, credentialId: made.credentialId });
+      return unlockedFrom('passkey', 2, made.entropy);
     },
 
     async unlock() {
       const stored = await storage().load();
       if (stored === null) throw new WalletError('no_wallet', 'create a wallet first');
       if (stored.kind === 'device') {
-        return { kind: 'device', seed: await unlockDeviceWallet(env(), stored) };
+        return unlockedFrom('device', stored.version, await unlockDeviceWallet(env(), stored));
       }
+      const opened = await unlockPasskeyWallet(env(), rp, stored.credentialId);
       if (stored.kind === 'wrapped') {
-        const opened = await unlockPasskeyWallet(env(), rp, stored.credentialId);
-        // This wallet's seed is the wrapped one; the seed the passkey derives is not wanted
-        // here and does not get to linger on the heap.
+        // This wallet's secret is the wrapped one; what the passkey derives is not wanted here
+        // and does not get to linger on the heap.
         opened.seed?.fill(0);
+        opened.entropy?.fill(0);
         const { wrapKey } = opened;
         if (wrapKey === null) {
           throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
         }
-        return { kind: 'passkey', seed: await unwrapSeed(env(), wrapKey, stored) };
+        const secret = await unwrapSeed(env(), wrapKey, stored);
+        return unlockedFrom('passkey', stored.version, secret);
       }
-      const { seed } = await unlockPasskeyWallet(env(), rp, stored.credentialId);
-      if (seed === null) {
+      if (opened.seed === null) {
         throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
       }
-      return { kind: 'passkey', seed };
+      const secret = stored.version === 2 ? opened.entropy : opened.seed;
+      (stored.version === 2 ? opened.seed : opened.entropy).fill(0);
+      return unlockedFrom('passkey', stored.version, secret);
     },
 
     async secureWithPasskey() {
@@ -225,15 +291,17 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
       const seed = await unlockDeviceWallet(env(), stored);
       try {
         const made = await createPasskeyWallet(env(), rp);
-        made.seed?.fill(0); // the passkey's own seed is not this wallet's seed
+        // The passkey's own keys are not this wallet's.
+        made.seed?.fill(0);
+        made.entropy?.fill(0);
         if (made.credentialId === null || made.wrapKey === null) {
           throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
         }
-        const record = await wrapSeed(env(), made.wrapKey, made.credentialId, seed);
+        const record = await wrapSeed(env(), made.wrapKey, made.credentialId, seed, stored.version);
         // Only now: until this line the device wallet is still the record, so a dismissed
         // prompt or a missing PRF leaves the money reachable exactly as before.
         await storage().save(record);
-        return { kind: 'passkey' as const, seed: new Uint8Array(seed) };
+        return await unlockedFrom('passkey', stored.version, new Uint8Array(seed));
       } finally {
         seed.fill(0);
       }
@@ -250,15 +318,17 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
         throw new WalletError('unsupported', 'no passkey can be made here');
       }
       const made = await createPasskeyWallet(env(), rp);
-      // The passkey's own derived seed is not this wallet's seed, and is not wanted.
+      // The passkey's own derived keys are not this wallet's, and are not wanted.
       made.seed?.fill(0);
+      made.entropy?.fill(0);
       if (made.credentialId === null || made.wrapKey === null) {
         throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
       }
-      const record = await wrapSeed(env(), made.wrapKey, made.credentialId, seed);
+      // A seed from elsewhere is a version 1 seed: there are no words for it.
+      const record = await wrapSeed(env(), made.wrapKey, made.credentialId, seed, 1);
       await storage().save(record);
       // A copy: the caller is free to wipe what it passed in, and usually should.
-      return { kind: 'passkey', seed: new Uint8Array(seed) };
+      return unlockedFrom('passkey', 1, new Uint8Array(seed));
     },
 
     async signIn() {
@@ -270,8 +340,11 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
       if (found.seed === null) {
         throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
       }
-      await storage().save({ kind: 'passkey', credentialId: found.credentialId });
-      return { kind: 'passkey', seed: found.seed };
+      // A passkey found here is read as version 2. One that held a version 1 wallet somewhere
+      // else keeps that money at the version 1 address until it is moved (TASK-128).
+      found.seed.fill(0);
+      await storage().save({ kind: 'passkey', version: 2, credentialId: found.credentialId });
+      return unlockedFrom('passkey', 2, found.entropy);
     },
 
     async forget() {

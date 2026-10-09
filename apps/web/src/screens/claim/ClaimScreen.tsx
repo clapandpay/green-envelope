@@ -46,6 +46,7 @@ function problemTitle(state: ClaimState & { s: 'gone' | 'failed' }, t: Dict): st
 
 function noticeText(notice: ClaimNotice, t: Dict): string {
   if (notice === 'cancelled') return t.errors.cancelled;
+  if (notice === 'no_passkey') return t.errors.passkeyUnavailable;
   return notice === 'network' ? t.errors.network : t.errors.unknown;
 }
 
@@ -177,7 +178,7 @@ function ProblemPanel(props: {
 export function ClaimScreen(props: { link: string }) {
   const { t, locale } = useI18n();
   const { rate } = useRate();
-  const { state, open, retry } = useClaim(props.link);
+  const { state, open, keepHere, retry } = useClaim(props.link);
   const opened = state.s === 'opened';
   const fresh = opened && state.fresh;
   // Until it is opened there is nothing on the page but the envelope.
@@ -220,6 +221,14 @@ export function ClaimScreen(props: { link: string }) {
           <p class="notice notice--calm" role="alert">
             {noticeText(state.notice, t)}
           </p>
+        )}
+        {state.s === 'sealed' && state.notice === 'no_passkey' && (
+          <>
+            <p class="soft">{t.wallet.keepHereWarn}</p>
+            <button type="button" class="btn" onClick={keepHere}>
+              {t.wallet.keepHere}
+            </button>
+          </>
         )}
         {state.s === 'opening' && <p class="claim__hint">{t.claim.openingHint}</p>}
         {state.s === 'opened' && (

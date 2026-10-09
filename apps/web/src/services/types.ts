@@ -29,6 +29,7 @@ export type ServiceErrorCode =
   | 'handles_unavailable' // the registry did not answer; an address still works
   | 'handles_mainnet_only' // @names live on the real network only
   | 'no_wallet_here' // nothing to open on this device: no wallet in this browser, no passkey
+  | 'passkey_unavailable' // this browser cannot keep a passkey wallet (no PRF): say so, offer the browser-only one
   | 'bad_request' // a connect link that did not come from the app, or came damaged
   | 'wallet_cancelled' // the user dismissed the passkey prompt
   | 'network'
@@ -110,8 +111,21 @@ export interface RecipientPick {
 export interface WalletService {
   /** Null when this device has no wallet yet. Never prompts. */
   current(): Promise<WalletInfo | null>;
-  /** Creates a wallet silently if none exists (passkey when possible), otherwise unlocks it. */
+  /**
+   * One tap (owner, 2026-10-09): unlocks the wallet remembered here; otherwise signs in with a
+   * passkey the phone already has for clapandpay.com; otherwise makes one. Making one always
+   * shows the phone's own "create a passkey" sheet, so a returning person who dismissed the
+   * sign-in sees what is about to happen and can cancel. Never makes a browser-only wallet:
+   * without PRF it rejects with `passkey_unavailable` (`keepInBrowser` is the asked-for way).
+   */
   ensure(): Promise<WalletInfo>;
+  /** Makes a wallet that lives only in this browser, when the person chose it. */
+  keepInBrowser(): Promise<WalletInfo>;
+  /**
+   * Makes a second passkey wallet and uses it here instead of the current one. Only from a
+   * passkey wallet, which stays in the person's passkey list and can be signed in to again.
+   */
+  makeNew(): Promise<WalletInfo>;
   balance(): Promise<Balance>;
   /** `to` is an address or an @handle. */
   send(to: string, amount: bigint): Promise<{ confirmed: Promise<void> }>;

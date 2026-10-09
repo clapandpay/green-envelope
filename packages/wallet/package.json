@@ -9,7 +9,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@ge/chain": "workspace:*",
     "@ge/chia": "workspace:*",
-    "@ge/chain": "workspace:*"
+    "@scure/bip39": "2.4.0"
   }
 }

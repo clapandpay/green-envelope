@@ -28,6 +28,10 @@ export interface KeyStoreScript {
   exists?: boolean;
   /** The first prompt is dismissed, the way a cancelled Face ID sheet behaves. */
   cancelFirst?: boolean;
+  /** Every prompt is dismissed: the sign-in sheet and the create sheet after it. */
+  cancelAll?: boolean;
+  /** WebAuthn works but has no PRF here: no passkey wallet can be made or opened. */
+  noPrf?: boolean;
   /** No passkey for this site: what a person who has never been here looks like. */
   noPasskey?: boolean;
   /**
@@ -78,18 +82,24 @@ function memoryStorage() {
 function scriptedKeyStore(script: KeyStoreScript, seedName: string): KeyStore {
   const kind = script.kind ?? 'passkey';
   const seed = () => sha256(text(`seed of ${seedName}`));
-  const unlocked = (): UnlockedWallet => ({ kind, seed: seed() });
+  const unlocked = (): UnlockedWallet => ({ kind, version: 1, seed: seed(), entropy: null });
   let exists = script.exists ?? false;
   let prompts = 0;
   const prompt = () => {
     prompts += 1;
     if (script.cancelFirst === true && prompts === 1) throw new WalletError('cancelled');
+    if (script.cancelAll === true) throw new WalletError('cancelled');
   };
   return {
     status: async () => (exists ? { kind, restorable: kind === 'passkey' } : null),
     passkeySupported: async () => script.passkeySupported ?? true,
-    create: async () => {
+    create: async (opts) => {
+      if (opts?.prefer === 'device') {
+        exists = true;
+        return { ...unlocked(), kind: 'device' };
+      }
       prompt();
+      if (script.noPrf === true) throw new WalletError('unsupported');
       exists = true;
       return unlocked();
     },
@@ -107,7 +117,12 @@ function scriptedKeyStore(script: KeyStoreScript, seedName: string): KeyStore {
       return unlocked();
     },
     secureWithPasskey: async () => unlocked(),
-    importWallet: async (imported) => ({ kind, seed: new Uint8Array(imported) }),
+    importWallet: async (imported) => ({
+      kind,
+      version: 1,
+      seed: new Uint8Array(imported),
+      entropy: null,
+    }),
     forget: async () => {
       exists = false;
     },

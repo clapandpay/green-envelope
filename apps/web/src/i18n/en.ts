@@ -28,6 +28,8 @@ export const en = {
     handleNotPayable: 'That @name cannot take money right now. Ask them for their address.',
     handlesUnavailable: 'We cannot look up @names right now. An address still works.',
     handlesMainnetOnly: '@names only work on the real network.',
+    passkeyUnavailable:
+      'This browser cannot keep your money behind your face or finger. Open the link in Safari or Chrome.',
   },
   claim: {
     title: 'A green envelope for you',
@@ -133,12 +135,19 @@ export const en = {
     firstRunTitle: 'Tap the envelope to start',
     firstRunCue: 'Tap to open',
     firstRunOpened: 'Welcome',
-    firstRunMake: 'Start fresh',
-    firstRunRetry: 'I already have money here',
     start: 'Start here',
     starting: 'Getting ready…',
     secureAction: 'Secure now',
     securing: 'Securing…',
+    keepHere: 'Keep it in this browser only',
+    keepHereWarn:
+      'Then it lives only in this browser: clear it and the money is gone. Bring it into Klimper soon.',
+    newWallet: 'Open a second account',
+    newWalletTitle: 'Open a second account?',
+    newWalletBody:
+      'Your money stays in this account. To come back to it, log out and pick this one when your phone asks.',
+    newWalletConfirm: 'Yes, open one',
+    newWalletWorking: 'Opening…',
     logOut: 'Log out',
     logOutTitle: 'Log out?',
     logOutSafe: 'Your money stays where it is. Come back any time with your face or finger.',

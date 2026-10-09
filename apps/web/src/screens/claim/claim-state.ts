@@ -2,7 +2,8 @@
 // The claim screen as a state machine. Pure: the hook in use-claim.ts feeds it events.
 import type { EnvelopeView, ServiceErrorCode } from '../../services/types';
 
-export type ClaimNotice = 'cancelled' | 'network' | 'unknown';
+/** `no_passkey`: this browser cannot keep a passkey wallet; the screen offers a browser-only one. */
+export type ClaimNotice = 'cancelled' | 'no_passkey' | 'network' | 'unknown';
 
 export type ClaimState =
   | { s: 'loading' }
@@ -74,6 +75,8 @@ export function claimReducer(state: ClaimState, event: ClaimEvent): ClaimState {
       if (code === 'wallet_cancelled')
         return { s: 'sealed', view: state.view, notice: 'cancelled' };
       if (code === 'network') return { s: 'sealed', view: state.view, notice: 'network' };
+      if (code === 'passkey_unavailable')
+        return { s: 'sealed', view: state.view, notice: 'no_passkey' };
       if (
         code === 'envelope_empty' ||
         code === 'envelope_expired' ||

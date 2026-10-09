@@ -1,33 +1,55 @@
 # @ge/wallet
 
-The wallet in the browser. This package currently holds the **keystore**: it creates, unlocks and
-forgets the one wallet of a browser profile and hands out its 32-byte seed. Balance, coin
-selection and send come on top once `@ge/chia` lands.
+The wallet in the browser. This package holds the **keystore**: it creates, unlocks and forgets
+the one wallet of a browser profile and hands out its seed, plus the account derivation and coin
+selection on top.
 
 ```ts
-const store = createKeyStore({ rpName: 'Green Envelope' });
+const store = createKeyStore({ rpName: 'Clap and Pay', rpId: 'clapandpay.com' });
 const existing = await store.status(); // never prompts
-const { kind, seed } = existing ? await store.unlock() : await store.create();
+const wallet = existing ? await store.unlock() : await store.create({ label: 'Clap and Pay wallet 2026-10-09' });
+const account = accountFromSeed(wallet.seed, network);
+wipeUnlocked(wallet); // the seed and the words
 ```
+
+## A wallet is 24 words (version 2)
+
+Every new wallet is a standard 24-word Chia wallet (clapandpay TASK-127, wiki
+`architecture/clapandpay-account.md`):
+
+1. 32 bytes of entropy: from the passkey, `HKDF-SHA256(PRF output, info = "clapandpay:mnemonic:v2")`
+   with the PRF input `sha256("clapandpay:wallet:v1")`; for a device wallet, random.
+2. The words: BIP-39 of the entropy (`mnemonicFromEntropy`).
+3. The seed: the 64-byte BIP-39 seed of the words with the empty passphrase (`seedFromEntropy`).
+   `accountFromSeed` and `masterSecretKey` take it; `keyGen` is chia-bls `from_seed`, so the keys
+   are exactly what Sage derives when it imports the words.
+
+`src/mnemonic-vectors.json` is written by `tools/vectors` (`cargo run -- mnemonic`) with the
+`hkdf` crate, the `bip39` crate Klimper uses, and chia-bls; `mnemonic.test.ts` checks the words,
+seed, master key and first address against it. The HKDF info and the PRF input are permanent:
+changing either changes every passkey wallet.
+
+**Version 1** records (written before versions existed, no `version` field) are still opened:
+their 32-byte seed goes straight into `keyGen` and has no words. They are moved to version 2 once
+(TASK-128). `UnlockedWallet.version` says which one it is; `entropy` is null for version 1.
 
 ## Two kinds of wallet
 
 | | passkey | device |
 | --- | --- | --- |
-| Seed | `HKDF-SHA256(PRF output, info = "clapandpay:wallet:v1:seed")`, where the PRF input is `sha256("clapandpay:wallet:v1")` | 32 bytes from `crypto.getRandomValues` |
+| Entropy | derived from the passkey's PRF, as above | 32 bytes from `crypto.getRandomValues` |
 | Stored in IndexedDB | the credential id only (not secret) | AES-GCM ciphertext, IV, and the **non-extractable** `CryptoKey` that wraps it |
 | Unlock | biometric / PIN prompt, every time | silent |
-| When | browser has WebAuthn, a platform authenticator and PRF | everything else, so a claim is never blocked |
+| When | browser has WebAuthn and PRF | only when the person chose it (`create({ prefer: 'device' })`) |
 
-`create()` falls back to a device wallet on its own when the passkey was created but the
-authenticator returned no PRF result, or when WebAuthn fails with anything other than the user
-dismissing the prompt (`WalletError('cancelled')`). Look at the returned `kind`.
+`create()` never makes a device wallet on its own (audit M2): without WebAuthn or PRF, or when
+WebAuthn fails with anything other than a dismissed prompt (`WalletError('cancelled')`), it
+rejects with `WalletError('unsupported')`, and the app says so and offers the device wallet.
 
 `create()` refuses (`WalletError('exists')`) while a wallet exists: overwriting the record of a
-device wallet would destroy the only copy of its seed.
-
-The two tags above are permanent. Changing either one changes the address of every passkey
-wallet ever made.
+device wallet would destroy the only copy of its seed. `create({ replace: true })` makes a second
+passkey wallet in place of a derived one, which stays in the passkey list and comes back with
+`signIn()`; the record is overwritten only once the new passkey exists.
 
 ## Security note: what this does and does not protect
 

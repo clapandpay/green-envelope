@@ -16,9 +16,30 @@ export type OwnedBytes = Uint8Array<ArrayBuffer>;
  *   person holding it; it just has a seed of its own rather than a derived one.
  */
 export type StoredWallet =
-  | { kind: 'passkey'; credentialId: OwnedBytes }
-  | { kind: 'device'; key: CryptoKey; iv: OwnedBytes; ciphertext: OwnedBytes }
-  | { kind: 'wrapped'; credentialId: OwnedBytes; iv: OwnedBytes; ciphertext: OwnedBytes };
+  | { kind: 'passkey'; version: WalletVersion; credentialId: OwnedBytes }
+  | {
+      kind: 'device';
+      version: WalletVersion;
+      key: CryptoKey;
+      iv: OwnedBytes;
+      ciphertext: OwnedBytes;
+    }
+  | {
+      kind: 'wrapped';
+      version: WalletVersion;
+      credentialId: OwnedBytes;
+      iv: OwnedBytes;
+      ciphertext: OwnedBytes;
+    };
+
+/**
+ * What the record's 32 secret bytes are.
+ *
+ * - 1: the seed itself, fed straight into BLS `KeyGen`. No recovery words exist for it.
+ * - 2: BIP-39 entropy. The wallet is its 24 words, and the key is what Sage derives from them
+ *   (`mnemonic.ts`). Records written before versions existed have no field and are 1.
+ */
+export type WalletVersion = 1 | 2;
 
 /** Where the keystore keeps its single record. Values must survive a structured clone (CryptoKey included). */
 export interface KeyStoreStorage {
@@ -48,15 +69,17 @@ function isCryptoKey(value: unknown): value is CryptoKey {
 export function parseStoredWallet(value: unknown): StoredWallet | null {
   if (value === undefined || value === null) return null;
   if (typeof value === 'object') {
+    const version: WalletVersion = (value as { version?: unknown }).version === 2 ? 2 : 1;
     const v: {
       kind?: unknown;
+      version?: unknown;
       credentialId?: unknown;
       key?: unknown;
       iv?: unknown;
       ciphertext?: unknown;
     } = value;
     if (v.kind === 'passkey' && isOwnedBytes(v.credentialId)) {
-      return { kind: 'passkey', credentialId: v.credentialId };
+      return { kind: 'passkey', version, credentialId: v.credentialId };
     }
     if (
       v.kind === 'wrapped' &&
@@ -66,6 +89,7 @@ export function parseStoredWallet(value: unknown): StoredWallet | null {
     ) {
       return {
         kind: 'wrapped',
+        version,
         credentialId: v.credentialId,
         iv: v.iv,
         ciphertext: v.ciphertext,
@@ -77,7 +101,7 @@ export function parseStoredWallet(value: unknown): StoredWallet | null {
       isOwnedBytes(v.iv) &&
       isOwnedBytes(v.ciphertext)
     ) {
-      return { kind: 'device', key: v.key, iv: v.iv, ciphertext: v.ciphertext };
+      return { kind: 'device', version, key: v.key, iv: v.iv, ciphertext: v.ciphertext };
     }
   }
   throw new WalletError('corrupt', 'the stored wallet record has an unknown shape');

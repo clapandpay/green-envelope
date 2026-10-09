@@ -28,6 +28,8 @@ export const de: Dict = {
     handleNotPayable: 'Dieser @Name kann gerade kein Geld annehmen. Frag nach der Adresse.',
     handlesUnavailable: '@Namen lassen sich gerade nicht nachschlagen. Eine Adresse geht trotzdem.',
     handlesMainnetOnly: '@Namen gibt es nur im echten Netz.',
+    passkeyUnavailable:
+      'Dieser Browser kann dein Geld nicht mit Gesicht oder Finger schützen. Öffne den Link in Safari oder Chrome.',
   },
   claim: {
     title: 'Ein grüner Umschlag für dich',
@@ -133,12 +135,19 @@ export const de: Dict = {
     firstRunTitle: 'Tippe den Umschlag an',
     firstRunCue: 'Zum Öffnen tippen',
     firstRunOpened: 'Willkommen',
-    firstRunMake: 'Neu anfangen',
-    firstRunRetry: 'Ich habe hier schon Geld',
     start: 'Hier anfangen',
     starting: 'Wird vorbereitet…',
     secureAction: 'Jetzt sichern',
     securing: 'Wird gesichert…',
+    keepHere: 'Nur in diesem Browser behalten',
+    keepHereWarn:
+      'Dann liegt es nur in diesem Browser: Daten gelöscht, Geld weg. Bring es bald in Klimper.',
+    newWallet: 'Zweites Konto eröffnen',
+    newWalletTitle: 'Zweites Konto eröffnen?',
+    newWalletBody:
+      'Dein Geld bleibt in diesem Konto. Um zurückzukommen, meld dich ab und wähl dieses, wenn dein Handy fragt.',
+    newWalletConfirm: 'Ja, eröffnen',
+    newWalletWorking: 'Wird eröffnet…',
     logOut: 'Abmelden',
     logOutTitle: 'Abmelden?',
     logOutSafe: 'Dein Geld bleibt, wo es ist. Komm jederzeit mit Gesicht oder Finger zurück.',

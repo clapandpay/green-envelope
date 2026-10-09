@@ -1169,10 +1169,13 @@ name = "ge-vectors"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bip39",
  "chia-wallet-sdk",
  "hex",
+ "hkdf",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

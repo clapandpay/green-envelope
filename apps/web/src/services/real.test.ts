@@ -22,7 +22,12 @@ function memoryStorage() {
 /** A keystore with a fixed seed per person, created on first use like the real one. */
 function keyStoreFor(name: string): KeyStore {
   let exists = false;
-  const unlockedWallet = () => ({ kind: 'device' as const, seed: sha256(text(`seed of ${name}`)) });
+  const unlockedWallet = () => ({
+    kind: 'device' as const,
+    version: 1 as const,
+    seed: sha256(text(`seed of ${name}`)),
+    entropy: null,
+  });
   return {
     status: async () => (exists ? { kind: 'device' as const, restorable: false } : null),
     passkeySupported: async () => false,
@@ -40,7 +45,12 @@ function keyStoreFor(name: string): KeyStore {
     },
     importWallet: async (seed: Uint8Array) => {
       exists = true;
-      return { kind: 'device' as const, seed: new Uint8Array(seed) };
+      return {
+        kind: 'device' as const,
+        version: 1 as const,
+        seed: new Uint8Array(seed),
+        entropy: null,
+      };
     },
     secureWithPasskey: async () => unlockedWallet(),
   };

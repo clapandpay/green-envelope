@@ -22,15 +22,25 @@ function person(name: string) {
     passkeySupported: async () => false,
     create: async () => {
       exists = true;
-      return { kind: 'device', seed: seed() };
+      return { kind: 'device', version: 1, seed: seed(), entropy: null };
     },
-    unlock: async () => ({ kind: 'device', seed: seed() }),
-    signIn: async () => ({ kind: 'device', seed: seed() }),
+    unlock: async () => ({ kind: 'device', version: 1, seed: seed(), entropy: null }),
+    signIn: async () => ({ kind: 'device', version: 1, seed: seed(), entropy: null }),
     importWallet: async (imported: Uint8Array) => {
       exists = true;
-      return { kind: 'device' as const, seed: new Uint8Array(imported) };
+      return {
+        kind: 'device' as const,
+        version: 1 as const,
+        seed: new Uint8Array(imported),
+        entropy: null,
+      };
     },
-    secureWithPasskey: async () => ({ kind: 'passkey' as const, seed: seed() }),
+    secureWithPasskey: async () => ({
+      kind: 'passkey' as const,
+      version: 1 as const,
+      seed: seed(),
+      entropy: null,
+    }),
     forget: async () => {},
   };
   const memory = new Map<string, string>();

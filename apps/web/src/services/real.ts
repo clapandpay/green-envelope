@@ -36,8 +36,9 @@ import {
   type KeyStore,
   masterSecretKey,
   selectCoins,
+  type UnlockedWallet,
   WalletError,
-  type WalletKind,
+  wipeUnlocked as wipe,
 } from '@ge/wallet';
 import { builtNetwork, type NetworkName, resolveNetwork, withNetwork } from '../lib/network';
 import { relyingPartyId } from '../lib/relying-party';
@@ -196,22 +197,54 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     return done;
   }
 
-  /** Remembers an unlocked wallet as the current one and reports it. Wipes the seed. */
-  function adopt(unlockedWallet: { kind: WalletKind; seed: Uint8Array }): WalletInfo {
+  /** Remembers an unlocked wallet as the current one and reports it. Wipes the seed and words. */
+  function adopt(unlockedWallet: UnlockedWallet): WalletInfo {
     account = accountFromSeed(unlockedWallet.seed, network);
-    unlockedWallet.seed.fill(0);
+    wipe(unlockedWallet);
     const info: WalletInfo = { kind: unlockedWallet.kind, address: account.address };
     state.setWallet(network.name, info);
     return info;
   }
 
+  /** The passkey's user name: the date tells one wallet from another in the passkey list. */
+  function walletLabel(): string {
+    return `Clap and Pay wallet ${new Date(deps.now() * 1000).toISOString().slice(0, 10)}`;
+  }
+
+  /** No passkey wallet can be made or opened in this browser: a reason, not a failure. */
+  function passkeyProblem(error: unknown): unknown {
+    return error instanceof WalletError && error.code === 'unsupported'
+      ? new ServiceError('passkey_unavailable')
+      : error;
+  }
+
+  /** The one tap: the wallet here, else the passkey the phone has, else a new one. */
+  async function openOrMake(): Promise<UnlockedWallet> {
+    if ((await keyStore.status()) !== null) return keyStore.unlock();
+    try {
+      return await keyStore.signIn();
+    } catch (error) {
+      // 'no_wallet': no WebAuthn answer at all; 'cancelled': no passkey picked, which is also
+      // what a phone without one for this site says. Either way the phone's create sheet comes
+      // next, and that sheet is the person's own yes or no.
+      if (
+        !(error instanceof WalletError) ||
+        (error.code !== 'no_wallet' && error.code !== 'cancelled')
+      ) {
+        throw passkeyProblem(error);
+      }
+    }
+    try {
+      return await keyStore.create({ label: walletLabel() });
+    } catch (error) {
+      throw passkeyProblem(error);
+    }
+  }
+
   async function unlocked(): Promise<Account> {
     if (account !== null) return account;
-    const existing = await keyStore.status();
-    const { kind, seed } = existing === null ? await keyStore.create() : await keyStore.unlock();
-    account = accountFromSeed(seed, network);
-    seed.fill(0);
-    state.setWallet(network.name, { kind, address: account.address });
+    adopt(await openOrMake());
+    if (account === null) throw new ServiceError('unknown');
     return account;
   }
 
@@ -320,6 +353,21 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           return state.wallet(network.name) ?? { kind: 'device', address: owner.address };
         }),
 
+      keepInBrowser: () =>
+        guarded(async (): Promise<WalletInfo> => {
+          if ((await keyStore.status()) !== null) return adopt(await keyStore.unlock());
+          return adopt(await keyStore.create({ prefer: 'device' }));
+        }),
+
+      makeNew: () =>
+        guarded(async (): Promise<WalletInfo> => {
+          try {
+            return adopt(await keyStore.create({ label: walletLabel(), replace: true }));
+          } catch (error) {
+            throw passkeyProblem(error);
+          }
+        }),
+
       balance: () =>
         guarded(async (): Promise<Balance> => {
           const info = state.wallet(network.name);
@@ -376,10 +424,11 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           const request = await readConnectRequest(search);
           const { sealHandoffResponse } = await import('@ge/handoff');
           // Always a fresh prompt: handing over the wallet is never done on a remembered unlock.
-          const { kind, seed } = await keyStore.signIn();
+          const opened = await keyStore.signIn();
+          const { kind, seed } = opened;
           const owner = accountFromSeed(seed, network);
           const master = masterSecretKey(seed);
-          seed.fill(0);
+          wipe(opened);
           state.setWallet(network.name, { kind, address: owner.address });
           try {
             return await sealHandoffResponse(request, {

@@ -47,15 +47,18 @@ interface WalletData {
 
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | ({ s: 'ready' } & WalletData);
 
+/** What a button on this screen is busy doing. */
+type Work = 'start' | 'here' | 'secure' | 'new' | 'out';
+
 export function WalletScreen() {
   const { t, locale } = useI18n();
   const services = useServices();
   const { rate } = useRate();
   const [load, setLoad] = useState<Load>({ s: 'loading' });
-  const [sheet, setSheet] = useState<'receive' | 'send' | 'out' | null>(null);
-  const [working, setWorking] = useState<'start' | 'secure' | 'make' | 'out' | null>(null);
-  /** Shown once opening found nothing: the two things that could have meant. */
-  const [offering, setOffering] = useState(false);
+  const [sheet, setSheet] = useState<'receive' | 'send' | 'out' | 'new' | null>(null);
+  const [working, setWorking] = useState<Work | null>(null);
+  /** No passkey wallet can be kept in this browser: the person may choose a browser-only one. */
+  const [offerHere, setOfferHere] = useState(false);
   const [opened, setOpened] = useState(false);
   const [message, setMessage] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
   const alive = useRef(true);
@@ -145,15 +148,17 @@ export function WalletScreen() {
     return () => clearInterval(timer);
   }, [moving, settling, refresh]);
 
-  const run = async (kind: 'start' | 'secure' | 'make' | 'out') => {
+  const run = async (kind: Work) => {
     setWorking(kind);
     setMessage(null);
     try {
-      if (kind === 'start' || kind === 'make') {
-        // `open` never creates, so nothing here can turn a returning person into a second,
-        // empty wallet. `ensure` is the asked-for step that makes one.
-        if (kind === 'make') await services.wallet.ensure();
-        else await services.wallet.open();
+      if (kind === 'start' || kind === 'here') {
+        // One tap (owner, 2026-10-09): the wallet here, else the passkey the phone has, else
+        // a new one, whose creation the phone's own sheet asks about. A browser-only wallet
+        // only when the person picked it after being told why.
+        if (kind === 'here') await services.wallet.keepInBrowser();
+        else await services.wallet.ensure();
+        setOfferHere(false);
         setOpened(true);
         // The balance, the envelopes and the two probes are fetched **while** the envelope
         // opens, not after it. The animation is then the waiting, instead of something a
@@ -171,6 +176,10 @@ export function WalletScreen() {
         setSheet(null);
         setOpened(false);
         await refresh();
+      } else if (kind === 'new') {
+        await services.wallet.makeNew();
+        setSheet(null);
+        await refresh();
       } else {
         await services.wallet.upgradeToPasskey();
         setMessage({ tone: 'good', text: t.wallet.secured });
@@ -178,10 +187,9 @@ export function WalletScreen() {
       }
     } catch (error) {
       setOpened(false);
-      // Nothing to open, or a prompt that was dismissed: WebAuthn says the same thing either
-      // way, so the screen stops guessing and asks.
-      setOffering(true);
-      setMessage({ tone: 'bad', text: errorText(errorCode(error), t) });
+      const code = errorCode(error);
+      if (code === 'passkey_unavailable' && kind === 'start') setOfferHere(true);
+      setMessage({ tone: 'bad', text: errorText(code, t) });
     } finally {
       setWorking(null);
     }
@@ -270,24 +278,17 @@ export function WalletScreen() {
           </span>
         </button>
         {notice}
-        {offering && (
+        {offerHere && (
           <div class="first-run__choice">
-            <button
-              type="button"
-              class="btn btn--primary"
-              aria-busy={working === 'make'}
-              disabled={working !== null}
-              onClick={() => run('make')}
-            >
-              {t.wallet.firstRunMake}
-            </button>
+            <p class="soft">{t.wallet.keepHereWarn}</p>
             <button
               type="button"
               class="btn"
+              aria-busy={working === 'here'}
               disabled={working !== null}
-              onClick={() => run('start')}
+              onClick={() => run('here')}
             >
-              {t.wallet.firstRunRetry}
+              {t.wallet.keepHere}
             </button>
           </div>
         )}
@@ -362,9 +363,34 @@ export function WalletScreen() {
         )}
       </section>
 
+      {load.restorable && load.wallet.kind === 'passkey' && (
+        <button type="button" class="btn btn--plain" onClick={() => setSheet('new')}>
+          {t.wallet.newWallet}
+        </button>
+      )}
       <button type="button" class="btn btn--plain wallet__out" onClick={() => setSheet('out')}>
         {t.wallet.logOut}
       </button>
+
+      {sheet === 'new' && (
+        <Sheet open title={t.wallet.newWalletTitle} onClose={() => setSheet(null)}>
+          <div class="stack">
+            <p class="soft">{t.wallet.newWalletBody}</p>
+            <button
+              type="button"
+              class="btn btn--primary"
+              aria-busy={working === 'new'}
+              disabled={working === 'new'}
+              onClick={() => run('new')}
+            >
+              {working === 'new' ? t.wallet.newWalletWorking : t.wallet.newWalletConfirm}
+            </button>
+            <button type="button" class="btn btn--plain" onClick={() => setSheet(null)}>
+              {t.common.cancel}
+            </button>
+          </div>
+        </Sheet>
+      )}
 
       {sheet === 'out' && (
         <Sheet open title={t.wallet.logOutTitle} onClose={() => setSheet(null)}>

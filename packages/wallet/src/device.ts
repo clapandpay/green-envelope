@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Device wallet: a random seed, wrapped with a non-extractable AES-GCM key that lives in IndexedDB.
+// Device wallet: 32 random bytes, wrapped with a non-extractable AES-GCM key that lives in IndexedDB.
+// A new one is version 2: those bytes are BIP-39 entropy, so it has 24 words like a passkey wallet.
 import type { KeyStoreEnv } from './env';
 import { WalletError } from './errors';
 import type { OwnedBytes, StoredWallet } from './storage';
 
-/** Seed length in bytes for both wallet kinds. */
+/** Length of the secret in every record: a version 1 seed or version 2 entropy. */
 export const SEED_BYTES = 32;
 const IV_BYTES = 12;
 
 type DeviceRecord = Extract<StoredWallet, { kind: 'device' }>;
 
-/** Draws a fresh seed and returns it with the record to store. */
+/** Draws fresh version 2 entropy and returns it with the record to store. */
 export async function createDeviceWallet(
   env: KeyStoreEnv,
 ): Promise<{ seed: OwnedBytes; record: DeviceRecord }> {
@@ -23,7 +24,7 @@ export async function createDeviceWallet(
     'decrypt',
   ]);
   const ciphertext = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv }, key, seed));
-  return { seed, record: { kind: 'device', key, iv, ciphertext } };
+  return { seed, record: { kind: 'device', version: 2, key, iv, ciphertext } };
 }
 
 /** Decrypts the stored seed; any failure means the record is unusable. */
