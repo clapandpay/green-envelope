@@ -199,16 +199,23 @@ export function createServicesFrom(deps: RealDeps): AppServices {
 
   /** Remembers an unlocked wallet as the current one and reports it. Wipes the seed and words. */
   function adopt(unlockedWallet: UnlockedWallet): WalletInfo {
-    account = accountFromSeed(unlockedWallet.seed, network);
-    wipe(unlockedWallet);
+    try {
+      account = accountFromSeed(unlockedWallet.seed, network);
+    } finally {
+      wipe(unlockedWallet);
+    }
     const info: WalletInfo = { kind: unlockedWallet.kind, address: account.address };
     state.setWallet(network.name, info);
     return info;
   }
 
-  /** The passkey's user name: the date tells one wallet from another in the passkey list. */
+  /**
+   * The passkey's user name: date and time (UTC) tell one wallet from another in the passkey
+   * list, even two made the same day (audit M-2).
+   */
   function walletLabel(): string {
-    return `Clap and Pay wallet ${new Date(deps.now() * 1000).toISOString().slice(0, 10)}`;
+    const made = new Date(deps.now() * 1000).toISOString();
+    return `Clap and Pay wallet ${made.slice(0, 10)} ${made.slice(11, 16)}`;
   }
 
   /** No passkey wallet can be made or opened in this browser: a reason, not a failure. */
@@ -359,6 +366,12 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           return adopt(await keyStore.create({ prefer: 'device' }));
         }),
 
+      canMakeNew: () =>
+        guarded(async () => {
+          const stored = await keyStore.status();
+          return stored?.restorable === true && stored.version === 2;
+        }),
+
       makeNew: () =>
         guarded(async (): Promise<WalletInfo> => {
           try {
@@ -426,9 +439,14 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           // Always a fresh prompt: handing over the wallet is never done on a remembered unlock.
           const opened = await keyStore.signIn();
           const { kind, seed } = opened;
-          const owner = accountFromSeed(seed, network);
-          const master = masterSecretKey(seed);
-          wipe(opened);
+          let owner: Account;
+          let master: Uint8Array;
+          try {
+            owner = accountFromSeed(seed, network);
+            master = masterSecretKey(seed);
+          } finally {
+            wipe(opened);
+          }
           state.setWallet(network.name, { kind, address: owner.address });
           try {
             return await sealHandoffResponse(request, {

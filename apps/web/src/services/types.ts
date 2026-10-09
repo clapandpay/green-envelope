@@ -121,6 +121,8 @@ export interface WalletService {
   ensure(): Promise<WalletInfo>;
   /** Makes a wallet that lives only in this browser, when the person chose it. */
   keepInBrowser(): Promise<WalletInfo>;
+  /** Whether `makeNew` is possible: a version 2 passkey wallet, which sign-in brings back. */
+  canMakeNew(): Promise<boolean>;
   /**
    * Makes a second passkey wallet and uses it here instead of the current one. Only from a
    * passkey wallet, which stays in the person's passkey list and can be signed in to again.

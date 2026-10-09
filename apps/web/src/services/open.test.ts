@@ -93,7 +93,7 @@ describe('one tap on the envelope', () => {
 
   it('unlocks the wallet already on this device, and makes nothing', async () => {
     const keyStore = stubKeyStore({
-      status: async () => ({ kind: 'passkey' as const, restorable: true }),
+      status: async () => ({ kind: 'passkey' as const, version: 1 as const, restorable: true }),
     });
     const unlock = vi.spyOn(keyStore, 'unlock');
     const create = vi.spyOn(keyStore, 'create');
@@ -204,7 +204,7 @@ describe('ensure(): one tap, sign in before making a wallet (TASK-127, TASK-059)
       await appWith(keyStore).wallet.ensure();
       expect(create).toHaveBeenCalledTimes(1);
       // `now` is 1_800_000_000: 2027-01-15.
-      expect(create.mock.calls[0]?.[0]).toEqual({ label: 'Clap and Pay wallet 2027-01-15' });
+      expect(create.mock.calls[0]?.[0]).toEqual({ label: 'Clap and Pay wallet 2027-01-15 08:00' });
     },
   );
 
@@ -246,6 +246,9 @@ describe('ensure(): one tap, sign in before making a wallet (TASK-127, TASK-059)
     const keyStore = stubKeyStore();
     const create = vi.spyOn(keyStore, 'create');
     await appWith(keyStore).wallet.makeNew();
-    expect(create).toHaveBeenCalledWith({ label: 'Clap and Pay wallet 2027-01-15', replace: true });
+    expect(create).toHaveBeenCalledWith({
+      label: 'Clap and Pay wallet 2027-01-15 08:00',
+      replace: true,
+    });
   });
 });

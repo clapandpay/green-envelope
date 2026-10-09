@@ -28,6 +28,8 @@ export interface KeyStoreScript {
   exists?: boolean;
   /** The first prompt is dismissed, the way a cancelled Face ID sheet behaves. */
   cancelFirst?: boolean;
+  /** The record's version; 2 unless a test is about an older wallet. */
+  version?: 1 | 2;
   /** Every prompt is dismissed: the sign-in sheet and the create sheet after it. */
   cancelAll?: boolean;
   /** WebAuthn works but has no PRF here: no passkey wallet can be made or opened. */
@@ -91,7 +93,8 @@ function scriptedKeyStore(script: KeyStoreScript, seedName: string): KeyStore {
     if (script.cancelAll === true) throw new WalletError('cancelled');
   };
   return {
-    status: async () => (exists ? { kind, restorable: kind === 'passkey' } : null),
+    status: async () =>
+      exists ? { kind, version: script.version ?? 2, restorable: kind === 'passkey' } : null,
     passkeySupported: async () => script.passkeySupported ?? true,
     create: async (opts) => {
       if (opts?.prefer === 'device') {

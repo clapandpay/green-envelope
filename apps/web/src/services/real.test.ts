@@ -29,7 +29,8 @@ function keyStoreFor(name: string): KeyStore {
     entropy: null,
   });
   return {
-    status: async () => (exists ? { kind: 'device' as const, restorable: false } : null),
+    status: async () =>
+      exists ? { kind: 'device' as const, version: 1 as const, restorable: false } : null,
     passkeySupported: async () => false,
     create: async () => {
       exists = true;

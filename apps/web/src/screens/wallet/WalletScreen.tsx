@@ -43,6 +43,8 @@ interface WalletData {
   canSecure: boolean;
   /** False when logging out would take the money with it. */
   restorable: boolean;
+  /** A second account can be opened: only from a version 2 passkey wallet. */
+  canMakeNew: boolean;
 }
 
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | ({ s: 'ready' } & WalletData);
@@ -85,13 +87,15 @@ export function WalletScreen() {
             sent: [],
             canSecure: false,
             restorable: false,
+            canMakeNew: false,
           });
         }
         return;
       }
-      const [canSecure, restorable] = await Promise.all([
+      const [canSecure, restorable, canMakeNew] = await Promise.all([
         services.wallet.canUpgradeToPasskey(),
         services.wallet.canRestoreElsewhere(),
+        services.wallet.canMakeNew(),
       ]);
       if (!alive.current) return;
       setLoad((current) => ({
@@ -102,6 +106,7 @@ export function WalletScreen() {
         sent: current.s === 'ready' ? current.sent : null,
         canSecure,
         restorable,
+        canMakeNew,
       }));
 
       const settle = <K extends 'balance' | 'sent'>(key: K, value: WalletData[K]) => {
@@ -363,7 +368,7 @@ export function WalletScreen() {
         )}
       </section>
 
-      {load.restorable && load.wallet.kind === 'passkey' && (
+      {load.canMakeNew && (
         <button type="button" class="btn btn--plain" onClick={() => setSheet('new')}>
           {t.wallet.newWallet}
         </button>

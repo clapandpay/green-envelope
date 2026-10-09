@@ -18,7 +18,8 @@ function person(name: string) {
   const seed = () => sha256(text(`${run}:${name}`));
   let exists = false;
   const keyStore: KeyStore = {
-    status: async () => (exists ? { kind: 'device' as const, restorable: false } : null),
+    status: async () =>
+      exists ? { kind: 'device' as const, version: 1 as const, restorable: false } : null,
     passkeySupported: async () => false,
     create: async () => {
       exists = true;

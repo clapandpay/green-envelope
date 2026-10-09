@@ -118,6 +118,15 @@ describe('a second account', () => {
     await waitFor(() => expect(makeNew).toHaveBeenCalledTimes(1));
   });
 
+  it('is not offered for an older passkey wallet, whose money sign-in would not find', async () => {
+    const services = createWorld({ keyStore: { exists: true, version: 1 } }).services;
+    await services.wallet.ensure();
+    renderScreen(<WalletScreen />, { services });
+
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /open a second account/i })).toBeNull();
+  });
+
   it('is not offered for a wallet that lives only in this browser', async () => {
     const services = createWorld({ keyStore: { kind: 'device', exists: true } }).services;
     await services.wallet.ensure();

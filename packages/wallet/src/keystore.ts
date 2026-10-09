@@ -48,7 +48,7 @@ export interface KeyStore {
    * a seed the passkey derives can: a device wallet's seed and an imported wallet's wrapped
    * seed both live in this browser and nowhere else, so forgetting either loses the money.
    */
-  status(): Promise<{ kind: WalletKind; restorable: boolean } | null>;
+  status(): Promise<{ kind: WalletKind; version: WalletVersion; restorable: boolean } | null>;
   /** WebAuthn with a user-verifying platform authenticator, and PRF not known to be missing. */
   passkeySupported(): Promise<boolean>;
   /**
@@ -172,6 +172,18 @@ async function unlockedFrom(
   return { kind, version, seed: await seedFromEntropy(secret), entropy: secret };
 }
 
+const sameBytes = (a: Uint8Array, b: Uint8Array) =>
+  a.length === b.length && a.every((byte, i) => byte === b[i]);
+
+/** Whether two records are the same record (what `commit` compares against). */
+function sameRecord(a: StoredWallet | null, b: StoredWallet | null): boolean {
+  if (a === null || b === null) return a === b;
+  if (a.kind !== b.kind || a.version !== b.version) return false;
+  if (a.kind === 'device' && b.kind === 'device') return sameBytes(a.ciphertext, b.ciphertext);
+  if (a.kind === 'device' || b.kind === 'device') return false;
+  return sameBytes(a.credentialId, b.credentialId);
+}
+
 /** Creates the keystore. Nothing is touched until a method is called. */
 export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
   const env = (): KeyStoreEnv => opts.env ?? browserEnv();
@@ -203,9 +215,22 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
     }
   }
 
+  /**
+   * Saves `record` only if the stored record is still `expected`. A passkey prompt can take a
+   * minute, and another tab may have made a wallet meanwhile, a device wallet whose secret is
+   * nowhere else; overwriting it would lose that money (audit L-2). Not a transaction, but the
+   * window shrinks from the length of a prompt to one IndexedDB round trip.
+   */
+  async function commit(expected: StoredWallet | null, record: StoredWallet): Promise<void> {
+    if (!sameRecord(expected, await storage().load())) {
+      throw new WalletError('exists', 'another tab changed the wallet on this device');
+    }
+    await storage().save(record);
+  }
+
   async function createDevice(): Promise<UnlockedWallet> {
     const { seed, record } = await createDeviceWallet(env());
-    await storage().save(record);
+    await commit(null, record);
     return unlockedFrom('device', record.version, seed);
   }
 
@@ -217,6 +242,7 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
       // not restorable, though, because the wrapped seed is here and only here.
       return {
         kind: stored.kind === 'device' ? 'device' : 'passkey',
+        version: stored.version,
         restorable: stored.kind === 'passkey',
       };
     },
@@ -228,6 +254,9 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
       const replaceable =
         createOpts?.replace === true &&
         existing?.kind === 'passkey' &&
+        // A version 1 wallet comes back with sign-in only as version 2, which is another
+        // address: replacing it would leave its money where the app no longer looks (TASK-128).
+        existing.version === 2 &&
         createOpts.prefer !== 'device';
       if (existing !== null && !replaceable) {
         throw new WalletError('exists', 'a wallet already exists on this device');
@@ -248,7 +277,7 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
       if (made.entropy === null || made.credentialId === null) {
         throw new WalletError('unsupported', 'this passkey cannot evaluate PRF');
       }
-      await storage().save({ kind: 'passkey', version: 2, credentialId: made.credentialId });
+      await commit(existing, { kind: 'passkey', version: 2, credentialId: made.credentialId });
       return unlockedFrom('passkey', 2, made.entropy);
     },
 
@@ -300,7 +329,7 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
         const record = await wrapSeed(env(), made.wrapKey, made.credentialId, seed, stored.version);
         // Only now: until this line the device wallet is still the record, so a dismissed
         // prompt or a missing PRF leaves the money reachable exactly as before.
-        await storage().save(record);
+        await commit(stored, record);
         return await unlockedFrom('passkey', stored.version, new Uint8Array(seed));
       } finally {
         seed.fill(0);
@@ -326,7 +355,7 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
       }
       // A seed from elsewhere is a version 1 seed: there are no words for it.
       const record = await wrapSeed(env(), made.wrapKey, made.credentialId, seed, 1);
-      await storage().save(record);
+      await commit(null, record);
       // A copy: the caller is free to wipe what it passed in, and usually should.
       return unlockedFrom('passkey', 1, new Uint8Array(seed));
     },
@@ -343,7 +372,7 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
       // A passkey found here is read as version 2. One that held a version 1 wallet somewhere
       // else keeps that money at the version 1 address until it is moved (TASK-128).
       found.seed.fill(0);
-      await storage().save({ kind: 'passkey', version: 2, credentialId: found.credentialId });
+      await commit(null, { kind: 'passkey', version: 2, credentialId: found.credentialId });
       return unlockedFrom('passkey', 2, found.entropy);
     },
 

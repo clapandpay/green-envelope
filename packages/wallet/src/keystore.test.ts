@@ -4,7 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { WalletError } from './errors';
 import { createKeyStore } from './keystore';
 import { keysFromPrf, PRF_SALT_TAG, seedFromPrf } from './passkey';
-import { indexedDbStorage, type KeyStoreStorage, type StoredWallet } from './storage';
+import {
+  indexedDbStorage,
+  type KeyStoreStorage,
+  parseStoredWallet,
+  type StoredWallet,
+} from './storage';
 import { fakeAuthenticator, fakeEnv } from './test-helpers';
 
 const hexOf = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');
@@ -146,7 +151,7 @@ describe('passkey wallet', () => {
     await store.create();
     auth.behaviour.failGet = 'NotAllowedError';
     expect((await errorOf(store.unlock())).code).toBe('cancelled');
-    expect(await store.status()).toEqual({ kind: 'passkey', restorable: true });
+    expect(await store.status()).toMatchObject({ kind: 'passkey', restorable: true });
   });
 
   it('reports unsupported when the passkey exists but PRF does not answer on unlock', async () => {
@@ -255,7 +260,7 @@ describe('device wallet on IndexedDB', () => {
 
     // A second keystore over the same database is "the next page load".
     const again = createKeyStore({ env });
-    expect(await again.status()).toEqual({ kind: 'device', restorable: false });
+    expect(await again.status()).toMatchObject({ kind: 'device', restorable: false });
     expect(hexOf((await again.unlock()).seed)).toBe(hexOf(created.seed));
     expect(hexOf((await again.unlock()).seed)).toBe(hexOf(created.seed));
   });
@@ -306,8 +311,11 @@ describe('status, forget, create twice', () => {
     expect(await store.status()).toBeNull();
     await store.create();
     const prompts = auth.calls.create.length + auth.calls.get.length;
-    expect(await store.status()).toEqual({ kind: 'passkey', restorable: true });
-    expect(await createKeyStore({ env }).status()).toEqual({ kind: 'passkey', restorable: true });
+    expect(await store.status()).toMatchObject({ kind: 'passkey', restorable: true });
+    expect(await createKeyStore({ env }).status()).toMatchObject({
+      kind: 'passkey',
+      restorable: true,
+    });
     expect(auth.calls.create.length + auth.calls.get.length).toBe(prompts);
 
     await store.forget();
@@ -365,7 +373,7 @@ describe('signIn: a wallet made somewhere else', () => {
     expect(phone.calls.get.at(-1)?.publicKey?.allowCredentials).toEqual([]);
 
     // Remembered: from now on it is an ordinary unlock of that passkey.
-    expect(await safari.status()).toEqual({ kind: 'passkey', restorable: true });
+    expect(await safari.status()).toMatchObject({ kind: 'passkey', restorable: true });
     expect(hex((await safari.unlock()).seed)).toBe(seed);
     expect(phone.calls.get.at(-1)?.publicKey?.allowCredentials).toHaveLength(1);
   });
@@ -443,7 +451,7 @@ describe('a wallet brought from somewhere else, kept behind a passkey', () => {
     const { store: keyStore } = store(auth);
 
     await keyStore.importWallet(IMPORTED);
-    expect(await keyStore.status()).toEqual({ kind: 'passkey', restorable: false });
+    expect(await keyStore.status()).toMatchObject({ kind: 'passkey', restorable: false });
 
     const opened = await keyStore.unlock();
     expect(opened.kind).toBe('passkey');
@@ -562,7 +570,7 @@ describe('putting a device wallet behind a passkey', () => {
     const store = createKeyStore({ env: fakeEnv(auth), storage, rpName: 'Clap' });
     await store.secureWithPasskey();
 
-    expect(await store.status()).toEqual({ kind: 'passkey', restorable: false });
+    expect(await store.status()).toMatchObject({ kind: 'passkey', restorable: false });
     expect(hexOf((await store.unlock()).seed)).toBe(hexOf(before.seed));
   });
 
@@ -634,5 +642,58 @@ describe('the relying party is named in every call (TASK-127)', () => {
       'clapandpay.com',
       'clapandpay.com',
     ]);
+  });
+});
+
+describe('audit fixes (TASK-127 audit)', () => {
+  it('writes a version 2 record so code from before versions refuses it (L-1)', async () => {
+    const env = fakeEnv(fakeAuthenticator({ prfOnCreate: true }));
+    await createKeyStore({ env }).create();
+    const raw = await new Promise<unknown>((resolve, reject) => {
+      const open = env.indexedDB?.open('ge-wallet', 1);
+      if (open === undefined) throw new Error('no IndexedDB');
+      open.onsuccess = () => {
+        const get = open.result.transaction('keystore').objectStore('keystore').get('wallet');
+        get.onsuccess = () => resolve(get.result);
+        get.onerror = () => reject(get.error);
+      };
+    });
+    // The old parser compares kind with 'passkey' | 'device' | 'wrapped' and throws otherwise.
+    expect((raw as { kind: string }).kind).toBe('passkey:v2');
+    expect(raw).not.toHaveProperty('version');
+    expect(parseStoredWallet(raw)?.version).toBe(2);
+  });
+
+  it('refuses a record with a version field or an unknown version', () => {
+    const credentialId = new Uint8Array(8);
+    expect(() => parseStoredWallet({ kind: 'passkey', version: 3, credentialId })).toThrow(
+      WalletError,
+    );
+    expect(() => parseStoredWallet({ kind: 'passkey:v3', credentialId })).toThrow(WalletError);
+    expect(parseStoredWallet({ kind: 'passkey', credentialId })?.version).toBe(1);
+  });
+
+  it('never replaces a version 1 passkey wallet: sign-in would not bring its money back (M-1)', async () => {
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const storage = memoryStorage();
+    await storage.save({ kind: 'passkey', version: 1, credentialId: new Uint8Array(8) });
+    const store = createKeyStore({ env: fakeEnv(auth), storage });
+    expect((await errorOf(store.create({ replace: true }))).code).toBe('exists');
+    expect(auth.calls.create).toHaveLength(0);
+  });
+
+  it('does not overwrite a wallet another tab made during the prompt (L-2)', async () => {
+    const auth = fakeAuthenticator({ prfOnCreate: true });
+    const storage = memoryStorage();
+    const otherTab = createKeyStore({ env: fakeEnv(null), storage });
+    const store = createKeyStore({ env: fakeEnv(auth), storage });
+    // The other tab makes a device wallet while this tab's create sheet is open.
+    const real = auth.credentials.create.bind(auth.credentials);
+    auth.credentials.create = async (options) => {
+      await otherTab.create({ prefer: 'device' });
+      return real(options);
+    };
+    expect((await errorOf(store.create())).code).toBe('exists');
+    expect(storage.peek()?.kind).toBe('device');
   });
 });
