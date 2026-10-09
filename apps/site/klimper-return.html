@@ -61,6 +61,20 @@ h1{font:800 clamp(2.4rem,9vw,3.6rem)/1 var(--disp);letter-spacing:-.045em;margin
 </style>
 </head>
 <body>
+<!-- The alpha notice, as on mempoolxch.space: one slim line above everything until dismissed,
+     remembered in this browser (localStorage cpAlpha). Same EN/DE classes as the page. -->
+<style>
+.alpha{border-bottom:1px dashed var(--line,rgba(20,20,26,.18));color:var(--mut,#5E5A55);font:400 .82rem/1.4 var(--body,system-ui,sans-serif)}
+.alpha .wrap{display:flex;align-items:center;gap:12px;padding-top:4px;padding-bottom:4px}
+.alpha p{flex:1;margin:0}
+.alpha button{flex-shrink:0;min-width:40px;min-height:40px;border:0;background:none;color:inherit;font:inherit;cursor:pointer;border-radius:6px}
+.alpha button:hover{color:var(--ink,#14141A)}
+</style>
+<div class="alpha" id="alpha" role="note" aria-label="Notice"><div class="wrap">
+ <p><span class="en">Alpha software, still changing a lot. Keep only small amounts in Klimper and Green Envelope: money in them can be lost.</span><span class="de">Alpha-Software, die sich noch stark verändert. Bewahre in Klimper und Green Envelope nur kleine Beträge auf: Geld darin kann verloren gehen.</span></p>
+ <button type="button" aria-label="Dismiss notice / Hinweis schließen">✕</button>
+</div></div>
+<script>(function(){var b=document.getElementById('alpha');try{if(localStorage.cpAlpha==='1'){b.remove();return}}catch(e){}b.querySelector('button').onclick=function(){try{localStorage.cpAlpha='1'}catch(e){}b.remove()}})()</script>
 <header class="nav"><div class="wrap">
  <a class="brand" href="/" aria-label="Clap and Pay"><svg viewBox="0 0 100 100" aria-hidden="true"><ellipse cx="72.6" cy="30.6" rx="26" ry="22" fill="#C21F26" transform="rotate(-18 70 27)"/><ellipse cx="70" cy="27" rx="26" ry="22" fill="#FF4747" transform="rotate(-18 70 27)"/><ellipse cx="68.6" cy="77.6" rx="25" ry="21" fill="#F09A10" transform="rotate(-14 66 74)"/><ellipse cx="66" cy="74" rx="25" ry="21" fill="#FFC31F" transform="rotate(-14 66 74)"/><ellipse cx="27.6" cy="54.6" rx="24" ry="19" fill="#0039C8" transform="rotate(-22 25 51)"/><ellipse cx="25" cy="51" rx="24" ry="19" fill="#0A5CFF" transform="rotate(-22 25 51)"/></svg>Clap and Pay</a>
  <button class="ic" id="lang" type="button" aria-label="Deutsch / English">DE</button>

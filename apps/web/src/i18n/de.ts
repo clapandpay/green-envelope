@@ -15,6 +15,10 @@ export const de: Dict = {
     comingSoon: 'kommt bald',
     home: 'Mein Geld',
     skip: 'Zum Inhalt springen',
+    alphaLabel: 'Hinweis',
+    alphaText:
+      'Alpha-Software, die sich noch stark verändert. Bewahre hier nur kleine Beträge auf: Geld darin kann verloren gehen.',
+    alphaDismiss: 'Hinweis schließen',
   },
   errors: {
     network: 'Gerade keine Verbindung. Prüf dein Internet und versuch es nochmal.',

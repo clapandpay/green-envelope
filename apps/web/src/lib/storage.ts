@@ -22,3 +22,4 @@ export function writePref(key: string, value: string): void {
 
 export const PREF_LANG = 'ge.lang';
 export const PREF_NAME = 'ge.name';
+export const PREF_ALPHA_DISMISSED = 'ge.alphaDismissed';

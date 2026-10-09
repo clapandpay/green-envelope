@@ -304,6 +304,39 @@ svg {
   white-space: nowrap;
 }
 
+/* ---------- alpha notice (as on mempoolxch.space) ---------- */
+
+.alpha {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-s);
+  padding: 4px 0;
+  border-bottom: var(--line-thin) dashed var(--ink-soft);
+  color: var(--ink-soft);
+  font-size: var(--text-s);
+}
+
+.alpha__text {
+  flex: 1;
+  margin: 0;
+}
+
+.alpha__close {
+  flex-shrink: 0;
+  min-width: var(--touch);
+  min-height: var(--touch);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-s);
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.alpha__close:hover {
+  color: var(--ink);
+}
+
 /* ---------- notices ---------- */
 
 .notice {

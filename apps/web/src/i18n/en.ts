@@ -15,6 +15,10 @@ export const en = {
     comingSoon: 'coming soon',
     home: 'My money',
     skip: 'Skip to content',
+    alphaLabel: 'Notice',
+    alphaText:
+      'Alpha software, still changing a lot. Keep only small amounts here: money in it can be lost.',
+    alphaDismiss: 'Dismiss notice',
   },
   errors: {
     network: 'No connection right now. Check your internet and try again.',

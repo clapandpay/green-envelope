@@ -3,6 +3,7 @@
 // create and wallet arrive on demand.
 import type { ComponentType } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { AlphaBanner } from './components/AlphaBanner';
 import { Footer } from './components/Footer';
 import { I18nProvider, type Lang, useI18n } from './i18n';
 import { onLinkClick, type Route, useRoute } from './router';
@@ -108,6 +109,7 @@ function Shell() {
       <a class="skip" href="#main">
         {t.common.skip}
       </a>
+      <AlphaBanner />
       <header class="topbar">
         <a class="brand" href="/" onClick={onLinkClick}>
           {/* The logo on its own paper: ivory by day, black at night. Files in public/. */}
