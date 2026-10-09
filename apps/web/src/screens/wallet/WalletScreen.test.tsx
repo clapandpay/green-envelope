@@ -268,3 +268,26 @@ describe('the ceremony', () => {
     expect(container.querySelector('.amount .skeleton')).toBeNull();
   });
 });
+
+describe('money from before 24 words (TASK-128)', () => {
+  it('shows it and moves it here with one tap', async () => {
+    const world = createWorld({ keyStore: { exists: true, earlier: 'anna' } });
+    world.fundEarlier(2_000_000_000_000n);
+    await world.services.wallet.ensure();
+    const move = vi.spyOn(world.services.wallet, 'moveEarlier');
+    renderScreen(<WalletScreen />, { services: world.services });
+
+    expect(await screen.findByText('Money from before')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Move it here' }));
+    await waitFor(() => expect(move).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/on its way/i)).toBeTruthy();
+  });
+
+  it('shows nothing when there is no money from before', async () => {
+    const world = createWorld({ keyStore: { exists: true, earlier: 'anna' } });
+    await world.services.wallet.ensure();
+    renderScreen(<WalletScreen />, { services: world.services });
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    expect(screen.queryByText('Money from before')).toBeNull();
+  });
+});

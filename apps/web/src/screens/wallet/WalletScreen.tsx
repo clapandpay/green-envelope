@@ -45,12 +45,14 @@ interface WalletData {
   restorable: boolean;
   /** A second account can be opened: only from a version 2 passkey wallet. */
   canMakeNew: boolean;
+  /** Money at the address from before 24 words, to move here once (TASK-128). */
+  earlier: { balance: bigint } | null;
 }
 
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | ({ s: 'ready' } & WalletData);
 
 /** What a button on this screen is busy doing. */
-type Work = 'start' | 'here' | 'secure' | 'new' | 'out';
+type Work = 'start' | 'here' | 'secure' | 'new' | 'out' | 'move';
 
 export function WalletScreen() {
   const { t, locale } = useI18n();
@@ -88,6 +90,7 @@ export function WalletScreen() {
             canSecure: false,
             restorable: false,
             canMakeNew: false,
+            earlier: null,
           });
         }
         return;
@@ -107,9 +110,10 @@ export function WalletScreen() {
         canSecure,
         restorable,
         canMakeNew,
+        earlier: current.s === 'ready' ? current.earlier : null,
       }));
 
-      const settle = <K extends 'balance' | 'sent'>(key: K, value: WalletData[K]) => {
+      const settle = <K extends 'balance' | 'sent' | 'earlier'>(key: K, value: WalletData[K]) => {
         if (!alive.current) return;
         setLoad((current) => (current.s === 'ready' ? { ...current, [key]: value } : current));
       };
@@ -121,6 +125,10 @@ export function WalletScreen() {
       );
       void services.envelopes.listSent().then(
         (sent) => settle('sent', sent),
+        () => {},
+      );
+      void services.wallet.earlier().then(
+        (earlier) => settle('earlier', earlier),
         () => {},
       );
     } catch (error) {
@@ -180,6 +188,13 @@ export function WalletScreen() {
         await services.wallet.forget();
         setSheet(null);
         setOpened(false);
+        await refresh();
+      } else if (kind === 'move') {
+        const moved = await services.wallet.moveEarlier();
+        setMessage({
+          tone: 'good',
+          text: moved.more ? t.wallet.earlierMore : t.wallet.earlierMoved,
+        });
         await refresh();
       } else if (kind === 'new') {
         await services.wallet.makeNew();
@@ -342,6 +357,25 @@ export function WalletScreen() {
       </div>
 
       {notice}
+      {load.earlier !== null && (
+        <section class="card stack" aria-labelledby="earlier-title">
+          <h2 id="earlier-title" class="wallet__h2">
+            {t.wallet.earlierTitle}
+          </h2>
+          <p class="soft">
+            {t.wallet.earlierBody(formatMoney(load.earlier.balance, rate, locale))}
+          </p>
+          <button
+            type="button"
+            class="btn btn--primary"
+            aria-busy={working === 'move'}
+            disabled={working === 'move'}
+            onClick={() => run('move')}
+          >
+            {working === 'move' ? t.wallet.earlierMoving : t.wallet.earlierMove}
+          </button>
+        </section>
+      )}
       {load.canSecure && (
         // One line and one tap. It explains itself by what it does — the phone asks for a face
         // or a finger — and it is gone the moment it has been done, because `canUpgradeToPasskey`

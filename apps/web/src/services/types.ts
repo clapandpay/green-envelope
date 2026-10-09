@@ -121,6 +121,18 @@ export interface WalletService {
   ensure(): Promise<WalletInfo>;
   /** Makes a wallet that lives only in this browser, when the person chose it. */
   keepInBrowser(): Promise<WalletInfo>;
+  /**
+   * Money at the address this passkey had before 24 words (TASK-128), or null when there is
+   * none. Never prompts.
+   */
+  earlier(): Promise<{ address: string; balance: bigint } | null>;
+  /**
+   * Moves that money into this wallet, in one transaction after a fresh face or finger. The
+   * earlier key exists only for this spend. `more` is true when coins were left for another
+   * move (a transaction takes at most 50); a move that failed or was cut off is simply done
+   * again, because the money stays at the earlier address until it is moved.
+   */
+  moveEarlier(): Promise<{ amount: bigint; confirmed: Promise<void>; more: boolean }>;
   /** Whether `makeNew` is possible: a version 2 passkey wallet, which sign-in brings back. */
   canMakeNew(): Promise<boolean>;
   /**

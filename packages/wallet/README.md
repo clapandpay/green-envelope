@@ -29,9 +29,13 @@ Every new wallet is a standard 24-word Chia wallet (clapandpay TASK-127, wiki
 seed, master key and first address against it. The HKDF info and the PRF input are permanent:
 changing either changes every passkey wallet.
 
-**Version 1** records (written before versions existed, no `version` field) are still opened:
-their 32-byte seed goes straight into `keyGen` and has no words. They are moved to version 2 once
-(TASK-128). `UnlockedWallet.version` says which one it is; `entropy` is null for version 1.
+**Version 1** wallets (before 24 words) had their 32-byte seed straight from the PRF into
+`keyGen`, so they have no words and another address. A passkey wallet now always opens as
+version 2 (a version 1 record is rewritten on unlock; nothing is lost, the passkey derives both),
+and hands over the version 1 seed of the same prompt as `earlierSeed`. The app keeps only that
+address, shows its balance, and moves it with `buildSweep` after a fresh prompt (TASK-128).
+Version 1 device and wrapped records are still opened as version 1. On disk a version 2 record's
+kind is `'passkey:v2'` (etc.), so code from before versions refuses it.
 
 ## Two kinds of wallet
 

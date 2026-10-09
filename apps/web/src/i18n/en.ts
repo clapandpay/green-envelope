@@ -148,6 +148,13 @@ export const en = {
       'Your money stays in this account. To come back to it, log out and pick this one when your phone asks.',
     newWalletConfirm: 'Yes, open one',
     newWalletWorking: 'Opening…',
+    earlierTitle: 'Money from before',
+    earlierBody: (amount: string) =>
+      `${amount} is still at the address you had before. Move it here, once.`,
+    earlierMove: 'Move it here',
+    earlierMoving: 'Moving…',
+    earlierMoved: 'On its way. It arrives in about a minute.',
+    earlierMore: 'Part of it is on its way. Tap again for the rest.',
     logOut: 'Log out',
     logOutTitle: 'Log out?',
     logOutSafe: 'Your money stays where it is. Come back any time with your face or finger.',

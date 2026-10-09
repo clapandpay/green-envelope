@@ -31,12 +31,19 @@ export interface UnlockedWallet {
   version: WalletVersion;
   seed: Uint8Array;
   entropy: Uint8Array | null;
+  /**
+   * The version 1 seed this passkey also derives, from the same prompt: the wallet it held
+   * before 24 words, whose money is moved once (TASK-128). Only on a passkey wallet opened or
+   * found here; a passkey made just now never held one.
+   */
+  earlierSeed?: Uint8Array;
 }
 
-/** Wipes what an unlocked wallet holds: its seed and its words. */
+/** Wipes what an unlocked wallet holds: its seed, its words and its earlier seed. */
 export function wipeUnlocked(wallet: UnlockedWallet): void {
   wallet.seed.fill(0);
   wallet.entropy?.fill(0);
+  wallet.earlierSeed?.fill(0);
 }
 
 /** Creates, unlocks and forgets the one wallet of this browser profile. */
@@ -303,9 +310,14 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
       if (opened.seed === null) {
         throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
       }
-      const secret = stored.version === 2 ? opened.entropy : opened.seed;
-      (stored.version === 2 ? opened.seed : opened.entropy).fill(0);
-      return unlockedFrom('passkey', stored.version, secret);
+      if (stored.version === 1) {
+        // From now on this is the passkey's 24-word wallet. Nothing is lost: the version 1 seed
+        // comes from the same passkey every time, and is handed over below so its money is
+        // found and moved (TASK-128).
+        await commit(stored, { ...stored, version: 2 });
+      }
+      const wallet = await unlockedFrom('passkey', 2, opened.entropy);
+      return { ...wallet, earlierSeed: opened.seed };
     },
 
     async secureWithPasskey() {
@@ -369,11 +381,11 @@ export function createKeyStore(opts: KeyStoreOptions = {}): KeyStore {
       if (found.seed === null) {
         throw new WalletError('unsupported', 'this browser cannot evaluate PRF for the passkey');
       }
-      // A passkey found here is read as version 2. One that held a version 1 wallet somewhere
-      // else keeps that money at the version 1 address until it is moved (TASK-128).
-      found.seed.fill(0);
+      // A passkey found here is its 24-word wallet. One that held a version 1 wallet somewhere
+      // else hands over that seed too, so its money is found and moved (TASK-128).
       await commit(null, { kind: 'passkey', version: 2, credentialId: found.credentialId });
-      return unlockedFrom('passkey', 2, found.entropy);
+      const wallet = await unlockedFrom('passkey', 2, found.entropy);
+      return { ...wallet, earlierSeed: found.seed };
     },
 
     async forget() {

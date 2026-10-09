@@ -10,7 +10,7 @@ import { createKeyStore } from './keystore';
 import { ENTROPY_BYTES, mnemonicFromEntropy, seedFromEntropy } from './mnemonic';
 import vectors from './mnemonic-vectors.json';
 import { entropyFromPrf, MNEMONIC_INFO_TAG } from './passkey';
-import { parseStoredWallet } from './storage';
+import { parseStoredWallet, type StoredWallet } from './storage';
 import { fakeAuthenticator, fakeEnv } from './test-helpers';
 
 describe('the 24 words, against the Rust reference', () => {
@@ -88,23 +88,45 @@ describe('version 2 passkey wallets in the keystore', () => {
     expect(user?.displayName).toBe('Clap and Pay wallet, 9 Oct 2026');
   });
 
-  it('keeps opening a version 1 record as version 1, with its old address', async () => {
-    // A record from before versions existed: what TASK-128 later moves the money out of.
+  it('opens a version 1 record as the 24-word wallet and hands over the old seed (TASK-128)', async () => {
     const auth = fakeAuthenticator({ prfOnCreate: true });
     const env = fakeEnv(auth);
     const made = await createKeyStore({ env }).create();
+    expect(made.earlierSeed).toBeUndefined(); // a passkey made just now never held one
     const { indexedDbStorage } = await import('./storage');
     const storage = indexedDbStorage(env.indexedDB);
     const record = await storage.load();
     if (record?.kind !== 'passkey') throw new Error('expected a passkey record');
-    const { version: _, ...unversioned } = record;
-    expect(parseStoredWallet(unversioned)?.version).toBe(1);
-    await storage.save(parseStoredWallet(unversioned) ?? record);
+    // What a browser from before 24 words has: the same passkey, a version 1 record.
+    await storage.save({ ...record, version: 1 });
 
     const opened = await createKeyStore({ env }).unlock();
-    expect(opened.version).toBe(1);
-    expect(opened.entropy).toBeNull();
-    expect(opened.seed).toHaveLength(32);
-    expect(toHex(opened.seed)).not.toBe(toHex(made.seed));
+    expect(opened.version).toBe(2);
+    expect(toHex(opened.seed)).toBe(toHex(made.seed)); // the same 24-word wallet
+    expect(opened.earlierSeed).toHaveLength(32);
+    expect((await storage.load())?.version).toBe(2); // rewritten, nothing lost
+
+    // The earlier seed is the version 1 seed, the same on every unlock and from sign-in.
+    const again = await createKeyStore({ env }).unlock();
+    expect(toHex(again.earlierSeed ?? new Uint8Array())).toBe(
+      toHex(opened.earlierSeed ?? new Uint8Array()),
+    );
+    const elsewhere = await createKeyStore({ env: fakeEnv(auth), storage: memory() }).signIn();
+    expect(toHex(elsewhere.earlierSeed ?? new Uint8Array())).toBe(
+      toHex(opened.earlierSeed ?? new Uint8Array()),
+    );
   });
 });
+
+function memory() {
+  let record: StoredWallet | null = null;
+  return {
+    load: async () => record,
+    save: async (wallet: StoredWallet) => {
+      record = wallet;
+    },
+    clear: async () => {
+      record = null;
+    },
+  };
+}

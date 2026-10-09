@@ -24,8 +24,14 @@ export interface LocalState {
    */
   wallet(network: string): WalletInfo | null;
   setWallet(network: string, info: WalletInfo): void;
-  /** Forgets the remembered wallet, whatever chain it was for. */
+  /** Forgets the remembered wallet, whatever chain it was for, and its earlier address. */
   clearWallet(): void;
+  /**
+   * The address of the wallet this passkey held before 24 words (TASK-128), for `network`.
+   * Public, like the wallet's own address: its balance is read without a prompt.
+   */
+  earlierAddress(network: string): string | null;
+  setEarlierAddress(network: string, address: string): void;
   /** What this browser got out of envelope `id`, or null. */
   openedAmount(id: string): bigint | null;
   setOpened(id: string, amount: bigint): void;
@@ -47,6 +53,7 @@ const KEY = {
   sent: 'ge.sent',
   counter: 'ge.counter',
   paidHandles: 'ge.paidHandles',
+  earlier: 'ge.earlier',
 };
 
 /** How many paid handles are remembered; enough to be the person's circle, not their history. */
@@ -89,7 +96,15 @@ export function createLocalState(storage: StringStorage): LocalState {
       return { kind: stored.kind, address: stored.address };
     },
     setWallet: (network, info) => write(KEY.wallet, { ...info, network }),
-    clearWallet: () => write(KEY.wallet, null),
+    clearWallet: () => {
+      write(KEY.wallet, null);
+      write(KEY.earlier, null);
+    },
+    earlierAddress: (network) => {
+      const stored = read<{ network: string; address: string } | null>(KEY.earlier, null);
+      return stored !== null && stored.network === network ? stored.address : null;
+    },
+    setEarlierAddress: (network, address) => write(KEY.earlier, { network, address }),
 
     openedAmount(id) {
       const amount = opened()[id];

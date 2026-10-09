@@ -16,6 +16,7 @@ import {
 import {
   buildCreate,
   buildSend,
+  buildSweep,
   decodeLink,
   EnvelopeError,
   type EnvelopeLink,
@@ -34,6 +35,7 @@ import {
   createKeyStore,
   envelopeSecret,
   type KeyStore,
+  MAX_INPUTS,
   masterSecretKey,
   selectCoins,
   type UnlockedWallet,
@@ -201,6 +203,11 @@ export function createServicesFrom(deps: RealDeps): AppServices {
   function adopt(unlockedWallet: UnlockedWallet): WalletInfo {
     try {
       account = accountFromSeed(unlockedWallet.seed, network);
+      // Only the address is kept: its balance is public, its key is derived again to move it.
+      if (unlockedWallet.earlierSeed !== undefined) {
+        const earlier = accountFromSeed(unlockedWallet.earlierSeed, network).address;
+        if (earlier !== account.address) state.setEarlierAddress(network.name, earlier);
+      }
     } finally {
       wipe(unlockedWallet);
     }
@@ -364,6 +371,64 @@ export function createServicesFrom(deps: RealDeps): AppServices {
         guarded(async (): Promise<WalletInfo> => {
           if ((await keyStore.status()) !== null) return adopt(await keyStore.unlock());
           return adopt(await keyStore.create({ prefer: 'device' }));
+        }),
+
+      earlier: () =>
+        guarded(async () => {
+          const address = state.earlierAddress(network.name);
+          if (address === null) return null;
+          const { puzzleHash } = decodeAddress(address);
+          const records = await chain.coinRecordsByPuzzleHashes([puzzleHash]);
+          const balance = records.reduce((sum, record) => sum + record.coin.amount, 0n);
+          return balance > 0n ? { address, balance } : null;
+        }),
+
+      moveEarlier: () =>
+        guarded(async () => {
+          // A fresh prompt: the earlier key is derived for this spend and for nothing else.
+          const { earlierSeed, ...current } = await keyStore.unlock();
+          // The wallet itself is adopted as on any unlock; the earlier seed stays here.
+          adopt(current);
+          if (earlierSeed === undefined) {
+            throw new ServiceError('unknown', 'this wallet has no earlier one');
+          }
+          let earlier: Account;
+          try {
+            earlier = accountFromSeed(earlierSeed, network);
+          } finally {
+            earlierSeed.fill(0);
+          }
+          const owner = account;
+          if (owner === null) throw new ServiceError('unknown');
+          try {
+            const coins = await spendable(earlier);
+            const batch = [...coins]
+              .sort((a, b) => (a.amount < b.amount ? 1 : a.amount > b.amount ? -1 : 0))
+              .slice(0, MAX_INPUTS);
+            const first = batch[0];
+            if (first === undefined) throw new ServiceError('insufficient_funds');
+            const { bundle, amount } = buildSweep({
+              inputs: batch.map((coin) => ({ coin, signer: earlier })),
+              toPuzzleHash: owner.puzzleHash,
+              fee,
+              network,
+            });
+            await chain.pushTx(bundle);
+            const output: Coin = {
+              parentCoinInfo: coinId(first),
+              puzzleHash: owner.puzzleHash,
+              amount,
+            };
+            return {
+              amount,
+              confirmed: track(amount, landed(first, output)),
+              more: coins.length > batch.length,
+            };
+          } finally {
+            // The earlier key is for this one spend: gone once the transaction is sent.
+            earlier.syntheticSk.fill(0);
+            earlier.envelopeRoot.fill(0);
+          }
         }),
 
       canMakeNew: () =>

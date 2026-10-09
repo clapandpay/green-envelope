@@ -148,6 +148,13 @@ export const de: Dict = {
       'Dein Geld bleibt in diesem Konto. Um zurückzukommen, meld dich ab und wähl dieses, wenn dein Handy fragt.',
     newWalletConfirm: 'Ja, eröffnen',
     newWalletWorking: 'Wird eröffnet…',
+    earlierTitle: 'Geld von früher',
+    earlierBody: (amount: string) =>
+      `${amount} liegt noch an deiner früheren Adresse. Hol es einmal hierher.`,
+    earlierMove: 'Hierher holen',
+    earlierMoving: 'Wird geholt…',
+    earlierMoved: 'Unterwegs. In etwa einer Minute ist es da.',
+    earlierMore: 'Ein Teil ist unterwegs. Tipp nochmal für den Rest.',
     logOut: 'Abmelden',
     logOutTitle: 'Abmelden?',
     logOutSafe: 'Dein Geld bleibt, wo es ist. Komm jederzeit mit Gesicht oder Finger zurück.',
