@@ -84,8 +84,8 @@ function Screen(props: { route: Route }) {
     case 'hello':
       return <Lazy load={loadHelloScreen} with={{}} />;
     case 'connect':
-      // `location.search` carries the app's one-time public key. Nothing secret is in it.
-      return <Lazy load={loadConnectScreen} with={{ search: location.search }} />;
+      // The fragment carries the app's one-time public key, and is never sent to the server.
+      return <Lazy load={loadConnectScreen} with={{ search: location.hash }} />;
     default:
       return <NotFound />;
   }

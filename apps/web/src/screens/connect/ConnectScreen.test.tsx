@@ -13,7 +13,7 @@ import { ConnectScreen } from './ConnectScreen';
 // would have accepted.
 async function klimperAsks() {
   const request = await createHandoffRequest('https://ge.test');
-  return { search: new URL(request.url).search, request };
+  return { search: new URL(request.url).hash, request };
 }
 
 beforeEach(() => stillMotion());
@@ -47,15 +47,19 @@ describe('connect: handing the wallet to Klimper', () => {
     expect(await screen.findByText('Copied. Now go back to Klimper.')).toBeTruthy();
     const copied = writeText.mock.calls[0]?.[0] ?? '';
     expect(copied).toMatch(/^cp1\./);
-    // And only the app that asked can read it: the same request opens it.
-    const payload = await request.open(copied);
+    // And only the app that asked can read it: the same request opens it, with the answer code
+    // this page shows next to the answer.
+    const { payload, answerCode } = await request.open(copied);
     expect(payload.address.startsWith('txch1')).toBe(true);
+    expect(screen.getByTestId('answer-code').textContent).toBe(
+      `${answerCode.slice(0, 3)} ${answerCode.slice(3)}`,
+    );
   });
 
   it('refuses a link that did not come from the app, before asking for anything', async () => {
     const services = createWorld().services;
     const approve = vi.spyOn(services.wallet, 'connectApprove');
-    renderScreen(<ConnectScreen search="?v=1&k=short" />, { services });
+    renderScreen(<ConnectScreen search="#v=1&k=short" />, { services });
     expect(
       await screen.findByRole('heading', { name: 'This did not come from Klimper' }),
     ).toBeTruthy();

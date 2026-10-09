@@ -16,7 +16,7 @@ type State =
   | { s: 'bad' }
   | { s: 'ask'; checkCode: string; working: boolean; problem: ServiceErrorCode | null }
   | { s: 'none' }
-  | { s: 'done'; response: string; copied: boolean };
+  | { s: 'done'; response: string; answerCode: string; copied: boolean };
 
 /** "481516" reads better as "481 516". */
 function spaced(code: string): string {
@@ -27,10 +27,15 @@ export function ConnectScreen(props: { search: string }) {
   const { t } = useI18n();
   const { wallet } = useServices();
   const [state, setState] = useState<State>({ s: 'checking' });
+  // Read once: the fragment is taken out of the address bar below, and a later render (a
+  // language switch) passes an empty one.
+  const [search] = useState(props.search);
 
   useEffect(() => {
     let current = true;
-    wallet.connectRequest(props.search).then(
+    // The key is read from props from here on: take it out of the address bar and the history.
+    history.replaceState(history.state, '', location.pathname);
+    wallet.connectRequest(search).then(
       ({ checkCode }) =>
         current && setState({ s: 'ask', checkCode, working: false, problem: null }),
       () => current && setState({ s: 'bad' }),
@@ -38,13 +43,13 @@ export function ConnectScreen(props: { search: string }) {
     return () => {
       current = false;
     };
-  }, [props.search, wallet]);
+  }, [search, wallet]);
 
   async function approve(checkCode: string) {
     setState({ s: 'ask', checkCode, working: true, problem: null });
     try {
-      const response = await wallet.connectApprove(props.search);
-      setState({ s: 'done', response, copied: false });
+      const { response, answerCode } = await wallet.connectApprove(search);
+      setState({ s: 'done', response, answerCode, copied: false });
     } catch (error) {
       const code = errorCode(error);
       if (code === 'no_wallet_here') setState({ s: 'none' });
@@ -68,16 +73,22 @@ export function ConnectScreen(props: { search: string }) {
   }
 
   if (state.s === 'done') {
-    const { response } = state;
+    const { response, answerCode } = state;
     return (
       <div class="connect stack">
         <h1 class="title">{t.connect.doneTitle}</h1>
         <p>{t.connect.doneBody}</p>
+        <p class="connect__code">
+          <span class="eyebrow">{t.connect.answerLabel}</span>
+          <strong class="num" data-testid="answer-code">
+            {spaced(answerCode)}
+          </strong>
+        </p>
         <button
           type="button"
           class="btn btn--primary btn--huge"
           onClick={async () => {
-            if (await copyText(response)) setState({ s: 'done', response, copied: true });
+            if (await copyText(response)) setState({ ...state, copied: true });
           }}
         >
           {t.connect.copy}

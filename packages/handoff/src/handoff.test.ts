@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
@@ -17,18 +18,49 @@ const payload: HandoffPayload = {
 
 async function roundTrip() {
   const request = await createHandoffRequest('https://clapandpay.test/');
-  const parsed = await parseHandoffRequest(new URL(request.url).search);
-  return { request, parsed, response: await sealHandoffResponse(parsed, payload) };
+  const parsed = await parseHandoffRequest(new URL(request.url).hash);
+  const sealed = await sealHandoffResponse(parsed, payload);
+  return { request, parsed, response: sealed.response, answerCode: sealed.answerCode };
 }
 
 describe('handoff', () => {
   it('carries the wallet from the page to the app that asked, and shows both the same code', async () => {
-    const { request, parsed, response } = await roundTrip();
-    expect(request.url).toMatch(/^https:\/\/clapandpay\.test\/connect\?v=1&k=[A-Za-z0-9_-]{87}$/);
+    const { request, parsed, response, answerCode } = await roundTrip();
+    // The key is in the fragment: a browser never sends it to the server.
+    expect(request.url).toMatch(/^https:\/\/clapandpay\.test\/connect#v=1&k=[A-Za-z0-9_-]{87}$/);
     expect(parsed.checkCode).toBe(request.checkCode);
     expect(request.checkCode).toMatch(/^\d{6}$/);
     expect(response.startsWith('cp1.')).toBe(true);
-    expect(await request.open(`  ${response}\n`)).toEqual(payload);
+    expect(await request.open(`  ${response}\n`)).toEqual({ payload, answerCode });
+    expect(answerCode).toMatch(/^\d{6}$/);
+  });
+
+  it('gives an answer sealed by anyone else a code the page does not show', async () => {
+    const { request, parsed, answerCode } = await roundTrip();
+    // Someone who learned the app's key seals a wallet of their own for it.
+    const forged = await sealHandoffResponse(parsed, { ...payload, masterSk: 'ab'.repeat(32) });
+    expect((await request.open(forged.response)).answerCode).not.toBe(answerCode);
+  });
+
+  it('reads the request from the fragment only, never the query string', async () => {
+    const request = await createHandoffRequest('https://clapandpay.test');
+    const query = `?${new URL(request.url).hash.slice(1)}`;
+    await expect(parseHandoffRequest(query)).rejects.toMatchObject({ code: 'bad_request' });
+  });
+
+  it('draws the answer code from the shared secret, not from the public keys', async () => {
+    // Two answers from one page key pair and one app key differ only by the secret: if the code
+    // came from the public keys alone, anyone who saw the answer could compute the page's code.
+    const { request, response, answerCode } = await roundTrip();
+    const senderRaw = Buffer.from(response.slice(4), 'base64url').subarray(0, 65);
+    const receiverRaw = new URLSearchParams(new URL(request.url).hash.slice(1)).get('k');
+    const publicOnly = createHash('sha256')
+      .update(Buffer.concat([Buffer.from(receiverRaw ?? '', 'base64url'), senderRaw]))
+      .digest();
+    const [a = 0, b = 0, c = 0] = publicOnly;
+    const guess = String(((a << 16) | (b << 8) | c) % 1e6);
+    expect(answerCode).toMatch(/^\d{6}$/);
+    expect(answerCode).not.toBe(guess.padStart(6, '0'));
   });
 
   it('reveals nothing in the response text', async () => {
@@ -69,9 +101,10 @@ describe('handoff', () => {
   });
 
   it('refuses a broken request before anybody is asked for a fingerprint', async () => {
-    const good = new URL((await createHandoffRequest('https://x.test')).url).searchParams.get('k');
+    const url = new URL((await createHandoffRequest('https://x.test')).url);
+    const good = new URLSearchParams(url.hash.slice(1)).get('k');
     const notOnCurve = Buffer.concat([Buffer.from([4]), Buffer.alloc(64, 7)]).toString('base64url');
-    for (const search of ['', '?v=1', `?v=2&k=${good}`, '?v=1&k=AAAA', `?v=1&k=${notOnCurve}`]) {
+    for (const search of ['', '#v=1', `#v=2&k=${good}`, '#v=1&k=AAAA', `#v=1&k=${notOnCurve}`]) {
       await expect(parseHandoffRequest(search)).rejects.toMatchObject({ code: 'bad_request' });
     }
   });

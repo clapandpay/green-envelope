@@ -10,15 +10,16 @@ import {
   toBase64Url,
 } from './receiver';
 
-/** A request as the page received it in `/connect?v=1&k=...`. */
+/** A request as the page received it in `/connect#v=1&k=...`. */
 export interface ParsedRequest {
   receiverKey: Uint8Array<ArrayBuffer>;
   checkCode: string;
 }
 
-/** Reads the request out of the page's own URL. Throws `HandoffError('bad_request')`. */
-export async function parseHandoffRequest(search: string): Promise<ParsedRequest> {
-  const params = new URLSearchParams(search);
+/** Reads the request out of the page's URL fragment. Throws `HandoffError('bad_request')`. */
+export async function parseHandoffRequest(hash: string): Promise<ParsedRequest> {
+  if (!hash.startsWith('#')) throw new HandoffError('bad_request');
+  const params = new URLSearchParams(hash.slice(1));
   const receiverKey = fromBase64Url(params.get('k') ?? '');
   if (params.get('v') !== '1' || receiverKey === null) throw new HandoffError('bad_request');
   // An uncompressed P-256 point: 0x04 and two coordinates. importKey checks it is on the curve.
@@ -33,15 +34,26 @@ export async function parseHandoffRequest(search: string): Promise<ParsedRequest
   return { receiverKey, checkCode: await checkCodeOf(receiverKey) };
 }
 
+/** A sealed answer, and the code the page shows next to it. */
+export interface SealedResponse {
+  response: string;
+  answerCode: string;
+}
+
 /** Encrypts `payload` so that only the app that made `request` can read it. */
 export async function sealHandoffResponse(
   request: ParsedRequest,
   payload: HandoffPayload,
-): Promise<string> {
+): Promise<SealedResponse> {
   const { subtle } = crypto;
   const pair = await subtle.generateKey(HANDOFF.CURVE, false, ['deriveBits']);
   const senderRaw = new Uint8Array(await subtle.exportKey('raw', pair.publicKey));
-  const key = await sharedKey(pair.privateKey, request.receiverKey, request.receiverKey, senderRaw);
+  const { key, answerCode } = await sharedKey(
+    pair.privateKey,
+    request.receiverKey,
+    request.receiverKey,
+    senderRaw,
+  );
   const iv = crypto.getRandomValues(new Uint8Array(HANDOFF.IV_BYTES));
   const plain = new TextEncoder().encode(JSON.stringify(payload));
   const sealed = new Uint8Array(
@@ -56,5 +68,8 @@ export async function sealHandoffResponse(
   out.set(senderRaw, 0);
   out.set(iv, senderRaw.length);
   out.set(sealed, senderRaw.length + iv.length);
-  return HANDOFF.RESPONSE_PREFIX + toBase64Url(out);
+  return {
+    response: HANDOFF.RESPONSE_PREFIX + toBase64Url(out),
+    answerCode,
+  };
 }

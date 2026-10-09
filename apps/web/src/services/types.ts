@@ -122,13 +122,14 @@ export interface WalletService {
    * `ensure()` is how a wallet is made, and it has to be asked for.
    */
   open(): Promise<WalletInfo>;
-  /** Checks a `/connect` request (`location.search`). Rejects with `bad_request`. */
+  /** Checks a `/connect` request (`location.hash`). Rejects with `bad_request`. */
   connectRequest(search: string): Promise<ConnectRequest>;
   /**
    * Hands the wallet to the app that made the request, after a fresh unlock. The returned line
-   * of text can only be read by that app.
+   * of text can only be read by that app; `answerCode` is shown next to it, and the app shows
+   * the same digits before it imports anything.
    */
-  connectApprove(search: string): Promise<string>;
+  connectApprove(search: string): Promise<{ response: string; answerCode: string }>;
   /**
    * Chooses between recipients found in one pasted block of text. Only asked when the browser
    * found more than one; resolves to null when there is no suggestion, and the screen then asks

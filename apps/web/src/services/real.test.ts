@@ -247,17 +247,18 @@ describe('handing the wallet to Klimper', () => {
     const { address } = await kai.wallet.ensure();
 
     const klimper = await createHandoffRequest('https://clapandpay.test');
-    const search = new URL(klimper.url).search;
+    const search = new URL(klimper.url).hash;
     expect((await kai.wallet.connectRequest(search)).checkCode).toBe(klimper.checkCode);
 
-    const response = await kai.wallet.connectApprove(search);
-    const payload = await klimper.open(response);
+    const { response, answerCode } = await kai.wallet.connectApprove(search);
+    const { payload, answerCode: shown } = await klimper.open(response);
+    expect(shown).toBe(answerCode);
     expect(payload).toMatchObject({ v: 1, network: 'testnet11', address });
     expect(payload.masterSk).toMatch(/^[0-9a-f]{64}$/);
 
     const other = await createHandoffRequest('https://clapandpay.test');
     await expect(other.open(response)).rejects.toMatchObject({ code: 'wrong_receiver' });
-    await expect(kai.wallet.connectRequest('?v=1&k=nope')).rejects.toMatchObject({
+    await expect(kai.wallet.connectRequest('#v=1&k=nope')).rejects.toMatchObject({
       code: 'bad_request',
     });
   });
