@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Design tokens. Cut paper on a quiet ground: warm ivory, near-black ink, deep forest green with
    verdigris and leaf, ochre as the one warm counter-accent. Flat colour, hard edges, shading by
-   dither instead of gradients. No blue. Palette: docs/design.md. */
+   dither instead of gradients. No blue. Palette: docs/design.md.
+   On the Beidwerk system (TASK-136): Beidwerk's paper and ink, condensed upright headings from the
+   system's condensed face (no font files), mono for the record; the green room stays its own. */
 
 :root {
   color-scheme: light dark;
 
   /* palette */
-  --ivory: #f4f0e6;
-  --near-black: #171918;
+  --ivory: #f4f0e8; /* Beidwerk paper */
+  --near-black: #1c1b19; /* Beidwerk ink */
   --forest: #0f5a3a;
   --verdigris: #2b7a62;
   --leaf: #79a83b;
@@ -46,8 +48,11 @@
   --dither: repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 0 0 / 4px 4px;
 
   /* type: system stacks only. A tight grotesk for titles and money, mono for small labels. */
+  /* condensed with font-stretch: Helvetica Neue Condensed on Apple, Roboto Condensed or Arial Narrow
+     elsewhere */
   --font-display:
-    "Helvetica Neue", Helvetica, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    "Helvetica Neue", "Roboto Condensed", "Arial Narrow", Helvetica, system-ui, -apple-system,
+    "Segoe UI", Roboto, Arial, sans-serif;
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-num:
     ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", "Droid Sans Mono", Menlo, Consolas,
