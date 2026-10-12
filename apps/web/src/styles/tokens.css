@@ -3,7 +3,8 @@
    verdigris and leaf, ochre as the one warm counter-accent. Flat colour, hard edges, shading by
    dither instead of gradients. No blue. Palette: docs/design.md.
    On the Beidwerk system (TASK-136): Beidwerk's paper and ink, condensed upright headings from the
-   system's condensed face (no font files), mono for the record; the green room stays its own. */
+   system's condensed face (no font files), mono for the record; the greens and the warm accent are
+   Beidwerk's copper-green, verdigris and gold, dark is the Beidwerk stage. */
 
 :root {
   color-scheme: light dark;
@@ -11,12 +12,12 @@
   /* palette */
   --ivory: #f4f0e8; /* Beidwerk paper */
   --near-black: #1c1b19; /* Beidwerk ink */
-  --forest: #0f5a3a;
-  --verdigris: #2b7a62;
-  --leaf: #79a83b;
-  --ochre: #c59a3a;
+  --forest: #20422f; /* Beidwerk copper-green */
+  --verdigris: #4f9a86; /* Beidwerk verdigris */
+  --leaf: #7dbba8; /* verdigris, lighter */
+  --ochre: #c69c66; /* Beidwerk gold */
   --stone: #8a877f;
-  --charcoal-green: #12201a;
+  --charcoal-green: #0e130c; /* Beidwerk stage */
 
   /* colour roles */
   --paper: var(--ivory);
@@ -26,11 +27,11 @@
   --ink-soft: #5f5c55; /* stone darkened: #8a877f is 3.2:1 on ivory, too faint for text */
   --line-colour: var(--stone);
   --green: var(--forest);
-  --green-deep: #0a4029;
-  --green-soft: #d2dcb6; /* leaf on ivory */
+  --green-deep: #16301f;
+  --green-soft: #d8e6df; /* verdigris on paper */
   --on-green: var(--ivory);
   --sun: var(--ochre);
-  --sun-deep: #9a7526;
+  --sun-deep: #8c6b3a;
   --on-sun: var(--near-black);
   --alert: #ad2417;
   --alert-soft: #ffe0d8;
@@ -45,18 +46,20 @@
   --radius-s: 3px;
   --drop: 3px;
   /* Amiga shading: a one-pixel checker in ink, used where others would fade */
-  --dither: repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 0 0 / 4px 4px;
+  --dither: repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 0
+    0 / 4px 4px;
 
   /* type: system stacks only. A tight grotesk for titles and money, mono for small labels. */
   /* condensed with font-stretch: Helvetica Neue Condensed on Apple, Roboto Condensed or Arial Narrow
      elsewhere */
   --font-display:
-    "Helvetica Neue", "Roboto Condensed", "Arial Narrow", Helvetica, system-ui, -apple-system,
-    "Segoe UI", Roboto, Arial, sans-serif;
-  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    "Helvetica Neue", "Roboto Condensed", "Arial Narrow", Helvetica, system-ui,
+    -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-ui:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-num:
-    ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", "Droid Sans Mono", Menlo, Consolas,
-    monospace;
+    ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", "Droid Sans Mono",
+    Menlo, Consolas, monospace;
   --text-s: 0.9375rem;
   --text-m: 1.125rem;
   --text-l: 1.375rem;
@@ -78,19 +81,19 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --paper: var(--charcoal-green);
-    --paper-raised: #1a2b23;
-    --paper-sunk: #0c1712;
+    --paper-raised: #151b14;
+    --paper-sunk: #0a0e09;
     --ink: var(--ivory);
     --ink-soft: #aba79d;
     --line-colour: #5c5a54;
     --green: var(--verdigris);
     --green-deep: var(--forest);
-    --green-soft: #1a3b30;
-    --on-green: var(--ivory);
+    --green-soft: #1a2e27;
+    --on-green: var(--near-black); /* ivory on verdigris is 2.9:1 */
     --sun: var(--ochre);
-    --sun-deep: #8e6c22;
+    --sun-deep: #8c6b3a;
     --alert: #ff9784;
     --alert-soft: #4a1f18;
-    --shadow: #07100c;
+    --shadow: #000;
   }
 }
