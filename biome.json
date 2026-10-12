@@ -7,8 +7,7 @@
       "!**/dist",
       "!tools/vectors/target",
       "!**/vectors.json",
-      "!**/spend-cases.json",
-      "!apps/site"
+      "!**/spend-cases.json"
     ]
   },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
