@@ -46,20 +46,18 @@
   --radius-s: 3px;
   --drop: 3px;
   /* Amiga shading: a one-pixel checker in ink, used where others would fade */
-  --dither: repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 0
-    0 / 4px 4px;
+  --dither: repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 0 0 / 4px 4px;
 
   /* type: system stacks only. A tight grotesk for titles and money, mono for small labels. */
   /* condensed with font-stretch: Helvetica Neue Condensed on Apple, Roboto Condensed or Arial Narrow
      elsewhere */
   --font-display:
-    "Helvetica Neue", "Roboto Condensed", "Arial Narrow", Helvetica, system-ui,
-    -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  --font-ui:
-    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    "Helvetica Neue", "Roboto Condensed", "Arial Narrow", Helvetica, system-ui, -apple-system,
+    "Segoe UI", Roboto, Arial, sans-serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-num:
-    ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", "Droid Sans Mono",
-    Menlo, Consolas, monospace;
+    ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", "Droid Sans Mono", Menlo, Consolas,
+    monospace;
   --text-s: 0.9375rem;
   --text-m: 1.125rem;
   --text-l: 1.375rem;
