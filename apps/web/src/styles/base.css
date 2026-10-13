@@ -35,8 +35,11 @@ ol {
 h1,
 h2 {
   font-family: var(--font-display);
-  font-weight: 600;
-  letter-spacing: -0.025em;
+  font-stretch: condensed;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
 }
 
 ul,
