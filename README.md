@@ -2,7 +2,9 @@
 
 Money as a link in the group chat. Tap, open with your face or fingerprint, and it is yours:
 no app to install, no account. The first product of [Clap and Pay](https://clapandpay.com);
-this folder of the clapandpay monorepo is self-contained (own toolchain, lockfile and CI).
+this folder of the clapandpay monorepo is self-contained (own toolchain, lockfile, licence and
+CI workflow, `.github/workflows/green-envelope.yml`), so it can become its own repository
+(`../SPLITTING.md`).
 
 - What and why: `clap-and-pay-wiki/product/mvp.md`
 - How it is built and why there is no custom puzzle: `clap-and-pay-wiki/architecture/green-envelope.md`

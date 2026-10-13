@@ -9,7 +9,7 @@
 # handler either way — apps/edge is written to web-standard Request/Response precisely so that
 # the runtime is a choice.
 #
-# Built context is green-envelope/. Published by .github/workflows/images.yml on a release.
+# Built context is green-envelope/. Published by .github/workflows/green-envelope.yml on a release.
 
 # ---------------------------------------------------------------------------------------------
 # Build: the web bundle. Nothing from this stage reaches the runtime except apps/web/dist.
@@ -43,7 +43,7 @@ ARG VITE_NETWORK=mainnet
 ARG GIT_COMMIT=unknown
 # The faucet behind /hello (docs/faucet.md). Empty means /hello shows the stamped demo envelope
 # and never touches the network. These are read at build time, so they belong to the image: set
-# the repository variable FAUCET_URL (images.yml passes it) or build with --build-arg.
+# the repository variable FAUCET_URL (green-envelope.yml passes it) or build with --build-arg.
 ARG VITE_FAUCET_URL=
 ARG VITE_FAUCET_ORIGINS=
 RUN VITE_NETWORK="$VITE_NETWORK" GIT_COMMIT="$GIT_COMMIT" \
