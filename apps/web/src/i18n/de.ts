@@ -15,6 +15,10 @@ export const de: Dict = {
     comingSoon: 'kommt bald',
     home: 'Mein Geld',
     skip: 'Zum Inhalt springen',
+    alphaLabel: 'Hinweis',
+    alphaText:
+      'Alpha-Software, die sich noch stark verändert. Bewahre hier nur kleine Beträge auf: Geld darin kann verloren gehen.',
+    alphaDismiss: 'Hinweis schließen',
   },
   errors: {
     network: 'Gerade keine Verbindung. Prüf dein Internet und versuch es nochmal.',
@@ -28,6 +32,8 @@ export const de: Dict = {
     handleNotPayable: 'Dieser @Name kann gerade kein Geld annehmen. Frag nach der Adresse.',
     handlesUnavailable: '@Namen lassen sich gerade nicht nachschlagen. Eine Adresse geht trotzdem.',
     handlesMainnetOnly: '@Namen gibt es nur im echten Netz.',
+    passkeyUnavailable:
+      'Dieser Browser kann dein Geld nicht mit Gesicht oder Finger schützen. Öffne den Link in Safari oder Chrome.',
   },
   claim: {
     title: 'Ein grüner Umschlag für dich',
@@ -42,6 +48,8 @@ export const de: Dict = {
     youGot: 'Du bekommst',
     onItsWay: 'Unterwegs · etwa eine Minute',
     arrived: 'Angekommen. Es gehört dir.',
+    backupNote:
+      'Sichere es in Klimper. Geht der Passkey, den dein Gesicht oder Finger öffnet, je verloren und das Geld ist nicht in Klimper, ist es weg.',
     announce: (amount) => `Du bekommst ${amount}`,
     sendOn: 'Weiterschenken',
     keep: 'Behalten',
@@ -64,20 +72,22 @@ export const de: Dict = {
   },
   connect: {
     title: 'Dein Geld in Klimper',
-    body: 'Die Klimper-App fragt nach deinem Geld. Danach kann die App damit alles, was du kannst.',
-    codeLabel: 'Klimper zeigt dieselbe Zahl',
-    warn: 'Mach nur weiter, wenn du das selbst in Klimper gestartet hast und die Zahlen gleich sind.',
-    approve: 'Ja, das bin ich',
+    body: 'Klimper auf diesem Handy fragt nach deinem Geld. Danach kann Klimper alles davon ausgeben und bewahrt seine 24 Wiederherstellungswörter für dich auf.',
+    warn: 'Mach nur weiter, wenn du das selbst in Klimper angestoßen hast.',
+    approve: 'Ja, in Klimper holen',
     working: 'Warte auf dein Handy…',
     doneTitle: 'Fertig',
-    doneBody: 'Kopier das und geh zurück zu Klimper. Nur dein Klimper kann es lesen.',
-    answerLabel: 'Klimper zeigt diese Zahl nach dem Einfügen',
-    copy: 'Kopieren',
-    copied: 'Kopiert. Jetzt zurück zu Klimper.',
+    doneBody:
+      'Tipp, um zu Klimper zurückzugehen. Nur Klimper auf diesem Handy kann öffnen, was dieser Link mitbringt.',
+    open: 'Klimper öffnen',
+    doneNoApp:
+      'Passiert nichts? Dann ist Klimper nicht auf diesem Handy. Hol es dir und fang in Klimper noch einmal an.',
     badTitle: 'Das kam nicht von Klimper',
-    badBody: 'Starte noch einmal in der Klimper-App.',
+    badBody: 'Fang in der Klimper-App noch einmal an.',
     noneTitle: 'Kein Geld auf diesem Gerät',
     noneBody: 'Öffne zuerst einen Umschlag, oder nimm das Handy, auf dem du einen geöffnet hast.',
+    tooOldTitle: 'Dieses Geld ist von vor den Wiederherstellungswörtern',
+    tooOldBody: 'So kann es nicht zu Klimper. Lass es vorerst hier.',
   },
   create: {
     title: 'Neuer Umschlag',
@@ -133,12 +143,33 @@ export const de: Dict = {
     firstRunTitle: 'Tippe den Umschlag an',
     firstRunCue: 'Zum Öffnen tippen',
     firstRunOpened: 'Willkommen',
-    firstRunMake: 'Neu anfangen',
-    firstRunRetry: 'Ich habe hier schon Geld',
     start: 'Hier anfangen',
     starting: 'Wird vorbereitet…',
     secureAction: 'Jetzt sichern',
     securing: 'Wird gesichert…',
+    keepHere: 'Nur in diesem Browser behalten',
+    keepHereWarn:
+      'Dann liegt es nur in diesem Browser: Daten gelöscht, Geld weg. Bring es bald in Klimper.',
+    newWallet: 'Zweites Konto eröffnen',
+    newWalletTitle: 'Zweites Konto eröffnen?',
+    newWalletBody:
+      'Dein Geld bleibt in diesem Konto. Um zurückzukommen, meld dich ab und wähl dieses, wenn dein Handy fragt.',
+    newWalletConfirm: 'Ja, eröffnen',
+    newWalletWorking: 'Wird eröffnet…',
+    earlierTitle: 'Geld von früher',
+    earlierBody: (amount: string) =>
+      `${amount} liegt noch an deiner früheren Adresse. Hol es einmal hierher.`,
+    earlierMove: 'Hierher holen',
+    earlierMoving: 'Wird geholt…',
+    earlierMoved: 'Unterwegs. In etwa einer Minute ist es da.',
+    earlierMore: 'Ein Teil ist unterwegs. Tipp nochmal für den Rest.',
+    backupTitle: 'In Klimper sichern',
+    backupBody:
+      'Nur der Passkey, den dein Gesicht oder Finger öffnet, hält dieses Geld. Geht er verloren (Handy und Apple- oder Google-Konto weg), bevor das Geld in Klimper ist, ist es weg: Niemand kann es zurückholen.',
+    backupBodyDevice:
+      'Dieses Geld liegt nur in diesem Browser. Löschst du ihn oder verlierst das Handy, bevor das Geld in Klimper ist, ist es weg.',
+    backupHow: 'Hol dir Klimper, öffne es und tippe auf „Mein Clap-and-Pay-Geld nutzen“.',
+    backupGet: 'Klimper holen',
     logOut: 'Abmelden',
     logOutTitle: 'Abmelden?',
     logOutSafe: 'Dein Geld bleibt, wo es ist. Komm jederzeit mit Gesicht oder Finger zurück.',

@@ -228,6 +228,24 @@ describe('claim: the other states', () => {
     expect(await screen.findByText('€7.40')).toBeTruthy();
   });
 
+  it('a browser without PRF is told why, and opens into a browser-only wallet when asked', async () => {
+    const world = await anEnvelope();
+    const ensure = vi.spyOn(world.services.wallet, 'ensure');
+    ensure.mockRejectedValueOnce(
+      new (await import('../../services/types')).ServiceError('passkey_unavailable'),
+    );
+    const keepInBrowser = vi.spyOn(world.services.wallet, 'keepInBrowser');
+    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Safari or Chrome');
+    expect(keepInBrowser).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /keep it in this browser only/i }));
+    expect(await screen.findByText('€7.40')).toBeTruthy();
+    expect(keepInBrowser).toHaveBeenCalledTimes(1);
+  });
+
   it('losing the race for the last share ends in the friendly empty state', async () => {
     const world = await anEnvelope();
     vi.spyOn(world.services.envelopes, 'open').mockRejectedValue(
@@ -248,5 +266,25 @@ describe('claim: the other states', () => {
     renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
     await waitFor(() => expect(inspect).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('claim: the Klimper backup (TASK-131)', () => {
+  it('says plainly, under the amount, that the money needs a Klimper backup', async () => {
+    const world = await anEnvelope();
+    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    expect(await screen.findByText('€7.40')).toBeTruthy();
+    expect(await screen.findByText(/Back it up in Klimper/)).toBeTruthy();
+  });
+
+  it('does not say it once the wallet is backed up', async () => {
+    const world = await anEnvelope();
+    // The sender's wallet opens the envelope here; it was handed to Klimper before.
+    world.services.wallet.markBackedUp();
+    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    expect(await screen.findByText('€7.40')).toBeTruthy();
+    expect(screen.queryByText(/Back it up in Klimper/)).toBeNull();
   });
 });

@@ -18,7 +18,14 @@ import {
   toHex,
 } from '@ge/chia';
 import { afterAll, describe, expect, it } from 'vitest';
-import { buildCreate, buildOpen, buildSend, buildTakeBack, type OwnedCoin } from './builders';
+import {
+  buildCreate,
+  buildOpen,
+  buildSend,
+  buildSweep,
+  buildTakeBack,
+  type OwnedCoin,
+} from './builders';
 import { EnvelopeError } from './errors';
 import { envelopeKeys, shareKey, sharePuzzleHash, sharePuzzleHashes } from './shares';
 import { splitAmounts } from './split';
@@ -228,5 +235,41 @@ describe('buildSend', () => {
       inputs.map((i) => i.coin),
       bundle,
     );
+  });
+});
+
+describe('buildSweep', () => {
+  it('moves every coin of an earlier wallet in one transaction, with no change', () => {
+    const earlier = signerFromSeed('earlier wallet');
+    const inputs = [
+      { coin: walletCoin(earlier, 'one', 5_000n), signer: earlier },
+      { coin: walletCoin(earlier, 'two', 2_500n), signer: earlier },
+      { coin: walletCoin(earlier, 'three', 1n), signer: earlier },
+    ];
+    const { bundle, amount } = buildSweep({
+      inputs,
+      toPuzzleHash: claimer.puzzleHash,
+      fee: 10n,
+      network,
+    });
+    expect(amount).toBe(7_491n);
+    expect(bundle.coinSpends).toHaveLength(3);
+    record(
+      'move: every coin of an earlier wallet, no change',
+      inputs.map((i) => i.coin),
+      bundle,
+    );
+  });
+
+  it('refuses when the fee would take everything', () => {
+    const earlier = signerFromSeed('earlier wallet');
+    expect(() =>
+      buildSweep({
+        inputs: [{ coin: walletCoin(earlier, 'dust', 10n), signer: earlier }],
+        toPuzzleHash: claimer.puzzleHash,
+        fee: 10n,
+        network,
+      }),
+    ).toThrowError(/insufficient_funds/);
   });
 });

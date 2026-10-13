@@ -16,6 +16,7 @@ import {
 import {
   buildCreate,
   buildSend,
+  buildSweep,
   decodeLink,
   EnvelopeError,
   type EnvelopeLink,
@@ -34,10 +35,12 @@ import {
   createKeyStore,
   envelopeSecret,
   type KeyStore,
+  MAX_INPUTS,
   masterSecretKey,
   selectCoins,
+  type UnlockedWallet,
   WalletError,
-  type WalletKind,
+  wipeUnlocked as wipe,
 } from '@ge/wallet';
 import { builtNetwork, type NetworkName, resolveNetwork, withNetwork } from '../lib/network';
 import { relyingPartyId } from '../lib/relying-party';
@@ -46,6 +49,7 @@ import { createLocalState, type LocalState, type SentRecord } from './local-stat
 import {
   type AppServices,
   type Balance,
+  type ConnectRequest,
   type EnvelopeView,
   type HandleLookup,
   type RecipientPick,
@@ -196,22 +200,66 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     return done;
   }
 
-  /** Remembers an unlocked wallet as the current one and reports it. Wipes the seed. */
-  function adopt(unlockedWallet: { kind: WalletKind; seed: Uint8Array }): WalletInfo {
-    account = accountFromSeed(unlockedWallet.seed, network);
-    unlockedWallet.seed.fill(0);
+  /** Remembers an unlocked wallet as the current one and reports it. Wipes the seed and words. */
+  function adopt(unlockedWallet: UnlockedWallet): WalletInfo {
+    try {
+      account = accountFromSeed(unlockedWallet.seed, network);
+      // Only the address is kept: its balance is public, its key is derived again to move it.
+      if (unlockedWallet.earlierSeed !== undefined) {
+        const earlier = accountFromSeed(unlockedWallet.earlierSeed, network).address;
+        if (earlier !== account.address) state.setEarlierAddress(network.name, earlier);
+      }
+    } finally {
+      wipe(unlockedWallet);
+    }
     const info: WalletInfo = { kind: unlockedWallet.kind, address: account.address };
     state.setWallet(network.name, info);
     return info;
   }
 
+  /**
+   * The passkey's user name: date and time (UTC) tell one wallet from another in the passkey
+   * list, even two made the same day (audit M-2).
+   */
+  function walletLabel(): string {
+    const made = new Date(deps.now() * 1000).toISOString();
+    return `Clap and Pay wallet ${made.slice(0, 10)} ${made.slice(11, 16)}`;
+  }
+
+  /** No passkey wallet can be made or opened in this browser: a reason, not a failure. */
+  function passkeyProblem(error: unknown): unknown {
+    return error instanceof WalletError && error.code === 'unsupported'
+      ? new ServiceError('passkey_unavailable')
+      : error;
+  }
+
+  /** The one tap: the wallet here, else the passkey the phone has, else a new one. */
+  async function openOrMake(): Promise<UnlockedWallet> {
+    if ((await keyStore.status()) !== null) return keyStore.unlock();
+    try {
+      return await keyStore.signIn();
+    } catch (error) {
+      // 'no_wallet': no WebAuthn answer at all; 'cancelled': no passkey picked, which is also
+      // what a phone without one for this site says. Either way the phone's create sheet comes
+      // next, and that sheet is the person's own yes or no.
+      if (
+        !(error instanceof WalletError) ||
+        (error.code !== 'no_wallet' && error.code !== 'cancelled')
+      ) {
+        throw passkeyProblem(error);
+      }
+    }
+    try {
+      return await keyStore.create({ label: walletLabel() });
+    } catch (error) {
+      throw passkeyProblem(error);
+    }
+  }
+
   async function unlocked(): Promise<Account> {
     if (account !== null) return account;
-    const existing = await keyStore.status();
-    const { kind, seed } = existing === null ? await keyStore.create() : await keyStore.unlock();
-    account = accountFromSeed(seed, network);
-    seed.fill(0);
-    state.setWallet(network.name, { kind, address: account.address });
+    adopt(await openOrMake());
+    if (account === null) throw new ServiceError('unknown');
     return account;
   }
 
@@ -320,6 +368,95 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           return state.wallet(network.name) ?? { kind: 'device', address: owner.address };
         }),
 
+      keepInBrowser: () =>
+        guarded(async (): Promise<WalletInfo> => {
+          if ((await keyStore.status()) !== null) return adopt(await keyStore.unlock());
+          return adopt(await keyStore.create({ prefer: 'device' }));
+        }),
+
+      earlier: () =>
+        guarded(async () => {
+          const address = state.earlierAddress(network.name);
+          if (address === null) return null;
+          const { puzzleHash } = decodeAddress(address);
+          const records = await chain.coinRecordsByPuzzleHashes([puzzleHash]);
+          const balance = records.reduce((sum, record) => sum + record.coin.amount, 0n);
+          return balance > 0n ? { address, balance } : null;
+        }),
+
+      moveEarlier: () =>
+        guarded(async () => {
+          // A fresh prompt: the earlier key is derived for this spend and for nothing else.
+          const { earlierSeed, ...current } = await keyStore.unlock();
+          // The wallet itself is adopted as on any unlock; the earlier seed stays here.
+          adopt(current);
+          if (earlierSeed === undefined) {
+            throw new ServiceError('unknown', 'this wallet has no earlier one');
+          }
+          let earlier: Account;
+          try {
+            earlier = accountFromSeed(earlierSeed, network);
+          } finally {
+            earlierSeed.fill(0);
+          }
+          const owner = account;
+          if (owner === null) throw new ServiceError('unknown');
+          try {
+            const coins = await spendable(earlier);
+            const batch = [...coins]
+              .sort((a, b) => (a.amount < b.amount ? 1 : a.amount > b.amount ? -1 : 0))
+              .slice(0, MAX_INPUTS);
+            const first = batch[0];
+            if (first === undefined) throw new ServiceError('insufficient_funds');
+            const { bundle, amount } = buildSweep({
+              inputs: batch.map((coin) => ({ coin, signer: earlier })),
+              toPuzzleHash: owner.puzzleHash,
+              fee,
+              network,
+            });
+            await chain.pushTx(bundle);
+            const output: Coin = {
+              parentCoinInfo: coinId(first),
+              puzzleHash: owner.puzzleHash,
+              amount,
+            };
+            return {
+              amount,
+              confirmed: track(amount, landed(first, output)),
+              more: coins.length > batch.length,
+            };
+          } finally {
+            // The earlier key is for this one spend: gone once the transaction is sent.
+            earlier.syntheticSk.fill(0);
+            earlier.envelopeRoot.fill(0);
+          }
+        }),
+
+      backedUp: async () => {
+        const info = state.wallet(network.name);
+        return info === null || state.backedUp(network.name, info.address);
+      },
+
+      markBackedUp: () => {
+        const info = state.wallet(network.name);
+        if (info !== null) state.markBackedUp(network.name, info.address);
+      },
+
+      canMakeNew: () =>
+        guarded(async () => {
+          const stored = await keyStore.status();
+          return stored?.restorable === true && stored.version === 2;
+        }),
+
+      makeNew: () =>
+        guarded(async (): Promise<WalletInfo> => {
+          try {
+            return adopt(await keyStore.create({ label: walletLabel(), replace: true }));
+          } catch (error) {
+            throw passkeyProblem(error);
+          }
+        }),
+
       balance: () =>
         guarded(async (): Promise<Balance> => {
           const info = state.wallet(network.name);
@@ -369,28 +506,37 @@ export function createServicesFrom(deps: RealDeps): AppServices {
         }),
 
       connectRequest: (search) =>
-        guarded(async () => ({ checkCode: (await readConnectRequest(search)).checkCode })),
+        guarded(async (): Promise<ConnectRequest> => {
+          await readConnectRequest(search);
+          return {};
+        }),
 
       connectApprove: (search) =>
         guarded(async () => {
           const request = await readConnectRequest(search);
-          const { sealHandoffResponse } = await import('@ge/handoff');
+          const [{ sealHandoffResponse }, { mnemonicFromEntropy }] = await Promise.all([
+            import('@ge/handoff'),
+            import('@ge/wallet/mnemonic'),
+          ]);
           // Always a fresh prompt: handing over the wallet is never done on a remembered unlock.
-          const { kind, seed } = await keyStore.signIn();
-          const owner = accountFromSeed(seed, network);
-          const master = masterSecretKey(seed);
-          seed.fill(0);
-          state.setWallet(network.name, { kind, address: owner.address });
+          const opened = await keyStore.signIn();
+          let words: string;
+          let owner: Account;
           try {
-            return await sealHandoffResponse(request, {
-              v: 1,
-              network: network.name,
-              address: owner.address,
-              masterSk: toHex(master),
-            });
+            if (opened.entropy === null) throw new ServiceError('wallet_too_old');
+            owner = accountFromSeed(opened.seed, network);
+            words = mnemonicFromEntropy(opened.entropy);
           } finally {
-            master.fill(0);
+            wipe(opened);
           }
+          state.setWallet(network.name, { kind: opened.kind, address: owner.address });
+          // The words are a string and cannot be wiped; they live for this one seal.
+          return sealHandoffResponse(request, {
+            v: 2,
+            network: network.name,
+            address: owner.address,
+            words,
+          });
         }),
 
       lookupHandle: (input) =>

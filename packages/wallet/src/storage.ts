@@ -16,9 +16,30 @@ export type OwnedBytes = Uint8Array<ArrayBuffer>;
  *   person holding it; it just has a seed of its own rather than a derived one.
  */
 export type StoredWallet =
-  | { kind: 'passkey'; credentialId: OwnedBytes }
-  | { kind: 'device'; key: CryptoKey; iv: OwnedBytes; ciphertext: OwnedBytes }
-  | { kind: 'wrapped'; credentialId: OwnedBytes; iv: OwnedBytes; ciphertext: OwnedBytes };
+  | { kind: 'passkey'; version: WalletVersion; credentialId: OwnedBytes }
+  | {
+      kind: 'device';
+      version: WalletVersion;
+      key: CryptoKey;
+      iv: OwnedBytes;
+      ciphertext: OwnedBytes;
+    }
+  | {
+      kind: 'wrapped';
+      version: WalletVersion;
+      credentialId: OwnedBytes;
+      iv: OwnedBytes;
+      ciphertext: OwnedBytes;
+    };
+
+/**
+ * What the record's 32 secret bytes are.
+ *
+ * - 1: the seed itself, fed straight into BLS `KeyGen`. No recovery words exist for it.
+ * - 2: BIP-39 entropy. The wallet is its 24 words, and the key is what Sage derives from them
+ *   (`mnemonic.ts`). Records written before versions existed have no field and are 1.
+ */
+export type WalletVersion = 1 | 2;
 
 /** Where the keystore keeps its single record. Values must survive a structured clone (CryptoKey included). */
 export interface KeyStoreStorage {
@@ -44,19 +65,41 @@ function isCryptoKey(value: unknown): value is CryptoKey {
   );
 }
 
+/**
+ * How a record is written to IndexedDB. A version 2 record carries its version in the kind
+ * (`'passkey:v2'`), so code from before versions existed (a tab left open, a rolled-back
+ * deploy) refuses it as `corrupt` instead of reading its entropy as a version 1 seed and
+ * sending money to an address nothing derives again. A version 1 record keeps the plain kind
+ * and is exactly what that code wrote.
+ */
+export function storedForDisk(wallet: StoredWallet): Record<string, unknown> {
+  const { version, ...rest } = wallet;
+  return { ...rest, kind: version === 2 ? `${wallet.kind}${V2_SUFFIX}` : wallet.kind };
+}
+
+const V2_SUFFIX = ':v2';
+
 /** Narrows whatever came out of storage: nothing is `null`, an unknown shape throws 'corrupt' (never silently "no wallet"). */
 export function parseStoredWallet(value: unknown): StoredWallet | null {
   if (value === undefined || value === null) return null;
   if (typeof value === 'object') {
+    const raw = (value as { kind?: unknown }).kind;
+    const v2 = typeof raw === 'string' && raw.endsWith(V2_SUFFIX);
+    const version: WalletVersion = v2 ? 2 : 1;
+    const kind = v2 ? raw.slice(0, -V2_SUFFIX.length) : raw;
+    // A version field is never written: one here is not a record this code made.
+    if ('version' in value) {
+      throw new WalletError('corrupt', 'the stored wallet record has an unknown version');
+    }
     const v: {
       kind?: unknown;
       credentialId?: unknown;
       key?: unknown;
       iv?: unknown;
       ciphertext?: unknown;
-    } = value;
+    } = { ...value, kind };
     if (v.kind === 'passkey' && isOwnedBytes(v.credentialId)) {
-      return { kind: 'passkey', credentialId: v.credentialId };
+      return { kind: 'passkey', version, credentialId: v.credentialId };
     }
     if (
       v.kind === 'wrapped' &&
@@ -66,6 +109,7 @@ export function parseStoredWallet(value: unknown): StoredWallet | null {
     ) {
       return {
         kind: 'wrapped',
+        version,
         credentialId: v.credentialId,
         iv: v.iv,
         ciphertext: v.ciphertext,
@@ -77,7 +121,7 @@ export function parseStoredWallet(value: unknown): StoredWallet | null {
       isOwnedBytes(v.iv) &&
       isOwnedBytes(v.ciphertext)
     ) {
-      return { kind: 'device', key: v.key, iv: v.iv, ciphertext: v.ciphertext };
+      return { kind: 'device', version, key: v.key, iv: v.iv, ciphertext: v.ciphertext };
     }
   }
   throw new WalletError('corrupt', 'the stored wallet record has an unknown shape');
@@ -137,7 +181,7 @@ export function indexedDbStorage(
       return parseStoredWallet(await run<unknown>('readonly', (s) => s.get(RECORD_KEY)));
     },
     async save(wallet) {
-      await run('readwrite', (s) => s.put(wallet, RECORD_KEY));
+      await run('readwrite', (s) => s.put(storedForDisk(wallet), RECORD_KEY));
     },
     async clear() {
       await run('readwrite', (s) => s.delete(RECORD_KEY));

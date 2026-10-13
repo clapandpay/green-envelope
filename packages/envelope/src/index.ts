@@ -4,6 +4,7 @@ export {
   buildCreate,
   buildOpen,
   buildSend,
+  buildSweep,
   buildTakeBack,
   type CreatedShares,
   type OwnedCoin,

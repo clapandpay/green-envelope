@@ -159,6 +159,32 @@ export function buildTakeBack(args: {
   return { bundle: spendTogether(inputs, conditions, network), received };
 }
 
+/**
+ * Every coin to one address, no change: what moves the money of an earlier wallet into the
+ * wallet that replaces it (TASK-128). The fee comes out of the total.
+ */
+export function buildSweep(args: {
+  inputs: readonly OwnedCoin[];
+  toPuzzleHash: Bytes;
+  fee: bigint;
+  network: Network;
+}): { bundle: SpendBundle; amount: bigint } {
+  const { inputs, toPuzzleHash, fee, network } = args;
+  const amount = sum(inputs.map((input) => input.coin.amount)) - fee;
+  if (amount <= 0n) throw new EnvelopeError('insufficient_funds', 'nothing left after the fee');
+  return {
+    bundle: buildSend({
+      inputs,
+      toPuzzleHash,
+      amount,
+      changePuzzleHash: toPuzzleHash,
+      fee,
+      network,
+    }),
+    amount,
+  };
+}
+
 /** A plain payment from the wallet's coins, with change back to the wallet. */
 export function buildSend(args: {
   inputs: readonly OwnedCoin[];

@@ -266,6 +266,9 @@ importers:
       '@ge/chia':
         specifier: workspace:*
         version: link:../chia
+      '@scure/bip39':
+        specifier: 2.4.0
+        version: 2.4.0
 
 packages:
 
@@ -586,6 +589,9 @@ packages:
     peerDependenciesMeta:
       rollup:
         optional: true
+
+  '@scure/bip39@2.4.0':
+    resolution: {integrity: sha512-82dxFbZUYboyOf0AXiydsQrFQ5Q4h9mX+O2UkE91ROYmsc0BKMGZLwDmy96Jpa2+vrtoxomjUhy1RPIgH/r2nA==}
 
   '@testing-library/dom@8.20.1':
     resolution: {integrity: sha512-/DiOQ5xBxgdYRC8LNk7U+RWat0S3qRLeIw3ZIkMQ9kkVlRmwD/Eg8k8CqIpD6GW7u20JIUOfMKbxtiLutpjQ4g==}
@@ -1777,6 +1783,10 @@ snapshots:
       '@types/estree': 1.0.9
       estree-walker: 2.0.2
       picomatch: 4.0.7
+
+  '@scure/bip39@2.4.0':
+    dependencies:
+      '@noble/hashes': 2.4.0
 
   '@testing-library/dom@8.20.1':
     dependencies:

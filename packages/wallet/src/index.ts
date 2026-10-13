@@ -15,5 +15,12 @@ export {
   type KeyStoreOptions,
   type UnlockedWallet,
   type WalletKind,
+  wipeUnlocked,
 } from './keystore';
-export { indexedDbStorage, type KeyStoreStorage, type StoredWallet } from './storage';
+export { ENTROPY_BYTES, mnemonicFromEntropy, seedFromEntropy } from './mnemonic';
+export {
+  indexedDbStorage,
+  type KeyStoreStorage,
+  type StoredWallet,
+  type WalletVersion,
+} from './storage';

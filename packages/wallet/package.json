@@ -6,10 +6,12 @@
   "license": "AGPL-3.0-or-later",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mnemonic": "./src/mnemonic.ts"
   },
   "dependencies": {
+    "@ge/chain": "workspace:*",
     "@ge/chia": "workspace:*",
-    "@ge/chain": "workspace:*"
+    "@scure/bip39": "2.4.0"
   }
 }

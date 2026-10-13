@@ -85,6 +85,10 @@ describe('claimReducer', () => {
       ...sealed,
       notice: 'network',
     });
+    expect(claimReducer(opening, { e: 'open_failed', code: 'passkey_unavailable' })).toEqual({
+      ...sealed,
+      notice: 'no_passkey',
+    });
     expect(claimReducer(opening, { e: 'open_failed', code: 'insufficient_funds' })).toEqual({
       ...sealed,
       notice: 'unknown',

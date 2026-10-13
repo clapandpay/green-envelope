@@ -29,7 +29,9 @@ export type ServiceErrorCode =
   | 'handles_unavailable' // the registry did not answer; an address still works
   | 'handles_mainnet_only' // @names live on the real network only
   | 'no_wallet_here' // nothing to open on this device: no wallet in this browser, no passkey
+  | 'passkey_unavailable' // this browser cannot keep a passkey wallet (no PRF): say so, offer the browser-only one
   | 'bad_request' // a connect link that did not come from the app, or came damaged
+  | 'wallet_too_old' // a wallet from before recovery words: it has none to hand to Klimper
   | 'wallet_cancelled' // the user dismissed the passkey prompt
   | 'network'
   | 'unknown';
@@ -80,10 +82,8 @@ export interface SentEnvelope {
 }
 
 /** The Klimper app asking this page for the wallet. */
-export interface ConnectRequest {
-  /** Six digits the app shows too. */
-  checkCode: string;
-}
+/** A well-formed request from Klimper (`/connect#v=2&k=…&n=…`); nothing in it to show. */
+export type ConnectRequest = Record<string, never>;
 
 /** What an `@name` stands for, and whether it is dressed up as one you already trust. */
 export interface HandleLookup {
@@ -110,8 +110,42 @@ export interface RecipientPick {
 export interface WalletService {
   /** Null when this device has no wallet yet. Never prompts. */
   current(): Promise<WalletInfo | null>;
-  /** Creates a wallet silently if none exists (passkey when possible), otherwise unlocks it. */
+  /**
+   * One tap (owner, 2026-10-09): unlocks the wallet remembered here; otherwise signs in with a
+   * passkey the phone already has for clapandpay.com; otherwise makes one. Making one always
+   * shows the phone's own "create a passkey" sheet, so a returning person who dismissed the
+   * sign-in sees what is about to happen and can cancel. Never makes a browser-only wallet:
+   * without PRF it rejects with `passkey_unavailable` (`keepInBrowser` is the asked-for way).
+   */
   ensure(): Promise<WalletInfo>;
+  /** Makes a wallet that lives only in this browser, when the person chose it. */
+  keepInBrowser(): Promise<WalletInfo>;
+  /**
+   * Money at the address this passkey had before 24 words (TASK-128), or null when there is
+   * none. Never prompts.
+   */
+  earlier(): Promise<{ address: string; balance: bigint } | null>;
+  /**
+   * Moves that money into this wallet, in one transaction after a fresh face or finger. The
+   * earlier key exists only for this spend. `more` is true when coins were left for another
+   * move (a transaction takes at most 50); a move that failed or was cut off is simply done
+   * again, because the money stays at the earlier address until it is moved.
+   */
+  moveEarlier(): Promise<{ amount: bigint; confirmed: Promise<void>; more: boolean }>;
+  /**
+   * Whether this wallet has been handed to Klimper from this browser, its only backup
+   * (TASK-131). True when there is no wallet. Never prompts.
+   */
+  backedUp(): Promise<boolean>;
+  /** Records that this wallet was handed to Klimper: "Open Klimper" was tapped on /connect. */
+  markBackedUp(): void;
+  /** Whether `makeNew` is possible: a version 2 passkey wallet, which sign-in brings back. */
+  canMakeNew(): Promise<boolean>;
+  /**
+   * Makes a second passkey wallet and uses it here instead of the current one. Only from a
+   * passkey wallet, which stays in the person's passkey list and can be signed in to again.
+   */
+  makeNew(): Promise<WalletInfo>;
   balance(): Promise<Balance>;
   /** `to` is an address or an @handle. */
   send(to: string, amount: bigint): Promise<{ confirmed: Promise<void> }>;
@@ -125,11 +159,12 @@ export interface WalletService {
   /** Checks a `/connect` request (`location.hash`). Rejects with `bad_request`. */
   connectRequest(search: string): Promise<ConnectRequest>;
   /**
-   * Hands the wallet to the app that made the request, after a fresh unlock. The returned line
-   * of text can only be read by that app; `answerCode` is shown next to it, and the app shows
-   * the same digits before it imports anything.
+   * Hands the wallet's 24 words to the app that made the request, after a fresh unlock, as a
+   * clapandpay.com return link that the system gives only to Klimper (TASK-129). The page
+   * opens that link; there is nothing to copy. Rejects with `wallet_too_old` for a wallet from
+   * before recovery words, which has none to hand over.
    */
-  connectApprove(search: string): Promise<{ response: string; answerCode: string }>;
+  connectApprove(search: string): Promise<{ returnUrl: string }>;
   /**
    * Chooses between recipients found in one pasted block of text. Only asked when the browser
    * found more than one; resolves to null when there is no suggestion, and the screen then asks

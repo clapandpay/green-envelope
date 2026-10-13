@@ -29,13 +29,13 @@ describe('first run: the envelope and almost nothing else', () => {
 
   it('opens the envelope and the wallet in one tap', async () => {
     const services = createWorld().services;
-    const open = vi.spyOn(services.wallet, 'open');
+    const ensure = vi.spyOn(services.wallet, 'ensure');
     renderScreen(<WalletScreen />, { services });
 
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
 
     // One tap, one call: it neither asks twice nor asks something else first.
-    await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(ensure).toHaveBeenCalledTimes(1));
 
     // And it lands on the money, which is what the screen is for.
     expect(await screen.findByText('Your money')).toBeTruthy();
@@ -46,7 +46,7 @@ describe('first run: the envelope and almost nothing else', () => {
     const services = createWorld().services;
     // Hold the passkey answer so the in-between state can be observed.
     let release: (value: WalletInfo) => void = () => {};
-    vi.spyOn(services.wallet, 'open').mockReturnValue(
+    vi.spyOn(services.wallet, 'ensure').mockReturnValue(
       new Promise<WalletInfo>((resolve) => {
         release = resolve;
       }),
@@ -60,10 +60,9 @@ describe('first run: the envelope and almost nothing else', () => {
     release({ kind: 'passkey', address: 'txch1demo' });
   });
 
-  it('stays on the envelope and says so when the prompt is dismissed', async () => {
-    // `cancel` makes the first prompt fail, the way a dismissed Face ID sheet does.
+  it('stays on the envelope and says so when every prompt is dismissed', async () => {
     renderScreen(<WalletScreen />, {
-      services: createWorld({ keyStore: { cancelFirst: true } }).services,
+      services: createWorld({ keyStore: { cancelAll: true } }).services,
     });
 
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
@@ -72,38 +71,69 @@ describe('first run: the envelope and almost nothing else', () => {
     // Still the first screen: no half-made wallet, and the envelope is sealed again.
     expect(screen.queryByText('Your money')).toBeNull();
     await waitFor(() => expect(document.querySelector('.env--sealed')).toBeTruthy());
+    expect(screen.getAllByRole('button')).toHaveLength(1);
   });
 });
 
 describe('a person who has never been here', () => {
-  it('is offered a new wallet when there is no passkey to open', async () => {
-    // `nopasskey` is a device with nothing on it. WebAuthn cannot tell that apart from a
-    // dismissed prompt, so the screen stops guessing and asks instead of looping.
-    renderScreen(<WalletScreen />, {
-      services: createWorld({ keyStore: { noPasskey: true } }).services,
-    });
-
-    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
-
-    const make = await screen.findByRole('button', { name: /start fresh/i });
-    expect(screen.getByRole('button', { name: /already have money here/i })).toBeTruthy();
-
-    fireEvent.click(make);
-    expect(await screen.findByText('Your money')).toBeTruthy();
-  });
-
-  it('never makes a wallet on its own when the prompt is only dismissed', async () => {
-    const services = createWorld({ keyStore: { cancelFirst: true } }).services;
-    const ensure = vi.spyOn(services.wallet, 'ensure');
+  it('gets a wallet from the same one tap when the phone has no passkey', async () => {
+    // Sign-in finds nothing, so the phone's create sheet comes next: still one tap here.
+    const services = createWorld({ keyStore: { noPasskey: true } }).services;
     renderScreen(<WalletScreen />, { services });
 
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
-    expect(await screen.findByText(/tap again when you are ready/i)).toBeTruthy();
 
-    // The dangerous guess: a returning person whose money is in the wallet the passkey opens
-    // must never be handed a second, empty one because they hesitated.
-    expect(ensure).not.toHaveBeenCalled();
-    expect(screen.queryByText('Your money')).toBeNull();
+    expect(await screen.findByText('Your money')).toBeTruthy();
+  });
+
+  it('is told, and offered a browser-only wallet, when this browser has no PRF', async () => {
+    const services = createWorld({ keyStore: { noPrf: true, noPasskey: true } }).services;
+    const keepInBrowser = vi.spyOn(services.wallet, 'keepInBrowser');
+    renderScreen(<WalletScreen />, { services });
+
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+    expect(await screen.findByText(/open the link in safari or chrome/i)).toBeTruthy();
+    // Never made on its own: it waits for this button.
+    expect(keepInBrowser).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /keep it in this browser only/i }));
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    expect(keepInBrowser).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a second account', () => {
+  it('is offered from a passkey wallet and asks before making one', async () => {
+    const services = createWorld({ keyStore: { exists: true } }).services;
+    await services.wallet.ensure();
+    const makeNew = vi.spyOn(services.wallet, 'makeNew');
+    renderScreen(<WalletScreen />, { services });
+
+    fireEvent.click(await screen.findByRole('button', { name: /open a second account/i }));
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByText(/your money stays in this account/i)).toBeTruthy();
+    expect(makeNew).not.toHaveBeenCalled();
+
+    fireEvent.click(within(sheet).getByRole('button', { name: /yes, open one/i }));
+    await waitFor(() => expect(makeNew).toHaveBeenCalledTimes(1));
+  });
+
+  it('is not offered for an older passkey wallet, whose money sign-in would not find', async () => {
+    const services = createWorld({ keyStore: { exists: true, version: 1 } }).services;
+    await services.wallet.ensure();
+    renderScreen(<WalletScreen />, { services });
+
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /open a second account/i })).toBeNull();
+  });
+
+  it('is not offered for a wallet that lives only in this browser', async () => {
+    const services = createWorld({ keyStore: { kind: 'device', exists: true } }).services;
+    await services.wallet.ensure();
+    renderScreen(<WalletScreen />, { services });
+
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /open a second account/i })).toBeNull();
   });
 });
 
@@ -117,8 +147,10 @@ describe('securing a browser-only wallet with a passkey', () => {
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
 
     const secure = await screen.findByRole('button', { name: /secure now/i });
-    // One line and one tap: no paragraph explaining what the phone is about to do anyway.
-    expect(screen.queryByText(/lives only in this browser/i)).toBeNull();
+    // One line and one tap: no paragraph explaining what the phone is about to do anyway. The
+    // one place that says where the money lives is the backup card (TASK-131).
+    expect(screen.getAllByText(/lives only in this browser/i)).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: 'Back it up in Klimper' })).toBeTruthy();
 
     fireEvent.click(secure);
     await waitFor(() => expect(upgrade).toHaveBeenCalledTimes(1));
@@ -236,5 +268,55 @@ describe('the ceremony', () => {
     const money = await screen.findByText('Your money', undefined, { timeout: 4000 });
     expect(money).toBeTruthy();
     expect(container.querySelector('.amount .skeleton')).toBeNull();
+  });
+});
+
+describe('money from before 24 words (TASK-128)', () => {
+  it('shows it and moves it here with one tap', async () => {
+    const world = createWorld({ keyStore: { exists: true, earlier: 'anna' } });
+    world.fundEarlier(2_000_000_000_000n);
+    await world.services.wallet.ensure();
+    const move = vi.spyOn(world.services.wallet, 'moveEarlier');
+    renderScreen(<WalletScreen />, { services: world.services });
+
+    expect(await screen.findByText('Money from before')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Move it here' }));
+    await waitFor(() => expect(move).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/on its way/i)).toBeTruthy();
+  });
+
+  it('shows nothing when there is no money from before', async () => {
+    const world = createWorld({ keyStore: { exists: true, earlier: 'anna' } });
+    await world.services.wallet.ensure();
+    renderScreen(<WalletScreen />, { services: world.services });
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    expect(screen.queryByText('Money from before')).toBeNull();
+  });
+});
+
+describe('the Klimper backup (TASK-131)', () => {
+  it('asks for it, with the download and the way in, and the wallet keeps working', async () => {
+    const services = createWorld().services;
+    renderScreen(<WalletScreen />, { services });
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+
+    expect(await screen.findByRole('heading', { name: 'Back it up in Klimper' })).toBeTruthy();
+    expect(screen.getByText(/nobody can get it back/i)).toBeTruthy();
+    expect(screen.getByText(/Use my Clap and Pay money/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Get Klimper' }).getAttribute('href')).toBe(
+      'https://clapandpay.com/klimper',
+    );
+    // Not in the way: sending and making envelopes are still there.
+    expect(screen.getByRole('button', { name: 'Send' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /new envelope/i })).toBeTruthy();
+  });
+
+  it('stops once the wallet was handed to Klimper from this browser', async () => {
+    const services = createWorld().services;
+    await services.wallet.ensure();
+    services.wallet.markBackedUp();
+    renderScreen(<WalletScreen />, { services });
+    expect(await screen.findByText('Your money')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Back it up in Klimper' })).toBeNull();
   });
 });

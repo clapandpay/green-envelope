@@ -2,7 +2,9 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["HTP35W93ZF.com.clapandpay.klimper"],
+        "appIDs": [
+          "HTP35W93ZF.com.clapandpay.klimper"
+        ],
         "components": [
           {
             "/": "/pair",
@@ -11,12 +13,18 @@
           {
             "/": "/req",
             "comment": "Xchonnect same-device request hint"
+          },
+          {
+            "/": "/klimper/return",
+            "comment": "Use my Clap and Pay money: the sealed answer is in the fragment (TASK-129)"
           }
         ]
       }
     ]
   },
   "webcredentials": {
-    "apps": ["HTP35W93ZF.com.clapandpay.klimper"]
+    "apps": [
+      "HTP35W93ZF.com.clapandpay.klimper"
+    ]
   }
 }

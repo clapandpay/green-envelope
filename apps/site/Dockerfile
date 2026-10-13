@@ -13,7 +13,7 @@ FROM nginxinc/nginx-unprivileged:1.29-alpine
 ENV KLIMPER_DOWNLOAD_URL=/#klimper
 COPY templates /etc/nginx/templates
 COPY security-headers.conf /etc/nginx/security-headers.conf
-COPY index.html stickers.html pair.html /usr/share/nginx/html/
+COPY index.html stickers.html pair.html klimper-return.html /usr/share/nginx/html/
 COPY .well-known /usr/share/nginx/html/.well-known
 
 EXPOSE 8080

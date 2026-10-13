@@ -15,6 +15,10 @@ export const en = {
     comingSoon: 'coming soon',
     home: 'My money',
     skip: 'Skip to content',
+    alphaLabel: 'Notice',
+    alphaText:
+      'Alpha software, still changing a lot. Keep only small amounts here: money in it can be lost.',
+    alphaDismiss: 'Dismiss notice',
   },
   errors: {
     network: 'No connection right now. Check your internet and try again.',
@@ -28,6 +32,8 @@ export const en = {
     handleNotPayable: 'That @name cannot take money right now. Ask them for their address.',
     handlesUnavailable: 'We cannot look up @names right now. An address still works.',
     handlesMainnetOnly: '@names only work on the real network.',
+    passkeyUnavailable:
+      'This browser cannot keep your money behind your face or finger. Open the link in Safari or Chrome.',
   },
   claim: {
     title: 'A green envelope for you',
@@ -42,6 +48,8 @@ export const en = {
     youGot: 'You got',
     onItsWay: 'On its way · about a minute',
     arrived: 'Arrived. It is yours.',
+    backupNote:
+      'Back it up in Klimper. If the passkey your face or finger opens is ever lost, and the money is not in Klimper, it is gone.',
     announce: (amount: string) => `You got ${amount}`,
     sendOn: 'Send it on',
     keep: 'Keep it',
@@ -64,20 +72,22 @@ export const en = {
   },
   connect: {
     title: 'Your money in Klimper',
-    body: 'The Klimper app is asking for your money. After this, the app can do everything with it that you can.',
-    codeLabel: 'Klimper shows this number too',
-    warn: 'Only go on if you started this in Klimper yourself, and the numbers match.',
-    approve: 'Yes, it is me',
+    body: 'Klimper on this phone asked for your money. After this, Klimper can spend all of it, and it keeps its 24 recovery words for you.',
+    warn: 'Only go on if you started this in Klimper yourself.',
+    approve: 'Yes, bring it to Klimper',
     working: 'Waiting for your phone…',
     doneTitle: 'Ready',
-    doneBody: 'Copy this and go back to Klimper. Only your Klimper can read it.',
-    answerLabel: 'Klimper shows this number after you paste',
-    copy: 'Copy',
-    copied: 'Copied. Now go back to Klimper.',
+    doneBody:
+      'Tap to go back to Klimper. Only Klimper on this phone can open what this link carries.',
+    open: 'Open Klimper',
+    doneNoApp:
+      'Nothing happens? Then Klimper is not on this phone. Get it, and start again from Klimper.',
     badTitle: 'This did not come from Klimper',
     badBody: 'Start again from the Klimper app.',
     noneTitle: 'No money on this device',
     noneBody: 'Open an envelope first, or use the phone where you opened one.',
+    tooOldTitle: 'This money is from before recovery words',
+    tooOldBody: 'It cannot go to Klimper as it is. Keep it here for now.',
   },
   create: {
     title: 'New envelope',
@@ -133,12 +143,33 @@ export const en = {
     firstRunTitle: 'Tap the envelope to start',
     firstRunCue: 'Tap to open',
     firstRunOpened: 'Welcome',
-    firstRunMake: 'Start fresh',
-    firstRunRetry: 'I already have money here',
     start: 'Start here',
     starting: 'Getting ready…',
     secureAction: 'Secure now',
     securing: 'Securing…',
+    keepHere: 'Keep it in this browser only',
+    keepHereWarn:
+      'Then it lives only in this browser: clear it and the money is gone. Bring it into Klimper soon.',
+    newWallet: 'Open a second account',
+    newWalletTitle: 'Open a second account?',
+    newWalletBody:
+      'Your money stays in this account. To come back to it, log out and pick this one when your phone asks.',
+    newWalletConfirm: 'Yes, open one',
+    newWalletWorking: 'Opening…',
+    earlierTitle: 'Money from before',
+    earlierBody: (amount: string) =>
+      `${amount} is still at the address you had before. Move it here, once.`,
+    earlierMove: 'Move it here',
+    earlierMoving: 'Moving…',
+    earlierMoved: 'On its way. It arrives in about a minute.',
+    earlierMore: 'Part of it is on its way. Tap again for the rest.',
+    backupTitle: 'Back it up in Klimper',
+    backupBody:
+      'Only the passkey your face or finger opens holds this money. Lose it (a lost phone and Apple or Google account) before the money is in Klimper, and it is gone: nobody can get it back.',
+    backupBodyDevice:
+      'This money lives only in this browser. Clear it, or lose this phone, before bringing the money into Klimper, and it is gone.',
+    backupHow: 'Get Klimper, open it, and tap "Use my Clap and Pay money".',
+    backupGet: 'Get Klimper',
     logOut: 'Log out',
     logOutTitle: 'Log out?',
     logOutSafe: 'Your money stays where it is. Come back any time with your face or finger.',
