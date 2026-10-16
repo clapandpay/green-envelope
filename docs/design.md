@@ -5,32 +5,34 @@ screen uses the role names there (`--paper`, `--ink`, `--green`, `--sun`, …), 
 
 ## Palette
 
-| Role                | Colour         | Hex       | Token              |
-| ------------------- | -------------- | --------- | ------------------ |
-| Canvas / paper      | Warm Ivory     | `#F4F0E6` | `--ivory`          |
-| Primary ink         | Near Black     | `#171918` | `--near-black`     |
-| Main brand green    | Deep Forest    | `#0F5A3A` | `--forest`         |
-| Secondary green     | Verdigris      | `#2B7A62` | `--verdigris`      |
-| Fresh accent        | Leaf Green     | `#79A83B` | `--leaf`           |
-| Warm counter-accent | Ochre          | `#C59A3A` | `--ochre`          |
-| Structural neutral  | Stone          | `#8A877F` | `--stone`          |
-| Dark surface        | Charcoal Green | `#12201A` | `--charcoal-green` |
+| Role                | Colour          | Hex       | Token              |
+| ------------------- | --------------- | --------- | ------------------ |
+| Canvas / paper      | Beidwerk paper  | `#F4F0E8` | `--ivory`          |
+| Primary ink         | Beidwerk ink    | `#1C1B19` | `--near-black`     |
+| Main brand green    | Copper-green    | `#20422F` | `--forest`         |
+| Secondary green     | Verdigris       | `#4F9A86` | `--verdigris`      |
+| Fresh accent        | Light verdigris | `#7DBBA8` | `--leaf`           |
+| Warm counter-accent | Gold            | `#C69C66` | `--ochre`          |
+| Structural neutral  | Stone           | `#8A877F` | `--stone`          |
+| Dark surface        | Beidwerk stage  | `#0E130C` | `--charcoal-green` |
 
 How the roles use it:
 
-| Role                       | Light                  | Dark                   |
-| -------------------------- | ---------------------- | ---------------------- |
-| `--paper`                  | Warm Ivory             | Charcoal Green         |
-| `--ink`                    | Near Black             | Warm Ivory             |
-| `--ink-soft` (quiet text)  | `#5F5C55`, stone dark  | `#ABA79D`, stone light |
-| `--green` (buttons, marks) | Deep Forest            | Verdigris              |
-| `--green-soft` (tints)     | `#D2DCB6`, leaf tint   | `#1A3B30`              |
-| `--sun` (the one accent)   | Ochre, ink text on it  | Ochre                  |
-| `--line-colour`            | Stone                  | `#5C5A54`              |
+| Role                       | Light                 | Dark                   |
+| -------------------------- | --------------------- | ---------------------- |
+| `--paper`                  | Warm Ivory            | Charcoal Green         |
+| `--ink`                    | Near Black            | Warm Ivory             |
+| `--ink-soft` (quiet text)  | `#5F5C55`, stone dark | `#ABA79D`, stone light |
+| `--green` (buttons, marks) | Copper-green          | Verdigris, ink text    |
+| `--green-soft` (tints)     | `#D8E6DF`, verdigris  | `#1A2E27`              |
+| `--sun` (the one accent)   | Ochre, ink text on it | Ochre                  |
+| `--line-colour`            | Stone                 | `#5C5A54`              |
 
 Stone itself is 3.2:1 on ivory, too faint for text, so quiet text uses a darker stone (5.9:1) and
-Stone is kept for lines. Every text pairing above reaches WCAG AA: ivory on forest 7.3:1, ink on
-ochre 6.8:1, ivory on verdigris 4.5:1, ivory on charcoal green 14.8:1. The alert red stays: it is
+Stone is kept for lines. Every text pairing above reaches WCAG AA: ivory on copper-green 9.8:1, ink
+on gold 6.8:1, ink on verdigris 5.2:1 (ivory on it is 2.9:1, so dark buttons take ink text), ivory
+on the stage 15.7:1. Since TASK-136 the colours are the Beidwerk family's (copper-green, verdigris,
+gold on Beidwerk paper and stage), so the envelope matches Clap and Pay and Klimper. The alert red stays: it is
 functional, not brand.
 
 ## Logo
@@ -39,12 +41,12 @@ The mark is a green envelope with a leaf. The originals (1254px, about 2 MB each
 repository; the page uses downscaled copies in `apps/web/public/`, served as static files so they
 do not count against the claim route's JavaScript budget:
 
-| File                   | Size  | Use                                                   |
-| ---------------------- | ----- | ----------------------------------------------------- |
-| `logo-light.png`       | 96px  | top bar, light mode (shown at 32px), rounded tile     |
-| `logo-dark.png`        | 96px  | top bar, dark mode, the black version                 |
-| `favicon.png`          | 64px  | browser tab                                           |
-| `apple-touch-icon.png` | 180px | home screen on iPhone, full bleed (iOS rounds it)     |
+| File                   | Size  | Use                                               |
+| ---------------------- | ----- | ------------------------------------------------- |
+| `logo-light.png`       | 96px  | top bar, light mode (shown at 32px), rounded tile |
+| `logo-dark.png`        | 96px  | top bar, dark mode, the black version             |
+| `favicon.png`          | 64px  | browser tab                                       |
+| `apple-touch-icon.png` | 180px | home screen on iPhone, full bleed (iOS rounds it) |
 
 The mark cannot be cut out of its background (the leaf and the envelope's V are the paper
 colour), so it is always shown as a tile on its own paper. To regenerate from a new original,
