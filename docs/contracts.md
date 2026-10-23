@@ -1,8 +1,7 @@
 # Contracts between packages
 
 These signatures are fixed. Packages are built in parallel against them; change one only by
-changing this file in the same commit and telling whoever depends on it. Background:
-`../clap-and-pay-wiki/architecture/green-envelope.md`.
+changing this file in the same commit and telling whoever depends on it.
 
 Conventions everywhere: `Uint8Array` for bytes (never hex strings inside the code, hex only at
 the JSON edge), `bigint` for mojo amounts, no default exports, no classes where a function does,

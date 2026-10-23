@@ -14,8 +14,7 @@ wipeUnlocked(wallet); // the seed and the words
 
 ## A wallet is 24 words (version 2)
 
-Every new wallet is a standard 24-word Chia wallet (clapandpay TASK-127, wiki
-`architecture/clapandpay-account.md`):
+Every new wallet is a standard 24-word Chia wallet (clapandpay TASK-127):
 
 1. 32 bytes of entropy: from the passkey, `HKDF-SHA256(PRF output, info = "clapandpay:mnemonic:v2")`
    with the PRF input `sha256("clapandpay:wallet:v1")`; for a device wallet, random.
