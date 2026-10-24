@@ -44,6 +44,8 @@ export interface Env {
   readonly PUBLIC_CHAIN_API_KEY?: string | undefined;
   readonly NETWORK?: string | undefined;
   readonly PUBLIC_ORIGIN?: string | undefined;
+  /** The app's address as ONCE (once.com) passes it; used when `PUBLIC_ORIGIN` is not set. */
+  readonly BASE_URL?: string | undefined;
   /** TypeSafe key for the recipient judgment. Absent: the route answers "no suggestion". */
   readonly TYPESAFE_API_KEY?: string | undefined;
   readonly ASSETS?: { fetch(request: Request): Promise<Response> };
@@ -106,7 +108,7 @@ export function configFromEnv(env: Env): Config {
       browserEndpoints.length === 0
         ? null
         : { endpoints: browserEndpoints, apiKey: browserKey === '' ? null : browserKey },
-    publicOrigin: normalizeOrigin(env.PUBLIC_ORIGIN),
+    publicOrigin: normalizeOrigin(env.PUBLIC_ORIGIN) ?? normalizeOrigin(env.BASE_URL),
     shareLookupBudgetMs: SHARE_LOOKUP_BUDGET_MS,
     shellTtlSeconds: SHELL_TTL_SECONDS,
   };

@@ -57,9 +57,10 @@ RUN VITE_NETWORK="$VITE_NETWORK" GIT_COMMIT="$GIT_COMMIT" \
 # ---------------------------------------------------------------------------------------------
 FROM node:24-slim AS runtime
 WORKDIR /app
+# No PORT: the server then listens on 80 (what ONCE and other one-click hosts expect) and on
+# 8787 (what this image always used). Every setting has a default, so the image starts with none.
 ENV NODE_ENV=production \
-    COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
-    PORT=8787
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -77,10 +78,10 @@ COPY --from=build /app/apps/web/dist ./apps/web/dist
 
 # The server reads no secrets and writes no files.
 USER node
-EXPOSE 8787
+EXPOSE 80 8787
 
-# /healthz is a plain 200: it proves the handler is assembled, not just that the port is open.
+# /up is a plain 200: it proves the handler is assembled, not just that the port is open.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8787)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||80)+'/up').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "apps/edge/src/node.ts"]

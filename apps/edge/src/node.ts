@@ -104,18 +104,31 @@ const handler = handlerFromEnv({
   PUBLIC_CHAIN_API_KEY: process.env.PUBLIC_CHAIN_API_KEY,
   NETWORK: process.env.NETWORK,
   PUBLIC_ORIGIN: process.env.PUBLIC_ORIGIN,
+  BASE_URL: process.env.BASE_URL,
   TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY,
   ASSETS: { fetch: assets },
 });
-const port = Number(process.env.PORT ?? '8787');
+// `PORT` when it is set. Without it: 80, which is what ONCE (once.com) and most one-click hosts
+// expect, and 8787 as well, the port this image has always used, so a reverse proxy set up for
+// it keeps working. Docker lets a non-root user bind port 80 inside a container.
+const ports = process.env.PORT === undefined ? [80, 8787] : [Number(process.env.PORT)];
 
-createServer((message, out) => {
-  toRequest(message)
-    .then(handler)
-    .then((response) => send(response, out))
-    .catch(() => {
-      out.writeHead(400).end();
+for (const port of ports) {
+  createServer((message, out) => {
+    toRequest(message)
+      .then(handler)
+      .then((response) => send(response, out))
+      .catch(() => {
+        out.writeHead(400).end();
+      });
+  })
+    .on('error', (error) => {
+      // A second, optional port that cannot be had (outside Docker, port 80 needs root) is not
+      // a reason to stop serving on the other one.
+      if (ports.length > 1) console.warn(`edge: not listening on ${port}: ${error.message}`);
+      else throw error;
+    })
+    .listen(port, () => {
+      console.log(`edge: http://localhost:${port}`);
     });
-}).listen(port, () => {
-  console.log(`edge: http://localhost:${port}`);
-});
+}

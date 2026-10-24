@@ -225,9 +225,9 @@ describe('static assets and the SPA fallback', () => {
   });
 });
 
-describe('GET /healthz', () => {
-  it('is 200', async () => {
-    const response = await createHandler(testDeps())(get('/healthz'));
+describe('health checks', () => {
+  it.each(['/healthz', '/up'])('%s is 200', async (path) => {
+    const response = await createHandler(testDeps())(get(path));
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('ok');
   });

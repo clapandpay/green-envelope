@@ -184,7 +184,10 @@ export function createHandler(deps: HandlerDeps): Handler {
 
   const route = async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
-    if (url.pathname === '/healthz') return new Response('ok', { status: 200 });
+    // `/up` is the health check ONCE (once.com) asks for; `/healthz` the one this image had first.
+    if (url.pathname === '/up' || url.pathname === '/healthz') {
+      return new Response('ok', { status: 200, headers: { 'cache-control': 'no-store' } });
+    }
     if (url.pathname.startsWith('/api/'))
       return withCors(request, await api(request, url.pathname));
     return page(request, url);
