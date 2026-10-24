@@ -6,8 +6,6 @@ this folder of the clapandpay monorepo is self-contained (own toolchain, lockfil
 CI workflow, `.github/workflows/green-envelope.yml`), so it can become its own repository
 (`../SPLITTING.md`).
 
-- What and why: `clap-and-pay-wiki/product/mvp.md`
-- How it is built and why there is no custom puzzle: `clap-and-pay-wiki/architecture/green-envelope.md`
 - Contracts between the packages: [docs/contracts.md](docs/contracts.md)
 
 ```
