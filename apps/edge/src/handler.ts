@@ -76,9 +76,16 @@ function json(body: unknown, status: number, cacheControl: string): Response {
 /** Builds the request handler; caches (price, shell, share state) live as long as the returned function. */
 export function createHandler(deps: HandlerDeps): Handler {
   const { config, now } = deps;
-  const headers = securityHeaders(config.chainEndpoints);
+  const headers = securityHeaders([
+    ...config.chainEndpoints,
+    ...(config.browserChain?.endpoints ?? []),
+  ]);
   const price = createPriceSource({ fetch: deps.fetch, now });
-  const rpc = createRpcProxy({ fetch: deps.fetch, endpoints: config.chainEndpoints });
+  const rpc = createRpcProxy({
+    fetch: deps.fetch,
+    endpoints: config.chainEndpoints,
+    apiKey: config.chainApiKey,
+  });
   const shareState = createShareStateLookup({
     shares: deps.shares,
     chain: deps.chain,

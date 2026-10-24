@@ -405,3 +405,21 @@ describe('pushTx', () => {
     expect(error).toMatchObject({ code: 'rejected', detail: 'unknown node error' });
   });
 });
+
+describe('a node that wants a key', () => {
+  it('gets it on the first endpoint only', async () => {
+    const seen: (string | null)[] = [];
+    const client = createChainClient({
+      endpoints: ['https://keyed.test', 'https://public.test'],
+      apiKey: 'pk',
+      fetch: async (input, init) => {
+        seen.push(new Headers(init?.headers).get('authorization'));
+        return String(input).startsWith('https://keyed.test')
+          ? new Response('unauthorized', { status: 401 })
+          : json(BLOCKCHAIN_STATE);
+      },
+    });
+    await client.peakHeight();
+    expect(seen).toEqual(['Bearer pk', null]);
+  });
+});

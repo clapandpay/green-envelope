@@ -918,6 +918,31 @@ export function createServicesFrom(deps: RealDeps): AppServices {
   };
 }
 
+/**
+ * The node named by the server in `<meta name="ge-chain">`, when it is for `network`: written
+ * from the environment at runtime, so no image holds a node or a key. Null otherwise. Pure.
+ */
+export function servedChain(
+  doc: Pick<Document, 'querySelector'>,
+  network: string,
+): { endpoints: string[]; apiKey: string | null } | null {
+  const content = doc.querySelector('meta[name="ge-chain"]')?.getAttribute('content');
+  if (content === null || content === undefined) return null;
+  try {
+    const parsed: unknown = JSON.parse(content);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const { network: forNetwork, endpoints, apiKey } = parsed as Record<string, unknown>;
+    if (forNetwork !== network || !Array.isArray(endpoints)) return null;
+    const urls = endpoints.filter(
+      (e): e is string => typeof e === 'string' && /^https:\/\/[^\s]+$/.test(e),
+    );
+    if (urls.length === 0) return null;
+    return { endpoints: urls, apiKey: typeof apiKey === 'string' && apiKey !== '' ? apiKey : null };
+  } catch {
+    return null;
+  }
+}
+
 /** The real services for this build, configured from `import.meta.env`. */
 export function createRealServices(): AppServices {
   const env = import.meta.env;
@@ -938,9 +963,17 @@ export function createRealServices(): AppServices {
           .map((entry) => entry.trim())
           .filter((entry) => entry !== '')
       : [];
+  // The node the server names at runtime (`PUBLIC_CHAIN_ENDPOINTS`), for its own network only,
+  // with the public node behind it: a node that refuses must not take the app down.
+  const served = servedChain(document, network.name);
+  const endpoints = served
+    ? [...served.endpoints.filter((e) => e !== direct), direct]
+    : configured.length > 0
+      ? configured
+      : [direct];
   return createServicesFrom({
     network,
-    chain: createChainClient({ endpoints: configured.length > 0 ? configured : [direct] }),
+    chain: createChainClient({ endpoints, apiKey: served?.apiKey ?? null }),
     keyStore: createVaultKeyStore({
       network: network.name,
       rpName: 'Clap and Pay',

@@ -41,6 +41,9 @@ No inline scripts: the web build must not emit any (Vite does not, by default).
 | --- | --- | --- |
 | `NETWORK` | `mainnet` | `mainnet` or `testnet11`; picks the default endpoint |
 | `CHAIN_ENDPOINTS` | the public Coinset URL of the network | comma-separated Coinset-compatible base URLs, tried in order |
+| `CHAIN_API_KEY` | none | Bearer key for the **first** of `CHAIN_ENDPOINTS` (the proxy and the previews); never sent elsewhere, never to the browser |
+| `PUBLIC_CHAIN_ENDPOINTS` | none (the page uses the public node) | nodes the **browser** calls directly, e.g. `https://api.nodexch.com`; written into each page as `<meta name="ge-chain">` at runtime and allowed by the CSP. The public node of the network stays behind it as a fallback |
+| `PUBLIC_CHAIN_API_KEY` | none | the browser's key for the first of them. **Public**: every visitor can read it, so use a key restricted on the node's side (this origin, these methods, a rate limit) |
 | `PUBLIC_ORIGIN` | the origin of the request | origin in `og:url` and `og:image`, and the only origin CORS allows |
 | `TYPESAFE_API_KEY` | none (the route answers "no suggestion") | key for `POST /api/recipient`; stays on this side and never reaches the browser |
 | `ASSETS` | none (every asset is a 404, previews use a built-in minimal shell) | binding with `fetch(request)` that serves the static files |

@@ -6,7 +6,7 @@ import { createVaultKeyStore, memoryVaultStorage, type VaultKeyStore } from '@ge
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeChain } from '../test/fake-chain';
 import { createLocalState } from './local-state';
-import { createServicesFrom, priceIn } from './real';
+import { createServicesFrom, priceIn, servedChain } from './real';
 import type { AppServices } from './types';
 
 const text = (s: string) => new TextEncoder().encode(s);
@@ -303,5 +303,25 @@ describe('priceIn', () => {
     for (const bad of [null, {}, { eur: '12' }, { eur: 0 }, { eur: Number.NaN }, { chia: {} }]) {
       expect(priceIn(bad)).toBeNull();
     }
+  });
+});
+
+describe('servedChain', () => {
+  const doc = (content: string | null) => ({
+    querySelector: () => (content === null ? null : { getAttribute: () => content }),
+  });
+  it('reads the server’s node for this network only, and nothing malformed', () => {
+    const tag = JSON.stringify({
+      network: 'mainnet',
+      endpoints: ['https://api.nodexch.com', 'javascript:alert(1)'],
+      apiKey: 'pk',
+    });
+    expect(servedChain(doc(tag) as never, 'mainnet')).toEqual({
+      endpoints: ['https://api.nodexch.com'],
+      apiKey: 'pk',
+    });
+    expect(servedChain(doc(tag) as never, 'testnet11')).toBeNull();
+    expect(servedChain(doc('not json') as never, 'mainnet')).toBeNull();
+    expect(servedChain(doc(null) as never, 'mainnet')).toBeNull();
   });
 });

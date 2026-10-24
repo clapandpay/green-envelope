@@ -317,3 +317,22 @@ describe('failures', () => {
     expect(await response.text()).toBe('internal error');
   });
 });
+
+describe('the browser’s chain node, from the environment', () => {
+  it('is written into every page and allowed by the CSP, with its public key', async () => {
+    const config = testConfig({
+      browserChain: { endpoints: ['https://api.nodexch.test'], apiKey: 'public-key' },
+    });
+    const response = await createHandler(testDeps({ config }))(get('/'));
+    const html = await response.text();
+    expect(html).toContain('<meta name="ge-chain" content="');
+    expect(html).toContain('https://api.nodexch.test');
+    expect(html).toContain('public-key');
+    expect(response.headers.get('content-security-policy')).toContain('https://api.nodexch.test');
+  });
+
+  it('is not there when none is configured', async () => {
+    const html = await (await createHandler(testDeps())(get('/'))).text();
+    expect(html).not.toContain('ge-chain');
+  });
+});

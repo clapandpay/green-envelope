@@ -20,8 +20,37 @@ describe('configFromEnv', () => {
       PUBLIC_ORIGIN: 'https://clapandpay.com/some/path',
     });
     expect(config.network).toBe('testnet11');
-    expect(config.chainEndpoints).toEqual(['https://a.test', 'https://b.test/rpc']);
+    // The configured nodes, then the network's public node as the last resort.
+    expect(config.chainEndpoints).toEqual([
+      'https://a.test',
+      'https://b.test/rpc',
+      'https://testnet11.api.coinset.org',
+    ]);
     expect(config.publicOrigin).toBe('https://clapandpay.com');
+    expect(config.chainApiKey).toBeNull();
+  });
+
+  it('reads the browser’s node and its public key at runtime', () => {
+    const config = configFromEnv({
+      PUBLIC_CHAIN_ENDPOINTS: 'https://api.nodexch.com/',
+      PUBLIC_CHAIN_API_KEY: 'pk_public',
+    });
+    expect(config.browserChain).toEqual({
+      endpoints: ['https://api.nodexch.com'],
+      apiKey: 'pk_public',
+    });
+    expect(configFromEnv({}).browserChain).toBeNull();
+  });
+
+  it('takes a node key from the environment, for the first configured node only', () => {
+    const config = configFromEnv({
+      CHAIN_ENDPOINTS: 'https://api.nodexch.com',
+      CHAIN_API_KEY: ' secret ',
+    });
+    expect(config.chainEndpoints).toEqual(['https://api.nodexch.com', 'https://api.coinset.org']);
+    expect(config.chainApiKey).toBe('secret');
+    // Without a configured node there is nobody to give a key to.
+    expect(configFromEnv({ CHAIN_API_KEY: 'secret' }).chainApiKey).toBeNull();
   });
 
   it('falls back to the network default when no endpoint is usable', () => {

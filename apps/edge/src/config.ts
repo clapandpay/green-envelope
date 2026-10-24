@@ -10,6 +10,21 @@ export interface Config {
   readonly typesafeApiKey: string | null;
   /** Coinset-compatible base URLs without a trailing slash, tried in order. */
   readonly chainEndpoints: readonly string[];
+  /**
+   * Bearer key for the first configured endpoint (a node that needs one, like nodexch), or null.
+   * Read from the environment at start, never built into an image, never sent to the browser,
+   * and never sent to any other endpoint.
+   */
+  readonly chainApiKey: string | null;
+  /**
+   * The node the browser talks to directly, and its key: public by design (a key restricted to
+   * this origin on the node's side). Handed to the page at runtime in a `<meta name="ge-chain">`,
+   * so the image holds no node and no key. Null: the page uses the public node.
+   */
+  readonly browserChain: {
+    readonly endpoints: readonly string[];
+    readonly apiKey: string | null;
+  } | null;
   /** Origin used in absolute URLs and for CORS; `null` means "the origin of the request". */
   readonly publicOrigin: string | null;
   /** The most the share lookup may delay a link preview. */
@@ -21,6 +36,12 @@ export interface Config {
 /** The environment of the worker: plain strings plus the optional static-assets binding. */
 export interface Env {
   readonly CHAIN_ENDPOINTS?: string | undefined;
+  /** Bearer key for the first of `CHAIN_ENDPOINTS`; never sent anywhere else. */
+  readonly CHAIN_API_KEY?: string | undefined;
+  /** Nodes the browser calls directly (comma-separated), e.g. https://api.nodexch.com */
+  readonly PUBLIC_CHAIN_ENDPOINTS?: string | undefined;
+  /** The browser's key for the first of them. Public: every visitor can read it. */
+  readonly PUBLIC_CHAIN_API_KEY?: string | undefined;
   readonly NETWORK?: string | undefined;
   readonly PUBLIC_ORIGIN?: string | undefined;
   /** TypeSafe key for the recipient judgment. Absent: the route answers "no suggestion". */
@@ -67,10 +88,24 @@ export function configFromEnv(env: Env): Config {
     .map(normalizeEndpoint)
     .filter((endpoint) => endpoint !== null);
   const apiKey = (env.TYPESAFE_API_KEY ?? '').trim();
+  const chainKey = (env.CHAIN_API_KEY ?? '').trim();
+  const browserEndpoints = (env.PUBLIC_CHAIN_ENDPOINTS ?? '')
+    .split(',')
+    .map(normalizeEndpoint)
+    .filter((endpoint) => endpoint !== null);
+  const browserKey = (env.PUBLIC_CHAIN_API_KEY ?? '').trim();
+  const fallback = DEFAULT_ENDPOINTS[network];
   return {
     network,
     typesafeApiKey: apiKey === '' ? null : apiKey,
-    chainEndpoints: configured.length > 0 ? configured : [DEFAULT_ENDPOINTS[network]],
+    // The configured nodes, then the network's public node as the last resort: a node that
+    // refuses (a wrong key, a rate limit) must not take the app down with it.
+    chainEndpoints: configured.includes(fallback) ? configured : [...configured, fallback],
+    chainApiKey: configured.length > 0 && chainKey !== '' ? chainKey : null,
+    browserChain:
+      browserEndpoints.length === 0
+        ? null
+        : { endpoints: browserEndpoints, apiKey: browserKey === '' ? null : browserKey },
     publicOrigin: normalizeOrigin(env.PUBLIC_ORIGIN),
     shareLookupBudgetMs: SHARE_LOOKUP_BUDGET_MS,
     shellTtlSeconds: SHELL_TTL_SECONDS,

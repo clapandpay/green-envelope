@@ -101,6 +101,16 @@ export function createPages(deps: PagesDeps): Pages {
     return template;
   };
 
+  // The node the browser should use, read from the environment at start (never in the image).
+  const chainTag =
+    config.browserChain === null
+      ? undefined
+      : JSON.stringify({
+          network: config.network,
+          endpoints: config.browserChain.endpoints,
+          apiKey: config.browserChain.apiKey,
+        });
+
   const respond = async (
     shellReady: Promise<ShellTemplate>,
     language: Language,
@@ -113,6 +123,7 @@ export function createPages(deps: PagesDeps): Pages {
       image: page.image,
       url: page.canonical,
       locale: LOCALES[language],
+      ...(chainTag === undefined ? {} : { chain: chainTag }),
     });
     const headers = new Headers({
       'content-type': 'text/html; charset=utf-8',
