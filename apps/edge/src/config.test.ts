@@ -13,6 +13,16 @@ describe('configFromEnv', () => {
     expect(config.shareLookupBudgetMs).toBe(1500);
   });
 
+  it('takes the address ONCE passes in BASE_URL when PUBLIC_ORIGIN is not set', () => {
+    expect(configFromEnv({ BASE_URL: 'https://ge.example.com/' }).publicOrigin).toBe(
+      'https://ge.example.com',
+    );
+    expect(
+      configFromEnv({ BASE_URL: 'https://ge.example.com', PUBLIC_ORIGIN: 'https://a.test' })
+        .publicOrigin,
+    ).toBe('https://a.test');
+  });
+
   it('reads and normalises the environment', () => {
     const config = configFromEnv({
       NETWORK: 'testnet11',

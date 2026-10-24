@@ -22,10 +22,18 @@ the tag with `-testnet` (`:latest-testnet`), run with `NETWORK=testnet11` and
 domain is `clapandpay.com`); each network has its own vault, and each site its own browser
 storage. `VITE_MAINNET_URL` and `VITE_TESTNET_URL` name the two sites if yours differ.
 
-It runs as a non-root user and writes no files; `CHAIN_ENDPOINTS`, `PORT` and the optional
+It runs as a non-root user and writes no files; `CHAIN_ENDPOINTS`, `PORT` (default: 80 and 8787) and the optional
 `TYPESAFE_API_KEY` are the other variables. Images are published for `linux/amd64` and `linux/arm64` by
 `.github/workflows/green-envelope.yml` on a `green-envelope-v*` release; a prerelease does not move
 `:latest`.
+
+### With ONCE
+
+The image is ONCE-compatible (once.com): it serves HTTP on port 80, answers the health check
+at `/up`, and keeps no data, so `/storage` stays empty. Install it with the image name above and
+nothing else: it starts on mainnet with the public Coinset node, and takes its address from the
+`BASE_URL` ONCE passes. Every variable above can be set later in ONCE; without `PORT` the server
+also listens on 8787, the port this image used before.
 
 To build one locally, from the repository root:
 

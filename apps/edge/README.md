@@ -19,7 +19,7 @@ open one: the secret is in the URL fragment, which browsers do not send.
 | `POST /api/rpc/:method` | Proxy for `get_coin_records_by_puzzle_hashes`, `get_coin_record_by_name`, `get_blockchain_state`, `push_tx`. JSON object bodies up to 256 kB, 8 s per endpoint, the upstream JSON and status pass through. The next endpoint is tried on transport failure or 5xx; a `push_tx` that got a `{"success": …}` answer, whatever its status, is never sent anywhere else. Errors of the proxy itself: `{ "success": false, "error": code }` with 400, 404, 413, 415 or 502. CORS for `PUBLIC_ORIGIN` only. Bodies are never logged. |
 | `POST /api/recipient` | Chooses between recipients found in one pasted block of text, when the browser found more than one. Body `{ text, candidates[], ownAddress? }`; every candidate must match the address or handle shape **and** appear in `text`, and there must be 2 to 12 of them, otherwise `400`. Answers `{ "value": string \| null, "confidence": number }`, where `value` is always one of `candidates`. Without `TYPESAFE_API_KEY`, or on any upstream failure or timeout (4 s), `{ "value": null }` with `200`: the send screen then asks the person. `no-store`, CORS for `PUBLIC_ORIGIN` only. |
 | `POST /api/handle-check` | Whether an `@name` is dressed up as one the person already pays. Body `{ handle, known[] }`, all well-shaped handles, 1 to 12 known, otherwise `400`. Answers `{ "imitates": string \| null, "probability": number }`, where `imitates` is always one of `known`. Advisory only: it never decides a recipient. Without `TYPESAFE_API_KEY`, or on any failure or timeout (4 s), `{ "imitates": null }` with `200`. `no-store`, CORS for `PUBLIC_ORIGIN` only. |
-| `GET /healthz` | `200 ok` |
+| `GET /up`, `GET /healthz` | `200 ok` (`/up` is the health check ONCE asks for) |
 | everything else | the static assets; HTML from there gets the security headers too |
 
 Every HTML response carries `content-security-policy` (below), `referrer-policy: no-referrer`
@@ -44,10 +44,10 @@ No inline scripts: the web build must not emit any (Vite does not, by default).
 | `CHAIN_API_KEY` | none | Bearer key for the **first** of `CHAIN_ENDPOINTS` (the proxy and the previews); never sent elsewhere, never to the browser |
 | `PUBLIC_CHAIN_ENDPOINTS` | none (the page uses the public node) | nodes the **browser** calls directly, e.g. `https://api.nodexch.com`; written into each page as `<meta name="ge-chain">` at runtime and allowed by the CSP. The public node of the network stays behind it as a fallback |
 | `PUBLIC_CHAIN_API_KEY` | none | the browser's key for the first of them. **Public**: every visitor can read it, so use a key restricted on the node's side (this origin, these methods, a rate limit) |
-| `PUBLIC_ORIGIN` | the origin of the request | origin in `og:url` and `og:image`, and the only origin CORS allows |
+| `PUBLIC_ORIGIN` | `BASE_URL` (set by ONCE), else the origin of the request | origin in `og:url` and `og:image`, and the only origin CORS allows |
 | `TYPESAFE_API_KEY` | none (the route answers "no suggestion") | key for `POST /api/recipient`; stays on this side and never reaches the browser |
 | `ASSETS` | none (every asset is a 404, previews use a built-in minimal shell) | binding with `fetch(request)` that serves the static files |
-| `PORT` | `8787` | Node entry only |
+| `PORT` | `80` and `8787` | Node entry only; set, it is the one port listened on |
 
 ## Run locally
 
