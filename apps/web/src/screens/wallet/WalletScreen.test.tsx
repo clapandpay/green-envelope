@@ -321,6 +321,9 @@ describe('moving to Klimper', () => {
     expect(within(about).getByText(/your passkey belongs to/i)).toBeTruthy();
     expect(within(about).getByText(/more passkeys or chia signer/i)).toBeTruthy();
     expect(within(about).getByText(/24 recovery words/i)).toBeTruthy();
+    // What a website can and cannot do with the passkey.
+    expect(within(about).getByText(/no website can read or copy it/i)).toBeTruthy();
+    expect(within(about).getByText(/does not show what it is/i)).toBeTruthy();
   });
 
   it('is not shown on an empty wallet, and the wallet keeps working', async () => {

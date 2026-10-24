@@ -138,6 +138,9 @@ export const en = {
     aboutPocketTitle: 'Pocket money, not savings',
     aboutPasskeyTitle: 'Your passkey',
     aboutBiggerTitle: 'Bigger amounts',
+    aboutKeyTitle: 'Your key stays on your phone',
+    aboutKeyBody:
+      'No website can read or copy it, this one included. A website can only ask your phone to approve one payment, and the face or finger prompt does not show what it is. So only approve right after you tapped Send, Make or Move here. Coming soon: a second key, like Chia Signer, that shows the amount and the address before it approves.',
     pocketNote: 'This is for sending envelopes and small amounts for fun, not for keeping money.',
     passkeyNote: (domain: string) =>
       `Your passkey belongs to ${domain}, and it is the only key to this money: use it for small amounts only. Coming soon you can add more passkeys or Chia Signer with vault manager.`,

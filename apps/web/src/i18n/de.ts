@@ -138,6 +138,9 @@ export const de: Dict = {
     aboutPocketTitle: 'Taschengeld, kein Sparkonto',
     aboutPasskeyTitle: 'Dein Passkey',
     aboutBiggerTitle: 'Größere Beträge',
+    aboutKeyTitle: 'Dein Schlüssel bleibt auf deinem Handy',
+    aboutKeyBody:
+      'Keine Website kann ihn lesen oder kopieren, auch diese nicht. Eine Website kann dein Handy nur bitten, eine Zahlung freizugeben, und die Abfrage mit Gesicht oder Finger zeigt nicht, welche. Gib also nur frei, direkt nachdem du hier auf Senden, Erstellen oder Bringen getippt hast. Bald: ein zweiter Schlüssel, etwa Chia Signer, der Betrag und Adresse zeigt, bevor er freigibt.',
     pocketNote:
       'Das ist zum Verschicken von Umschlägen und kleinen Beträgen zum Spaß, nicht zum Aufbewahren.',
     passkeyNote: (domain: string) =>
