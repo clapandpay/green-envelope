@@ -3,9 +3,18 @@
 /** Header names and values set on every HTML response. */
 export type SecurityHeaders = ReadonlyArray<readonly [name: string, value: string]>;
 
+/**
+ * The public node of each network. The page may talk to both: where one server serves both
+ * networks (localhost, previews), `?net=` moves the page to the other chain, and blocking its
+ * node would read as "no connection". They are read-only nodes plus `push_tx`, nothing more.
+ */
+const PUBLIC_NODES = ['https://api.coinset.org', 'https://testnet11.api.coinset.org'];
+
 /** The content security policy of the app: a static bundle that talks to itself and to the chain endpoints. */
 export function contentSecurityPolicy(chainEndpoints: readonly string[]): string {
-  const origins = [...new Set(chainEndpoints.map((endpoint) => new URL(endpoint).origin))];
+  const origins = [
+    ...new Set([...chainEndpoints, ...PUBLIC_NODES].map((endpoint) => new URL(endpoint).origin)),
+  ];
   return [
     "default-src 'none'",
     "script-src 'self'",

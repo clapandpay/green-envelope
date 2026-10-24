@@ -63,7 +63,8 @@ describe('GET /g/:pk', () => {
     expect(response.headers.get('content-security-policy')).toBe(
       "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data: blob:; font-src 'self'; " +
-        "connect-src 'self' https://node-a.test https://node-b.test; manifest-src 'self'; " +
+        "connect-src 'self' https://node-a.test https://node-b.test https://api.coinset.org " +
+        "https://testnet11.api.coinset.org; manifest-src 'self'; " +
         "worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     );
   });

@@ -29,7 +29,7 @@ Every HTML response carries `content-security-policy` (below), `referrer-policy:
 
 ```
 default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;
-font-src 'self'; connect-src 'self' <origin of each chain endpoint>; manifest-src 'self';
+font-src 'self'; connect-src 'self' <origin of each chain endpoint> <both public Coinset nodes>; manifest-src 'self';
 worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 ```
 

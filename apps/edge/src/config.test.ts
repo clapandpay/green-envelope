@@ -37,7 +37,10 @@ describe('contentSecurityPolicy', () => {
       'https://a.test/y',
       'http://b.test:8080',
     ]);
-    expect(csp).toContain("connect-src 'self' https://a.test http://b.test:8080;");
+    expect(csp).toContain(
+      "connect-src 'self' https://a.test http://b.test:8080 https://api.coinset.org " +
+        'https://testnet11.api.coinset.org;',
+    );
     expect(csp).not.toMatch(/[\r\n]/);
   });
 });
