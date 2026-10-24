@@ -16,7 +16,7 @@
     "format": "biome check --write .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "verify:spends": "cargo run --quiet --release --manifest-path tools/vectors/Cargo.toml -- verify packages/chia/src/spend-cases.json && cargo run --quiet --release --manifest-path tools/vectors/Cargo.toml -- verify packages/envelope/spend-cases.json",
+    "verify:spends": "cargo run --quiet --release --manifest-path tools/vectors/Cargo.toml -- verify packages/chia/src/spend-cases.json && cargo run --quiet --release --manifest-path tools/vectors/Cargo.toml -- verify packages/envelope/spend-cases.json && cargo run --quiet --release --manifest-path tools/vectors/Cargo.toml -- verify packages/vault/spend-cases.json",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "e2e:testnet": "vitest run --config vitest.e2e.config.ts testnet",
     "e2e:handoff": "vitest run --config vitest.e2e.config.ts handoff"

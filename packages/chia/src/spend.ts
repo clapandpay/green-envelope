@@ -17,6 +17,8 @@ export type Condition =
   | { kind: 'createCoin'; puzzleHash: Bytes; amount: bigint; memos?: Bytes[] }
   | { kind: 'reserveFee'; amount: bigint }
   | { kind: 'assertConcurrentSpend'; coinId: Bytes }
+  | { kind: 'assertCoinAnnouncement'; announcementId: Bytes }
+  | { kind: 'sendMessage'; mode: number; message: Bytes; receiverCoinId: Bytes }
   | { kind: 'assertBeforeSecondsAbsolute'; seconds: bigint };
 
 /** One coin being spent: the coin, its full puzzle and the solution, both serialized CLVM. */
@@ -34,7 +36,9 @@ export interface SpendBundle {
 
 const CREATE_COIN = 51;
 const RESERVE_FEE = 52;
+const ASSERT_COIN_ANNOUNCEMENT = 61;
 const ASSERT_CONCURRENT_SPEND = 64;
+const SEND_MESSAGE = 66;
 const ASSERT_BEFORE_SECONDS_ABSOLUTE = 85;
 const QUOTE = /* @__PURE__ */ Uint8Array.of(1);
 
@@ -45,7 +49,8 @@ function check32(value: Bytes, what: string): Bytes {
   return value;
 }
 
-function conditionToClvm(condition: Condition): Clvm {
+/** One condition as CLVM, as a puzzle outputs it. */
+export function conditionToClvm(condition: Condition): Clvm {
   switch (condition.kind) {
     case 'createCoin': {
       checkAmount(condition.amount);
@@ -63,6 +68,18 @@ function conditionToClvm(condition: Condition): Clvm {
       return list(intAtom(RESERVE_FEE), intAtom(condition.amount));
     case 'assertConcurrentSpend':
       return list(intAtom(ASSERT_CONCURRENT_SPEND), check32(condition.coinId, 'coin id'));
+    case 'assertCoinAnnouncement':
+      return list(
+        intAtom(ASSERT_COIN_ANNOUNCEMENT),
+        check32(condition.announcementId, 'announcement id'),
+      );
+    case 'sendMessage':
+      return list(
+        intAtom(SEND_MESSAGE),
+        intAtom(condition.mode),
+        condition.message,
+        check32(condition.receiverCoinId, 'receiver coin id'),
+      );
     case 'assertBeforeSecondsAbsolute':
       checkAmount(condition.seconds);
       return list(intAtom(ASSERT_BEFORE_SECONDS_ABSOLUTE), intAtom(condition.seconds));

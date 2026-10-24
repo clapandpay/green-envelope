@@ -258,6 +258,18 @@ importers:
 
   packages/handoff: {}
 
+  packages/vault:
+    dependencies:
+      '@ge/chia':
+        specifier: workspace:*
+        version: link:../chia
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
+
   packages/wallet:
     dependencies:
       '@ge/chain':

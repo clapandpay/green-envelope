@@ -12,7 +12,7 @@ export {
   toHex,
 } from './bytes';
 export type { Clvm } from './clvm';
-export { curryTreeHash, intAtom, list, NIL, serialize, treeHash } from './clvm';
+export { curryTreeHash, deserialize, intAtom, list, NIL, serialize, treeHash } from './clvm';
 export type { Coin } from './coin';
 export { coinId } from './coin';
 export type { ChiaErrorCode } from './errors';
@@ -31,7 +31,7 @@ export {
 export type { Network } from './network';
 export { MAINNET, TESTNET11 } from './network';
 export type { CoinSpend, Condition, SpendBundle } from './spend';
-export { signSpends, spendBundleToJson, spendStandardCoin } from './spend';
+export { conditionToClvm, signSpends, spendBundleToJson, spendStandardCoin } from './spend';
 export {
   standardPuzzleHash,
   standardPuzzleReveal,

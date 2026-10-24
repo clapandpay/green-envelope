@@ -3,13 +3,14 @@
 
 mod generate;
 mod mnemonic;
+mod vault;
 mod verify;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 const USAGE: &str =
-    "usage: ge-vectors generate [out.json] | mnemonic [out.json] | verify [cases.json | -]";
+    "usage: ge-vectors generate [out.json] | mnemonic [out.json] | vault [out.json] | verify [cases.json | -]";
 
 /// `packages/chia/src`, resolved from this crate's location so the commands work from any cwd.
 fn chia_src_dir() -> PathBuf {
@@ -34,6 +35,16 @@ fn main() -> ExitCode {
                 PathBuf::from,
             );
             mnemonic::run(&out).map(|()| true)
+        }
+        Some("vault") => {
+            let out = arg.map_or_else(
+                || {
+                    Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("../../packages/vault/src/vault-vectors.json")
+                },
+                PathBuf::from,
+            );
+            vault::run(&out).map(|()| true)
         }
         Some("verify") => {
             let default = chia_src_dir().join("spend-cases.json");
