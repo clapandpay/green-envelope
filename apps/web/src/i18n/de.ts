@@ -4,6 +4,7 @@ import type { Dict } from './en';
 
 export const de: Dict = {
   common: {
+    explorer: 'Auf mempoolxch.space ansehen ↗',
     appName: 'Grüner Umschlag',
     back: 'Zurück',
     close: 'Schließen',
@@ -37,6 +38,7 @@ export const de: Dict = {
       'Dieser Browser kann dein Geld nicht mit Gesicht oder Finger schützen. Öffne den Link in Safari oder Chrome.',
   },
   claim: {
+    explorer: 'Diesen Umschlag auf mempoolxch.space ansehen ↗',
     title: 'Ein grüner Umschlag für dich',
     from: (name) => `von ${name}`,
     fromNobody: 'für dich',

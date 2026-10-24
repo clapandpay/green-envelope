@@ -628,3 +628,13 @@ textarea.input {
   color: var(--alert);
   font-weight: 700;
 }
+
+/* Where the money went, on a public block explorer: quiet, but a real link. */
+.explorer-link {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: var(--text-s);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

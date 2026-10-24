@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
 import { AmountField, type AmountValue } from '../../components/AmountField';
+import { ExplorerLink } from '../../components/ExplorerLink';
 import { TickIcon } from '../../components/icons';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
@@ -71,6 +72,7 @@ export function SendSheet(props: {
   const services = useServices();
   const { rate } = props;
   const [step, setStep] = useState<Step>('form');
+  const [sentCoin, setSentCoin] = useState<string | null>(null);
   const [to, setTo] = useState('');
   const [amount, setAmount] = useState<AmountValue>({ text: '', unit: rate ? 'eur' : 'xch' });
   const [nudged, setNudged] = useState(false);
@@ -173,6 +175,7 @@ export function SendSheet(props: {
     setFailure(null);
     try {
       const result = await services.wallet.send(recipient, check.total);
+      setSentCoin(result.coinId);
       setStep('done');
       props.onChanged();
       result.confirmed.then(props.onChanged, () => {});
@@ -190,6 +193,7 @@ export function SendSheet(props: {
             <TickIcon />
             {t.wallet.sendDone}
           </p>
+          {sentCoin !== null && <ExplorerLink coinId={sentCoin} />}
           <button type="button" class="btn btn--primary" onClick={props.onClose}>
             {t.common.close}
           </button>

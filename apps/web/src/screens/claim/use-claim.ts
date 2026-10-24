@@ -45,7 +45,8 @@ export function useClaim(link: string): {
           await (fresh ? services.wallet.makeNew() : services.wallet.ensure());
           const result = await services.envelopes.open(link);
           if (!alive.current) return;
-          dispatch({ e: 'open_done', amount: result.amount }); // show the amount now
+          // show the amount now
+          dispatch({ e: 'open_done', amount: result.amount, coinId: result.coinId });
           result.confirmed.then(
             () => alive.current && dispatch({ e: 'confirmed' }),
             () => {}, // stays "on its way"; the wallet screen shows the truth

@@ -4,6 +4,7 @@
 
 export const en = {
   common: {
+    explorer: 'See it on mempoolxch.space ↗',
     appName: 'Green Envelope',
     back: 'Back',
     close: 'Close',
@@ -37,6 +38,7 @@ export const en = {
       'This browser cannot keep your money behind your face or finger. Open the link in Safari or Chrome.',
   },
   claim: {
+    explorer: 'See this envelope on mempoolxch.space ↗',
     title: 'A green envelope for you',
     from: (name: string) => `from ${name}`,
     fromNobody: 'for you',

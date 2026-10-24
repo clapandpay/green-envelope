@@ -5,6 +5,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { Amount, amountLines } from '../../components/Amount';
 import { Confetti } from '../../components/Confetti';
 import { Envelope, type EnvelopeState } from '../../components/Envelope';
+import { ExplorerLink } from '../../components/ExplorerLink';
 import { TickIcon } from '../../components/icons';
 import { useI18n } from '../../i18n';
 import type { Dict } from '../../i18n/en';
@@ -69,6 +70,7 @@ function RevealPanel(props: {
   rate: Rate | null;
   fresh: boolean;
   confirmed: boolean;
+  coinId?: string | undefined;
 }) {
   const { t } = useI18n();
   const { amount, view, fresh } = props;
@@ -113,6 +115,7 @@ function RevealPanel(props: {
             {t.claim.onItsWay}
           </p>
         )}
+        {props.coinId !== undefined && <ExplorerLink coinId={props.coinId} />}
       </div>
       {props.fresh && (
         <p class="claim__note soft rv" style="--i:5">
@@ -185,6 +188,8 @@ export function ClaimScreen(props: { link: string }) {
   const { t, locale } = useI18n();
   const { rate } = useRate();
   const { state, open, openWithNewPasskey, retry } = useClaim(props.link);
+  // The coin that paid for the envelope: on the explorer it lists every share, opened or not.
+  const envelopeCoin = 'view' in state && state.view !== null ? state.view.fundingCoinId : null;
   const opened = state.s === 'opened';
   const fresh = opened && state.fresh;
   // Until it is opened there is nothing on the page but the envelope.
@@ -245,12 +250,18 @@ export function ClaimScreen(props: { link: string }) {
             rate={rate}
             fresh={state.fresh}
             confirmed={state.confirmed}
+            coinId={state.coinId}
           />
         )}
         {(state.s === 'gone' || state.s === 'failed') && (
           <ProblemPanel state={state} onRetry={retry} />
         )}
       </div>
+      {envelopeCoin !== null && (
+        <p class="claim__explorer">
+          <ExplorerLink coinId={envelopeCoin} label={t.claim.explorer} />
+        </p>
+      )}
       <output class="sr-only" aria-live="polite">
         {fresh ? t.claim.announce(amountLines(state.amount, rate, locale).main) : ''}
       </output>

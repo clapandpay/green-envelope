@@ -4,6 +4,7 @@
 // the whole address and the amount, then one face or finger.
 import { useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
+import { ExplorerLink } from '../../components/ExplorerLink';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
 import { errorCode, errorText } from '../../lib/errors';
@@ -28,6 +29,7 @@ export function KlimperSheet(props: {
   const [nudged, setNudged] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [more, setMore] = useState(false);
+  const [movedCoin, setMovedCoin] = useState<string | null>(null);
   const address = to.trim().toLowerCase();
   const valid = ADDRESS.test(address);
 
@@ -37,6 +39,7 @@ export function KlimperSheet(props: {
     try {
       const moved = await services.wallet.moveToKlimper(address);
       setMore(moved.more);
+      setMovedCoin(moved.coinId);
       setStep('done');
       props.onChanged();
     } catch (error) {
@@ -52,6 +55,7 @@ export function KlimperSheet(props: {
           <p class="notice notice--calm" role="status">
             {more ? t.wallet.klimperMore : t.wallet.klimperDone}
           </p>
+          {movedCoin !== null && <ExplorerLink coinId={movedCoin} />}
           <button type="button" class="btn btn--primary" onClick={props.onClose}>
             {t.common.close}
           </button>

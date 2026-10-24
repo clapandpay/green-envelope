@@ -52,10 +52,17 @@ export interface EnvelopeView {
   sharesLeft: number;
   /** Set when this browser already opened a share. */
   openedAmount: bigint | null;
+  /**
+   * The coin that paid for the envelope (hex): every share is a child of it, so its page on a
+   * block explorer shows all shares and which are opened. Null when not known.
+   */
+  fundingCoinId: string | null;
 }
 
 export interface OpenResult {
   amount: bigint;
+  /** The coin the money lands in (hex): what a block explorer shows. */
+  coinId: string;
   /** Resolves when the claim is confirmed on chain (about a minute). */
   confirmed: Promise<void>;
 }
@@ -132,14 +139,14 @@ export interface WalletService {
   makeNew(): Promise<WalletInfo>;
   balance(): Promise<Balance>;
   /** `to` is an address or an @handle. One passkey prompt. */
-  send(to: string, amount: bigint): Promise<{ confirmed: Promise<void> }>;
+  send(to: string, amount: bigint): Promise<{ confirmed: Promise<void>; coinId: string }>;
   /**
    * Sends everything to `address` (Klimper's receive address), in one prompt per 50 coins.
    * Rejects with `invalid_recipient` for an address of another network.
    */
   moveToKlimper(
     address: string,
-  ): Promise<{ amount: bigint; confirmed: Promise<void>; more: boolean }>;
+  ): Promise<{ amount: bigint; confirmed: Promise<void>; more: boolean; coinId: string }>;
   /**
    * Opens the wallet of this browser, or finds the one this person has elsewhere with the
    * passkey they hold. **Never creates one**: rejects with `no_wallet_here` or

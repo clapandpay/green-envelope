@@ -271,6 +271,21 @@ describe('claim: the other states', () => {
   });
 });
 
+describe('claim: where the money is, on mempoolxch.space', () => {
+  it('links the envelope before it is opened, and the coin it landed in after', async () => {
+    const world = await anEnvelope();
+    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
+    const envelope = await screen.findByRole('link', { name: /see this envelope on mempoolxch/i });
+    expect(envelope.getAttribute('href')).toMatch(
+      /^https:\/\/mempoolxch\.space\/coin\/0x[0-9a-f]{64}\?network=testnet11$/,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const coin = await screen.findByRole('link', { name: /^see it on mempoolxch/i });
+    expect(coin.getAttribute('href')).toMatch(/\/coin\/0x[0-9a-f]{64}\?network=testnet11$/);
+    expect(coin.getAttribute('rel')).toContain('noreferrer');
+  });
+});
+
 describe('claim: pocket money in a passkey vault', () => {
   it('says plainly, under the amount, that bigger amounts belong in Klimper', async () => {
     const world = await anEnvelope();

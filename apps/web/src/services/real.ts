@@ -519,7 +519,13 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     }
   }
 
-  function view(id: string, link: EnvelopeLink, total: number, left: number): EnvelopeView {
+  function view(
+    id: string,
+    link: EnvelopeLink,
+    total: number,
+    left: number,
+    funding: Bytes | null,
+  ): EnvelopeView {
     return {
       id,
       from: link.from ?? null,
@@ -527,6 +533,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       sharesTotal: total,
       sharesLeft: left,
       openedAmount: state.openedAmount(id),
+      fundingCoinId: funding === null ? null : toHex(funding),
     };
   }
 
@@ -687,7 +694,10 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           // only one that should make it a name this person trusts.
           const handle = parseHandle(to);
           if (to.trim().startsWith('@') && handle !== null) state.rememberPaidHandle(handle);
-          return { confirmed: track(-(amount + fee), landed(first, firstOutput)) };
+          return {
+            confirmed: track(-(amount + fee), landed(first, firstOutput)),
+            coinId: toHex(coinId(firstOutput)),
+          };
         }),
 
       moveToKlimper: (to) =>
@@ -707,6 +717,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
             amount: total,
             confirmed: track(-(total + fee), landed(first, firstOutput)),
             more,
+            coinId: toHex(coinId(firstOutput)),
           };
         }),
 
@@ -780,7 +791,13 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           const id = toBase64Url(link.publicKey);
           const shares = await inspectEnvelope(chain, link.publicKey, link.shares);
           if (shares.length === 0) throw new ServiceError('envelope_not_ready');
-          return view(id, link, shares.length, shares.filter((share) => !share.opened).length);
+          return view(
+            id,
+            link,
+            shares.length,
+            shares.filter((share) => !share.opened).length,
+            shares[0]?.coin.parentCoinInfo ?? null,
+          );
         }),
 
       open: (url) =>
@@ -817,7 +834,11 @@ export function createServicesFrom(deps: RealDeps): AppServices {
               throw toServiceError(error);
             },
           );
-          return { amount: opened.received, confirmed: track(opened.received, confirmed) };
+          return {
+            amount: opened.received,
+            confirmed: track(opened.received, confirmed),
+            coinId: toHex(coinId(opened.output)),
+          };
         }),
 
       create: (input) =>
