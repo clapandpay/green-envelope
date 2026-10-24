@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The front door: one envelope, one button. The button asks the faucet (lib/faucet.ts) for a
 // fresh envelope and walks the person into the ordinary claim route. Every state has a next
-// action, and the hero stays on screen in all of them. Without a faucet it shows a demo that is
-// labelled so loudly it cannot be taken for money.
+// action, and the hero stays on screen in all of them. Without a faucet there is nothing to give:
+// /hello then goes straight to the app's start.
 import '../../styles/hello.css';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Envelope, type EnvelopeState } from '../../components/Envelope';
@@ -27,7 +27,7 @@ type Phase =
   | { s: 'offline' }
   | { s: 'broken' };
 
-/** The deployment's faucet, or null: then the page shows the demo. */
+/** The deployment's faucet, or null: then /hello goes to the app's start. */
 function configuredFaucet(): FaucetConfig | null {
   const env = import.meta.env;
   return faucetConfig(env.VITE_FAUCET_URL, env.VITE_FAUCET_ORIGINS, location.origin);
@@ -40,9 +40,9 @@ function heroState(phase: Phase['s']): EnvelopeState {
 }
 
 // The envelope is drawn by the shared component; this only gives it a place to stand.
-function Hero(props: { state: EnvelopeState; demo?: boolean }) {
+function Hero(props: { state: EnvelopeState }) {
   return (
-    <div class={`hello__hero${props.demo ? ' hello__hero--demo' : ''}`}>
+    <div class="hello__hero">
       <Envelope state={props.state} />
     </div>
   );
@@ -108,44 +108,15 @@ function useCountdown(until: number | null): number {
   return until === null ? 0 : Math.max(0, Math.ceil((until - now) / 1000));
 }
 
-/** Not switched on: a rehearsal with the real picture and no money anywhere in it. */
-function DemoScreen() {
-  const { t } = useI18n();
-  const [s, setS] = useState<'sealed' | 'opening' | 'open'>('sealed');
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
-
-  function open() {
-    if (s !== 'sealed') return; // double taps do nothing
-    setS('opening');
-    timer.current = setTimeout(() => setS('open'), 1500);
-  }
-
-  return (
-    <div class="hello hello--demo" data-demo="true">
-      <p class="hello__stamp" role="note">
-        {t.hello.demoTag}
-      </p>
-      <h1 class="title">{s === 'open' ? t.hello.demoDoneTitle : t.hello.demoTitle}</h1>
-      <p class="soft">{s === 'open' ? t.hello.demoDoneBody : t.hello.demoLead}</p>
-      <Hero state={s} demo />
-      {s === 'open' ? (
-        <button type="button" class="btn" onClick={() => setS('sealed')}>
-          {t.hello.demoAgain}
-        </button>
-      ) : (
-        <button
-          type="button"
-          class="btn btn--primary btn--huge"
-          disabled={s === 'opening'}
-          onClick={open}
-        >
-          {s === 'opening' ? t.hello.demoOpening : t.hello.demoOpen}
-        </button>
-      )}
-      <Extras />
-    </div>
-  );
+/**
+ * No faucet on this deployment: no envelope to give, so no page to show. The visitor goes to the
+ * app's start (their wallet, or where to begin), in place of /hello so "back" does not loop.
+ */
+function NoFaucet() {
+  useEffect(() => {
+    navigate('/', { replace: true });
+  }, []);
+  return null;
 }
 
 function LiveScreen(props: { faucet: FaucetConfig; fetcher?: typeof fetch }) {
@@ -266,7 +237,7 @@ export function HelloScreen(props: { faucet?: FaucetConfig | null; fetcher?: typ
     [props.faucet],
   );
   return faucet === null ? (
-    <DemoScreen />
+    <NoFaucet />
   ) : (
     <LiveScreen faucet={faucet} {...(props.fetcher ? { fetcher: props.fetcher } : {})} />
   );

@@ -20,25 +20,6 @@
   height: auto;
 }
 
-/* the demo wears a diagonal ribbon across the envelope, so a screenshot cannot pass for money */
-.hello__hero--demo::after {
-  content: "DEMO";
-  position: absolute;
-  inset-inline: -8%;
-  top: 44%;
-  padding: 4px 0;
-  background: var(--sun);
-  color: var(--on-sun);
-  border-block: var(--line) solid var(--ink);
-  font-family: var(--font-num);
-  font-size: 0.9375rem;
-  font-weight: 700;
-  letter-spacing: 0.5em;
-  text-indent: 0.5em;
-  transform: rotate(-8deg);
-  pointer-events: none;
-}
-
 .hello__stamp {
   align-self: center;
   padding: 6px 14px;

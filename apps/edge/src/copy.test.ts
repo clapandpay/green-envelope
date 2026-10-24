@@ -61,8 +61,8 @@ describe('envelopeCopy', () => {
 
 describe('helloCopy', () => {
   it('invites in both languages', () => {
-    expect(helloCopy('en').title).toContain('Get your green envelope');
-    expect(helloCopy('de').title).toContain('grünen Umschlag');
+    expect(helloCopy('en').title).toContain('Make an envelope');
+    expect(helloCopy('de').title).toContain('Umschlag machen');
     expect(helloCopy('en').description).not.toMatch(/blockchain|crypto/i);
   });
 });

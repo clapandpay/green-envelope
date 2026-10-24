@@ -159,20 +159,15 @@ describe('hello: the front door', () => {
 });
 
 describe('hello: no faucet configured', () => {
-  it('shows a demo that cannot be mistaken for money, and plays the ceremony locally', async () => {
+  it('shows no demo: it goes straight to the app’s start, in place of /hello', async () => {
     const fetcher = vi.fn();
     vi.stubGlobal('fetch', fetcher);
+    history.pushState(null, '', '/hello');
+    const before = history.length;
     renderScreen(<HelloScreen faucet={null} />);
-    expect(screen.getByRole('note').textContent).toBe('Demo · not real money');
-    expect(document.querySelector('.hello__hero--demo')).not.toBeNull();
-    expect(screen.queryByText(/€|XCH/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Open the demo' }));
-    expect(document.querySelector('svg.env--opening')).not.toBeNull();
-    expect(await screen.findByText('That is how it feels', {}, { timeout: 3000 })).toBeTruthy();
-    expect(document.querySelector('svg.env--open')).not.toBeNull();
-    expect(screen.getByText(/nothing arrived, nothing was spent/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Make your own envelope' })).toBeTruthy();
+    await waitFor(() => expect(location.pathname).toBe('/'));
+    expect(history.length).toBe(before);
+    expect(screen.queryByText(/demo/i)).toBeNull();
     expect(fetcher).not.toHaveBeenCalled();
-    expect(location.pathname).toBe('/hello');
   });
 });
