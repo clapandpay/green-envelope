@@ -191,6 +191,8 @@ export const de: Dict = {
     statusFinished: 'alle geöffnet',
     statusTakenBack: 'zurückgeholt',
     takeBack: 'Zurückholen',
+    remove: 'Entfernen',
+    removeLabel: 'Diesen Umschlag aus der Liste entfernen',
     takeBackTitle: 'Diesen Umschlag zurückholen?',
     takeBackBody: (amount) =>
       `Was niemand geöffnet hat (${amount}), kommt zu dir zurück. Der Link geht dann nicht mehr.`,

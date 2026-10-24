@@ -892,6 +892,17 @@ export function createServicesFrom(deps: RealDeps): AppServices {
 
       listSent: () => guarded(() => Promise.all(sentHere().map(describe))),
 
+      remove: (id) =>
+        guarded(async () => {
+          const record = sentHere().find((entry) => entry.id === id);
+          if (record === undefined) return;
+          const { status } = await describe(record);
+          if (status !== 'finished' && status !== 'taken_back') {
+            throw new ServiceError('unknown', 'an envelope that is still open is kept');
+          }
+          state.removeSent(id);
+        }),
+
       takeBack: (id) =>
         guarded(async () => {
           const record = sentHere().find((entry) => entry.id === id);

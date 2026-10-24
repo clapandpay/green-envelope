@@ -179,6 +179,11 @@ export interface EnvelopeService {
   create(input: CreateEnvelopeInput): Promise<SentEnvelope>;
   listSent(): Promise<SentEnvelope[]>;
   takeBack(id: string): Promise<{ amount: bigint; confirmed: Promise<void> }>;
+  /**
+   * Removes a finished or taken-back envelope from this browser's list. Refuses one that is
+   * still open: its stored link is the only way to take it back.
+   */
+  remove(id: string): Promise<void>;
 }
 
 export interface PriceService {

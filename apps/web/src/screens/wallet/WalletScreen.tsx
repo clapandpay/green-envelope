@@ -416,12 +416,7 @@ export function WalletScreen() {
         {load.sent === null ? (
           <span class="skeleton" style="height:76px" aria-hidden="true" />
         ) : (
-          // A taken-back envelope is over: its money is back here, nothing is left to watch.
-          <SentList
-            envelopes={load.sent.filter((envelope) => envelope.status !== 'taken_back')}
-            rate={rate}
-            onChanged={refresh}
-          />
+          <SentList envelopes={load.sent} rate={rate} onChanged={refresh} />
         )}
       </section>
 

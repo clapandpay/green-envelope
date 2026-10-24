@@ -51,6 +51,8 @@ export interface LocalState {
   rememberPaidHandle(handle: string): void;
   addSent(record: SentRecord): void;
   markTakenBack(id: string, takenBack: NonNullable<SentRecord['takenBack']>): void;
+  /** Forgets a sent envelope (its link included): only once nothing can come back from it. */
+  removeSent(id: string): void;
   /** A fresh number for the next envelope's secret; never handed out twice. */
   nextEnvelopeCounter(): number;
 }
@@ -145,6 +147,12 @@ export function createLocalState(storage: StringStorage): LocalState {
     sent: () => read<SentRecord[]>(KEY.sent, []),
     addSent(record) {
       write(KEY.sent, [record, ...read<SentRecord[]>(KEY.sent, [])]);
+    },
+    removeSent(id) {
+      write(
+        KEY.sent,
+        read<SentRecord[]>(KEY.sent, []).filter((r) => r.id !== id),
+      );
     },
     markTakenBack(id, takenBack) {
       write(

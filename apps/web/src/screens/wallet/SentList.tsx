@@ -32,6 +32,11 @@ export function canTakeBack(envelope: SentEnvelope): boolean {
   return open && envelope.sharesOpened < envelope.sharesTotal;
 }
 
+/** Is this envelope over (all opened, or taken back), so it can leave the list? Pure. */
+export function canRemove(envelope: SentEnvelope): boolean {
+  return envelope.status === 'finished' || envelope.status === 'taken_back';
+}
+
 function Progress(props: { opened: number; total: number }) {
   const { opened, total } = props;
   if (total > MAX_SEGMENTS) {
@@ -76,6 +81,14 @@ export function SentList(props: {
     }
   };
 
+  const remove = async (envelope: SentEnvelope) => {
+    try {
+      await services.envelopes.remove(envelope.id);
+    } finally {
+      props.onChanged();
+    }
+  };
+
   if (props.envelopes.length === 0) return <p class="soft">{t.wallet.sentEmpty}</p>;
 
   return (
@@ -99,6 +112,18 @@ export function SentList(props: {
                 <CopyButton text={envelope.link} label={t.create.copyLink} class="btn btn--small" />
                 <button type="button" class="btn btn--small" onClick={() => setAsking(envelope)}>
                   {t.wallet.takeBack}
+                </button>
+              </div>
+            )}
+            {canRemove(envelope) && (
+              <div class="sent__actions">
+                <button
+                  type="button"
+                  class="btn btn--small btn--plain"
+                  aria-label={t.wallet.removeLabel}
+                  onClick={() => remove(envelope)}
+                >
+                  {t.wallet.remove}
                 </button>
               </div>
             )}

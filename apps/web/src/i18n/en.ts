@@ -190,6 +190,8 @@ export const en = {
     statusFinished: 'all opened',
     statusTakenBack: 'taken back',
     takeBack: 'Take back',
+    remove: 'Remove',
+    removeLabel: 'Remove this envelope from the list',
     takeBackTitle: 'Take this envelope back?',
     takeBackBody: (amount: string) =>
       `What nobody opened (${amount}) comes back to you. The link stops working.`,
