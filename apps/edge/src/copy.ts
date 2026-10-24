@@ -42,9 +42,9 @@ const STRINGS: Readonly<Record<Language, Strings>> = {
     tapToOpen: 'Tap to open',
     genericTitle: `Green Envelope · ${SITE_NAME}`,
     genericDescription: 'Money as a link in the group chat. Tap, open, and it is yours.',
-    helloTitle: '🟢 Get your green envelope',
+    helloTitle: '🟢 Make an envelope',
     helloDescription:
-      'Tap, and an envelope with real money is yours. Then pass it on. No app, no account.',
+      'Money as a link in the group chat: make an envelope, share the link, and whoever taps it gets the money. No app, no account.',
   },
   de: {
     titleFrom: (from) => `🟢 Grüner Umschlag von ${from}`,
@@ -54,9 +54,9 @@ const STRINGS: Readonly<Record<Language, Strings>> = {
     tapToOpen: 'Tippen zum Öffnen',
     genericTitle: `Grüner Umschlag · ${SITE_NAME}`,
     genericDescription: 'Geld als Link im Gruppenchat. Tippen, öffnen, und es gehört dir.',
-    helloTitle: '🟢 Hol dir deinen grünen Umschlag',
+    helloTitle: '🟢 Umschlag machen',
     helloDescription:
-      'Tippen, und ein Umschlag mit echtem Geld gehört dir. Dann gib ihn weiter. Keine App, kein Konto.',
+      'Geld als Link im Gruppenchat: Umschlag machen, Link teilen, und wer tippt, bekommt das Geld. Keine App, kein Konto.',
   },
 };
 
