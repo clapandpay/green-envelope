@@ -57,6 +57,7 @@ describe('GET /g/:pk', () => {
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
     expect(response.headers.get('strict-transport-security')).toBe('max-age=31536000');
+    expect(response.headers.get('cross-origin-opener-policy')).toBe('same-origin');
     expect(response.headers.get('permissions-policy')).toBe(
       'publickey-credentials-get=(self), publickey-credentials-create=(self)',
     );
@@ -64,7 +65,7 @@ describe('GET /g/:pk', () => {
       "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data: blob:; font-src 'self'; " +
         "connect-src 'self' https://node-a.test https://node-b.test https://api.coinset.org " +
-        "https://testnet11.api.coinset.org; manifest-src 'self'; " +
+        "https://testnet11.api.coinset.org https://api.xchandles.com; manifest-src 'self'; " +
         "worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     );
   });

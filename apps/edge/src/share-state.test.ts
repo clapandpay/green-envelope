@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ChainLookup } from './chain';
 import {
   createShareStateLookup,
+  FRESH_PER_SECOND,
   MAX_SHARES,
   STATE_TTL_MS,
   shareCount,
@@ -32,6 +33,20 @@ describe('summarizeShares', () => {
 });
 
 describe('createShareStateLookup', () => {
+  it('derives only so many fresh envelopes per second, then serves them uncounted', async () => {
+    const clock = { ms: 0 };
+    const chain = chainWith(coins(false, true));
+    const derive = vi.fn(fakeShares);
+    const lookup = lookupWith(chain, clock, derive);
+    for (let i = 0; i < FRESH_PER_SECOND; i++) {
+      expect((await lookup(`k${i}`, PK)).kind).toBe('counted');
+    }
+    expect(await lookup('one-too-many', PK)).toEqual({ kind: 'unknown' });
+    expect(derive).toHaveBeenCalledTimes(FRESH_PER_SECOND);
+    clock.ms += 1000;
+    expect((await lookup('one-too-many', PK)).kind).toBe('counted');
+  });
+
   it('derives 100 puzzle hashes and asks the chain once', async () => {
     const chain = chainWith(coins(false, true));
     const spy = vi.spyOn(chain, 'coinRecordsByPuzzleHashes');

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // @vitest-environment happy-dom
+
+import { decodeAddress } from '@ge/chia';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen, stillMotion } from '../../test/render';
@@ -90,6 +92,16 @@ describe('pasting a line out of a chat', () => {
 });
 
 describe('an @name says where it goes', () => {
+  it('pays the address that was shown, not a second answer from the registry', async () => {
+    const world = createWorld({ network: 'mainnet', fetch: { handles: HANDLES } });
+    await world.fund(4_000_000_000n);
+    const shown = A;
+    await world.services.wallet.send('@anna', 1_000_000_000n, undefined, shown);
+    world.fake.farmBlock();
+    const { puzzleHash } = decodeAddress(shown);
+    expect(world.fake.balanceOf(puzzleHash)).toBe(1_000_000_000n);
+  });
+
   it('shows the address before anything is sent', async () => {
     const { field } = open({ network: 'mainnet', fetch: { handles: HANDLES } });
     fireEvent.input(field, { target: { value: '@anna' } });
@@ -172,6 +184,8 @@ describe('the network fee of a send', () => {
     const now = (await screen.findByRole('button', { name: /send now/i })) as HTMLButtonElement;
     await waitFor(() => expect(now.disabled).toBe(false));
     fireEvent.click(now);
-    await waitFor(() => expect(send).toHaveBeenCalledWith(address, 1_000_000_000n, 10_000_000n));
+    await waitFor(() =>
+      expect(send).toHaveBeenCalledWith(address, 1_000_000_000n, 10_000_000n, undefined),
+    );
   });
 });

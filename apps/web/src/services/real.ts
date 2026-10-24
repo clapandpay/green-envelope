@@ -199,6 +199,14 @@ export const COSTS = {
 const FEE_TARGET_SECONDS = 60;
 
 /**
+ * The most an automatic fee pays per unit of cost. The estimate comes from the chain node, and a
+ * node that lies (or a bug) must not turn a claim into a fee that eats the share: a claim's fee
+ * is never shown before it is paid. Ten mojos per cost is twice what a full mempool asks to get
+ * in, and at most 15% of the smallest share for a first claim.
+ */
+export const MAX_MOJOS_PER_COST = 10n;
+
+/**
  * The configured fee, or the network's default. A value that is not a whole number of mojos is
  * ignored rather than thrown: a typo in a deployment variable must not take the app down, and
  * falling back to the default keeps transactions moving.
@@ -256,7 +264,9 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     if (policy.mode === 'fixed') return policy.mojos;
     try {
       const estimate = await chain.feeEstimate(cost, FEE_TARGET_SECONDS);
-      return estimate > deps.fee ? estimate : deps.fee;
+      const ceiling = cost * MAX_MOJOS_PER_COST;
+      const capped = estimate > ceiling ? ceiling : estimate;
+      return capped > deps.fee ? capped : deps.fee;
     } catch {
       return deps.fee;
     }
@@ -799,9 +809,13 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           return { fee, arriving: all ? spent - fee - (coins === null ? 1n : 0n) : amount };
         }),
 
-      send: (to, amount, pinnedFee) =>
+      send: (to, amount, pinnedFee, confirmed) =>
         guarded(async () => {
-          const toPuzzleHash = await recipient(to);
+          // An @name pays the address that was shown, never a second answer from the registry.
+          const toPuzzleHash =
+            confirmed !== undefined && to.trim().startsWith('@')
+              ? await recipient(confirmed)
+              : await recipient(to);
           const { first, firstOutput, fee } = await pay([{ puzzleHash: toPuzzleHash, amount }], {
             fee: pinnedFee,
           });
@@ -1067,6 +1081,9 @@ export function createServicesFrom(deps: RealDeps): AppServices {
 
     price: {
       eurPerXch: async () => {
+        // Test money is worth nothing: a euro value on it would make a free testnet envelope
+        // look like a real payment ("you got €200") on our own domain.
+        if (network.name !== 'mainnet') return null;
         for (const url of PRICE_SOURCES) {
           try {
             const response = await deps.fetch(url, { signal: AbortSignal.timeout(4000) });

@@ -19,16 +19,37 @@ const LAUNCHER_HASH = /* @__PURE__ */ fromHex(
   'eff07522495060c066f66f32acc2a77e3a3e737aca8baea4d1a64ea4cdc13da9',
 );
 
-/** The vault a passkey launched, found by its hint: its launcher id, or null when none. */
+/**
+ * The vault a passkey launched, found by its hint: its launcher id, or null when none.
+ *
+ * The hint and the launcher puzzle are public, and so is a passkey's public key once it has
+ * spent anything (on any network), so anyone can make a hinted coin at the launcher puzzle. Such
+ * a coin is not this passkey's vault, and trusting it would leave the wallet "settling" for
+ * good. A launcher counts only if its spend made this passkey's vault coin; a real launch makes
+ * and spends its launcher in one bundle, so its vault is there as soon as the launcher is.
+ */
 export async function findLauncherId(chain: ChainClient, publicKey: Bytes): Promise<Bytes | null> {
   const records = await chain.coinRecordsByHint(vaultHint(publicKey), { includeSpent: true });
-  // The launcher is the hinted coin at the launcher puzzle; the earliest one wins (a second
-  // launch would be a mistake, and the first vault is the one the money went to).
   const launchers = records
     .filter((record) => equalBytes(record.coin.puzzleHash, LAUNCHER_HASH))
-    .sort((a, b) => a.confirmedHeight - b.confirmedHeight);
-  const first = launchers[0];
-  return first === undefined ? null : coinId(first.coin);
+    .filter((record) => record.spentHeight !== null);
+  if (launchers.length === 0) return null;
+  const custody = custodyHash(publicKey);
+  const ids = launchers.map((record) => coinId(record.coin));
+  const children = await chain.coinRecordsByParentIds(ids, { includeSpent: true });
+  // The earliest real launch wins (a second launch would be a mistake, and the first vault is
+  // the one the money went to).
+  const real = launchers
+    .map((record, i) => ({ record, id: ids[i] as Bytes }))
+    .filter(({ id }) =>
+      children.some(
+        (child) =>
+          equalBytes(child.coin.parentCoinInfo, id) &&
+          equalBytes(child.coin.puzzleHash, vaultPuzzleHash(id, custody)),
+      ),
+    )
+    .sort((a, b) => a.record.confirmedHeight - b.record.confirmedHeight);
+  return real[0]?.id ?? null;
 }
 
 /**

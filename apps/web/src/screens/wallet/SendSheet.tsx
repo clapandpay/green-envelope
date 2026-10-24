@@ -188,7 +188,10 @@ export function SendSheet(props: {
     setStep('sending');
     setFailure(null);
     try {
-      const result = await services.wallet.send(recipient, check.total, fee ?? undefined);
+      // An @name pays exactly the address shown on the confirm step.
+      const shown = kind === 'handle' && lookup.s === 'ok' ? lookup.value.address : undefined;
+      if (kind === 'handle' && shown === undefined) return;
+      const result = await services.wallet.send(recipient, check.total, fee ?? undefined, shown);
       setSentCoin(result.coinId);
       setStep('done');
       props.onChanged();
