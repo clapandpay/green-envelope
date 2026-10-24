@@ -58,6 +58,14 @@ Chia's own passkey vaults.
 | 6 | Wallets from before the vault (keys in the browser) still exist until they are moved. | Low, temporary | Shown as "Money from before"; one tap moves the money into the vault and the old key is forgotten. The legacy code goes one release later. |
 | 7 | `style-src 'unsafe-inline'` | Low | CSS injection cannot run script; no secrets are in the DOM. |
 
+## What comes later
+
+One passkey is one key. The vault is built so that more can be added without moving the money
+(the address depends only on the launcher id): more passkeys, or Chia Signer, as m-of-n custody,
+for example through a custody page on clapandpay.com. Until then this is a wallet for small
+amounts, and the app says so on the wallet screen, together with the domain the passkey belongs
+to (clapandpay.com).
+
 ## Rules that follow from this
 
 - Small amounts only, for fun, in the app and wherever it is promoted.

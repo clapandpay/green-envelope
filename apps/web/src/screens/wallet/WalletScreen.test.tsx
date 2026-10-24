@@ -283,6 +283,15 @@ describe('moving to Klimper', () => {
     expect(await screen.findByText(/on its way to klimper/i)).toBeTruthy();
   });
 
+  it('the wallet says where its passkey belongs, small amounts only, and what comes later', async () => {
+    const services = createWorld().services;
+    renderScreen(<WalletScreen />, { services });
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+    expect(await screen.findByText(/your passkey belongs to/i)).toBeTruthy();
+    expect(screen.getByText(/small amounts only/i)).toBeTruthy();
+    expect(screen.getByText(/more passkeys or chia signer/i)).toBeTruthy();
+  });
+
   it('is not shown on an empty wallet, and the wallet keeps working', async () => {
     const services = createWorld().services;
     renderScreen(<WalletScreen />, { services });

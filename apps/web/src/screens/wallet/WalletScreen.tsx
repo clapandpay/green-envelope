@@ -9,6 +9,7 @@ import { useI18n } from '../../i18n';
 import { errorCode, errorText } from '../../lib/errors';
 import { formatMoney } from '../../lib/money';
 import { prefersReducedMotion } from '../../lib/motion';
+import { relyingPartyId } from '../../lib/relying-party';
 import { useRate } from '../../lib/use-rate';
 import { onLinkClick } from '../../router';
 import { useServices } from '../../services/context';
@@ -32,6 +33,9 @@ const REFRESH_MS = 8000;
  * exposed it. The wait is deliberate now rather than borrowed from a slow network.
  */
 const OPEN_HOLD_MS = 1040;
+
+/** The site the passkey belongs to: clapandpay.com in production, the page's own host elsewhere. */
+const passkeyDomain = () => relyingPartyId(location.hostname) ?? location.hostname;
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -342,6 +346,7 @@ export function WalletScreen() {
         </p>
         {/* Always there, never dismissable: this wallet lives in a browser (docs/wallet-security.md). */}
         <p class="soft balance__note">{t.wallet.pocketNote}</p>
+        <p class="soft balance__note">{t.wallet.passkeyNote(passkeyDomain())}</p>
       </section>
 
       <a class="btn btn--primary btn--huge" href="/new" onClick={onLinkClick}>
