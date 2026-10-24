@@ -368,12 +368,6 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           return state.wallet(network.name) ?? { kind: 'device', address: owner.address };
         }),
 
-      keepInBrowser: () =>
-        guarded(async (): Promise<WalletInfo> => {
-          if ((await keyStore.status()) !== null) return adopt(await keyStore.unlock());
-          return adopt(await keyStore.create({ prefer: 'device' }));
-        }),
-
       earlier: () =>
         guarded(async () => {
           const address = state.earlierAddress(network.name);

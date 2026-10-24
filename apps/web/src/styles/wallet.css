@@ -8,6 +8,11 @@
   background: var(--green-soft);
 }
 
+.balance__note {
+  margin: 0;
+  font-size: var(--text-s);
+}
+
 .balance__pending {
   display: flex;
   align-items: center;

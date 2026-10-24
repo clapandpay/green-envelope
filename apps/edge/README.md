@@ -24,7 +24,8 @@ open one: the secret is in the URL fragment, which browsers do not send.
 
 Every HTML response carries `content-security-policy` (below), `referrer-policy: no-referrer`
 (keeps the envelope path out of referrers), `x-content-type-options: nosniff` and
-`permissions-policy: publickey-credentials-get=(self), publickey-credentials-create=(self)`.
+`permissions-policy: publickey-credentials-get=(self), publickey-credentials-create=(self)` and
+`strict-transport-security: max-age=31536000` (ignored over plain http).
 
 ```
 default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;

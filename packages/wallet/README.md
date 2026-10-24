@@ -47,7 +47,8 @@ kind is `'passkey:v2'` (etc.), so code from before versions refuses it.
 
 `create()` never makes a device wallet on its own (audit M2): without WebAuthn or PRF, or when
 WebAuthn fails with anything other than a dismissed prompt (`WalletError('cancelled')`), it
-rejects with `WalletError('unsupported')`, and the app says so and offers the device wallet.
+rejects with `WalletError('unsupported')`. The app says so and offers a new passkey; it never
+makes a device wallet (only wallets made before that rule are still device wallets).
 
 `create()` refuses (`WalletError('exists')`) while a wallet exists: overwriting the record of a
 device wallet would destroy the only copy of its seed. `create({ replace: true })` makes a second
@@ -55,6 +56,9 @@ passkey wallet in place of a derived one, which stays in the passkey list and co
 `signIn()`; the record is overwritten only once the new passkey exists.
 
 ## Security note: what this does and does not protect
+
+**For small amounts only.** This is a wallet for sending pocket money for fun, not for keeping
+money; larger amounts belong in Klimper. Review and remaining risks: `docs/wallet-security.md`.
 
 **Passkey wallet**
 

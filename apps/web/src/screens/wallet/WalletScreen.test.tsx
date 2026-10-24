@@ -71,7 +71,9 @@ describe('first run: the envelope and almost nothing else', () => {
     // Still the first screen: no half-made wallet, and the envelope is sealed again.
     expect(screen.queryByText('Your money')).toBeNull();
     await waitFor(() => expect(document.querySelector('.env--sealed')).toBeTruthy());
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    // The envelope to try again, and a new passkey in case this one does not work.
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: /create a new passkey/i })).toBeTruthy();
   });
 });
 
@@ -86,19 +88,33 @@ describe('a person who has never been here', () => {
     expect(await screen.findByText('Your money')).toBeTruthy();
   });
 
-  it('is told, and offered a browser-only wallet, when this browser has no PRF', async () => {
+  it('is told, and offered a new passkey but never a browser-only wallet, without PRF', async () => {
     const services = createWorld({ keyStore: { noPrf: true, noPasskey: true } }).services;
-    const keepInBrowser = vi.spyOn(services.wallet, 'keepInBrowser');
+    const makeNew = vi.spyOn(services.wallet, 'makeNew');
     renderScreen(<WalletScreen />, { services });
 
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
     expect(await screen.findByText(/open the link in safari or chrome/i)).toBeTruthy();
-    // Never made on its own: it waits for this button.
-    expect(keepInBrowser).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /browser only/i })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /keep it in this browser only/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create a new passkey/i }));
+    await waitFor(() => expect(makeNew).toHaveBeenCalledTimes(1));
+    // Still no PRF: still told, and still no wallet.
+    expect(await screen.findByText(/open the link in safari or chrome/i)).toBeTruthy();
+    expect(await services.wallet.current()).toBeNull();
+  });
+
+  it('offers a new passkey when the passkey prompt fails, and opens into it', async () => {
+    const services = createWorld().services;
+    vi.spyOn(services.wallet, 'ensure').mockRejectedValueOnce(
+      new (await import('../../services/types')).ServiceError('wallet_cancelled'),
+    );
+    renderScreen(<WalletScreen />, { services });
+
+    fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /create a new passkey/i }));
     expect(await screen.findByText('Your money')).toBeTruthy();
-    expect(keepInBrowser).toHaveBeenCalledTimes(1);
+    expect((await services.wallet.current())?.kind).toBe('passkey');
   });
 });
 
@@ -149,7 +165,7 @@ describe('securing a browser-only wallet with a passkey', () => {
     const secure = await screen.findByRole('button', { name: /secure now/i });
     // One line and one tap: no paragraph explaining what the phone is about to do anyway. The
     // one place that says where the money lives is the backup card (TASK-131).
-    expect(screen.getAllByText(/lives only in this browser/i)).toHaveLength(1);
+    expect(screen.getAllByText(/not behind a passkey yet/i)).toHaveLength(1);
     expect(screen.getByRole('heading', { name: 'Back it up in Klimper' })).toBeTruthy();
 
     fireEvent.click(secure);

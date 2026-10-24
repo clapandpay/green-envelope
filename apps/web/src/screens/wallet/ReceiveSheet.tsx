@@ -35,6 +35,7 @@ export function ReceiveSheet(props: { address: string; onClose: () => void }) {
     <Sheet open title={t.wallet.receiveTitle} onClose={props.onClose}>
       <div class="stack">
         <p>{t.wallet.receiveBody}</p>
+        <p class="soft">{t.wallet.receiveSmall}</p>
         <QrPicture text={props.address} label={t.wallet.qrLabel} />
         <div class="field">
           <span class="field__label">{t.wallet.addressLabel}</span>

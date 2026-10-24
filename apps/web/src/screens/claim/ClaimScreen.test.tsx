@@ -228,22 +228,24 @@ describe('claim: the other states', () => {
     expect(await screen.findByText('€7.40')).toBeTruthy();
   });
 
-  it('a browser without PRF is told why, and opens into a browser-only wallet when asked', async () => {
+  it('when the passkey fails, offers a new passkey (never a browser-only wallet) and opens into it', async () => {
     const world = await anEnvelope();
     const ensure = vi.spyOn(world.services.wallet, 'ensure');
     ensure.mockRejectedValueOnce(
       new (await import('../../services/types')).ServiceError('passkey_unavailable'),
     );
-    const keepInBrowser = vi.spyOn(world.services.wallet, 'keepInBrowser');
+    const makeNew = vi.spyOn(world.services.wallet, 'makeNew');
     renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
     expect((await screen.findByRole('alert')).textContent).toContain('Safari or Chrome');
-    expect(keepInBrowser).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /browser only/i })).toBeNull();
+    expect(makeNew).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: /keep it in this browser only/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create a new passkey/i }));
     expect(await screen.findByText('€7.40')).toBeTruthy();
-    expect(keepInBrowser).toHaveBeenCalledTimes(1);
+    expect(makeNew).toHaveBeenCalledTimes(1);
+    expect((await world.services.wallet.current())?.kind).toBe('passkey');
   });
 
   it('losing the race for the last share ends in the friendly empty state', async () => {

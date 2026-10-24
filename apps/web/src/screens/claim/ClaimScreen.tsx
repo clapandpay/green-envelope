@@ -186,7 +186,7 @@ function ProblemPanel(props: {
 export function ClaimScreen(props: { link: string }) {
   const { t, locale } = useI18n();
   const { rate } = useRate();
-  const { state, open, keepHere, retry } = useClaim(props.link);
+  const { state, open, openWithNewPasskey, retry } = useClaim(props.link);
   const services = useServices();
   // Asked once the money is in a wallet: before that there is nothing to back up.
   const [backupDue, setBackupDue] = useState(false);
@@ -245,14 +245,15 @@ export function ClaimScreen(props: { link: string }) {
             {noticeText(state.notice, t)}
           </p>
         )}
-        {state.s === 'sealed' && state.notice === 'no_passkey' && (
-          <>
-            <p class="soft">{t.wallet.keepHereWarn}</p>
-            <button type="button" class="btn" onClick={keepHere}>
-              {t.wallet.keepHere}
-            </button>
-          </>
-        )}
+        {state.s === 'sealed' &&
+          (state.notice === 'no_passkey' || state.notice === 'cancelled') && (
+            <>
+              <p class="soft">{t.wallet.newPasskeyNote}</p>
+              <button type="button" class="btn" onClick={openWithNewPasskey}>
+                {t.wallet.newPasskey}
+              </button>
+            </>
+          )}
         {state.s === 'opening' && <p class="claim__hint">{t.claim.openingHint}</p>}
         {state.s === 'opened' && (
           <RevealPanel

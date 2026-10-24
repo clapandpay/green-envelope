@@ -52,10 +52,18 @@ interface WalletData {
   backedUp: boolean;
 }
 
+/** Errors after which "create a new passkey" is offered: the passkey did not open a wallet. */
+const PASSKEY_FAILED: ReadonlySet<string> = new Set([
+  'wallet_cancelled',
+  'no_wallet_here',
+  'passkey_unavailable',
+  'unknown',
+]);
+
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | ({ s: 'ready' } & WalletData);
 
 /** What a button on this screen is busy doing. */
-type Work = 'start' | 'here' | 'secure' | 'new' | 'out' | 'move';
+type Work = 'start' | 'fresh' | 'secure' | 'new' | 'out' | 'move';
 
 export function WalletScreen() {
   const { t, locale } = useI18n();
@@ -64,8 +72,8 @@ export function WalletScreen() {
   const [load, setLoad] = useState<Load>({ s: 'loading' });
   const [sheet, setSheet] = useState<'receive' | 'send' | 'out' | 'new' | null>(null);
   const [working, setWorking] = useState<Work | null>(null);
-  /** No passkey wallet can be kept in this browser: the person may choose a browser-only one. */
-  const [offerHere, setOfferHere] = useState(false);
+  /** The passkey failed or was not found: offer to make a new one (never a browser-only wallet). */
+  const [offerNew, setOfferNew] = useState(false);
   const [opened, setOpened] = useState(false);
   const [message, setMessage] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
   const alive = useRef(true);
@@ -171,13 +179,13 @@ export function WalletScreen() {
     setWorking(kind);
     setMessage(null);
     try {
-      if (kind === 'start' || kind === 'here') {
+      if (kind === 'start' || kind === 'fresh') {
         // One tap (owner, 2026-10-09): the wallet here, else the passkey the phone has, else
-        // a new one, whose creation the phone's own sheet asks about. A browser-only wallet
-        // only when the person picked it after being told why.
-        if (kind === 'here') await services.wallet.keepInBrowser();
+        // a new one, whose creation the phone's own sheet asks about. When that fails, the
+        // person can make a new passkey ('fresh'). Never a browser-only wallet.
+        if (kind === 'fresh') await services.wallet.makeNew();
         else await services.wallet.ensure();
-        setOfferHere(false);
+        setOfferNew(false);
         setOpened(true);
         // The balance, the envelopes and the two probes are fetched **while** the envelope
         // opens, not after it. The animation is then the waiting, instead of something a
@@ -214,7 +222,7 @@ export function WalletScreen() {
     } catch (error) {
       setOpened(false);
       const code = errorCode(error);
-      if (code === 'passkey_unavailable' && kind === 'start') setOfferHere(true);
+      if ((kind === 'start' || kind === 'fresh') && PASSKEY_FAILED.has(code)) setOfferNew(true);
       setMessage({ tone: 'bad', text: errorText(code, t) });
     } finally {
       setWorking(null);
@@ -304,17 +312,17 @@ export function WalletScreen() {
           </span>
         </button>
         {notice}
-        {offerHere && (
+        {offerNew && (
           <div class="first-run__choice">
-            <p class="soft">{t.wallet.keepHereWarn}</p>
+            <p class="soft">{t.wallet.newPasskeyNote}</p>
             <button
               type="button"
               class="btn"
-              aria-busy={working === 'here'}
+              aria-busy={working === 'fresh'}
               disabled={working !== null}
-              onClick={() => run('here')}
+              onClick={() => run('fresh')}
             >
-              {t.wallet.keepHere}
+              {working === 'fresh' ? t.wallet.newPasskeyWorking : t.wallet.newPasskey}
             </button>
           </div>
         )}
@@ -345,6 +353,8 @@ export function WalletScreen() {
             </>
           )}
         </p>
+        {/* Always there, never dismissable: this wallet lives in a browser (docs/wallet-security.md). */}
+        <p class="soft balance__note">{t.wallet.pocketNote}</p>
       </section>
 
       <a class="btn btn--primary btn--huge" href="/new" onClick={onLinkClick}>

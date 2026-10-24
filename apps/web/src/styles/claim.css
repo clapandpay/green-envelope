@@ -328,7 +328,8 @@
 
 /* the letter's two leaves are folded flat while the letter is in the pocket, and open like a
    hand once it is out */
-.env__unfold {
+.env__unfold,
+.env__sway {
   transform-box: fill-box;
   transform-origin: 50% 100%;
 }
@@ -414,9 +415,15 @@
 
 .env--open .env__unfold {
   transform: none;
-  animation:
-    env-unfold 1300ms var(--spring) calc(var(--act3, 0ms) + 900ms) backwards,
-    env-sway 5200ms ease-in-out calc(var(--act3, 0ms) + 2300ms) infinite;
+  animation: env-unfold 1300ms var(--spring) calc(var(--act3, 0ms) + 900ms) backwards;
+}
+
+/* The sway lives on a wrapper, not on .env__unfold. Chrome draws an animated element once, at
+   its size when the animation starts, and stretches that copy. On the same element as the
+   unfold (which starts at 12%), the endless sway kept the leaves at that tiny copy: pixelated.
+   Here the unfold ends first and the leaves are drawn again at full size. */
+.env--open .env__sway {
+  animation: env-sway 5200ms ease-in-out calc(var(--act3, 0ms) + 2300ms) infinite;
 }
 
 /* the seal breaks: the disc becomes a ring of light, the crest flies apart */

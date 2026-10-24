@@ -29,7 +29,7 @@ export type ServiceErrorCode =
   | 'handles_unavailable' // the registry did not answer; an address still works
   | 'handles_mainnet_only' // @names live on the real network only
   | 'no_wallet_here' // nothing to open on this device: no wallet in this browser, no passkey
-  | 'passkey_unavailable' // this browser cannot keep a passkey wallet (no PRF): say so, offer the browser-only one
+  | 'passkey_unavailable' // this browser cannot keep a passkey wallet (no PRF): say so; never a browser-only one
   | 'bad_request' // a connect link that did not come from the app, or came damaged
   | 'wallet_too_old' // a wallet from before recovery words: it has none to hand to Klimper
   | 'wallet_cancelled' // the user dismissed the passkey prompt
@@ -115,11 +115,10 @@ export interface WalletService {
    * passkey the phone already has for clapandpay.com; otherwise makes one. Making one always
    * shows the phone's own "create a passkey" sheet, so a returning person who dismissed the
    * sign-in sees what is about to happen and can cancel. Never makes a browser-only wallet:
-   * without PRF it rejects with `passkey_unavailable` (`keepInBrowser` is the asked-for way).
+   * without PRF it rejects with `passkey_unavailable`. When the passkey fails, `makeNew` is
+   * the way on.
    */
   ensure(): Promise<WalletInfo>;
-  /** Makes a wallet that lives only in this browser, when the person chose it. */
-  keepInBrowser(): Promise<WalletInfo>;
   /**
    * Money at the address this passkey had before 24 words (TASK-128), or null when there is
    * none. Never prompts.
@@ -142,8 +141,11 @@ export interface WalletService {
   /** Whether `makeNew` is possible: a version 2 passkey wallet, which sign-in brings back. */
   canMakeNew(): Promise<boolean>;
   /**
-   * Makes a second passkey wallet and uses it here instead of the current one. Only from a
-   * passkey wallet, which stays in the person's passkey list and can be signed in to again.
+   * Makes a new passkey wallet, skipping sign-in: the "create a new passkey" button when the
+   * passkey here fails or none can be found. With no wallet here it is the first one; with a
+   * passkey wallet here it takes its place, which stays in the person's passkey list and can
+   * be signed in to again. Never replaces a wallet whose secret lives only in this browser,
+   * and never makes one: without PRF it rejects with `passkey_unavailable`.
    */
   makeNew(): Promise<WalletInfo>;
   balance(): Promise<Balance>;

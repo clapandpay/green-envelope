@@ -8,8 +8,8 @@ import { type ClaimState, claimReducer, INITIAL_CLAIM } from './claim-state';
 export function useClaim(link: string): {
   state: ClaimState;
   open(): void;
-  /** Opens into a wallet that lives only in this browser, after the person chose that. */
-  keepHere(): void;
+  /** Makes a new passkey, skipping sign-in, and opens into it: when the passkey failed. */
+  openWithNewPasskey(): void;
   retry(): void;
 } {
   const services = useServices();
@@ -37,12 +37,12 @@ export function useClaim(link: string): {
   }, [loading, link, services]);
 
   const start = useCallback(
-    (here: boolean) => {
+    (fresh: boolean) => {
       dispatch({ e: 'open_started' });
       (async () => {
         try {
           // may show the phone's face / finger sheet
-          await (here ? services.wallet.keepInBrowser() : services.wallet.ensure());
+          await (fresh ? services.wallet.makeNew() : services.wallet.ensure());
           const result = await services.envelopes.open(link);
           if (!alive.current) return;
           dispatch({ e: 'open_done', amount: result.amount }); // show the amount now
@@ -59,7 +59,7 @@ export function useClaim(link: string): {
   );
 
   const open = useCallback(() => start(false), [start]);
-  const keepHere = useCallback(() => start(true), [start]);
+  const openWithNewPasskey = useCallback(() => start(true), [start]);
   const retry = useCallback(() => dispatch({ e: 'reload' }), []);
-  return { state, open, keepHere, retry };
+  return { state, open, openWithNewPasskey, retry };
 }

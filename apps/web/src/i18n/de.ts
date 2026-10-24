@@ -136,6 +136,7 @@ export const de: Dict = {
   wallet: {
     title: 'Dein Geld',
     onTheMove: (amount) => `${amount} unterwegs`,
+    pocketNote: 'Taschengeld für Umschläge, kein Sparkonto. Größere Beträge gehören in Klimper.',
     newEnvelope: 'Neuer Umschlag',
     receive: 'Empfangen',
     send: 'Senden',
@@ -147,9 +148,10 @@ export const de: Dict = {
     starting: 'Wird vorbereitet…',
     secureAction: 'Jetzt sichern',
     securing: 'Wird gesichert…',
-    keepHere: 'Nur in diesem Browser behalten',
-    keepHereWarn:
-      'Dann liegt es nur in diesem Browser: Daten gelöscht, Geld weg. Bring es bald in Klimper.',
+    newPasskey: 'Neuen Passkey erstellen',
+    newPasskeyWorking: 'Wird erstellt…',
+    newPasskeyNote:
+      'Passkey klappt nicht? Erstell einen neuen. Geld hinter einem anderen Passkey bleibt dort: Melde dich ab und wähl diesen, um wieder ranzukommen.',
     newWallet: 'Zweites Konto eröffnen',
     newWalletTitle: 'Zweites Konto eröffnen?',
     newWalletBody:
@@ -167,7 +169,7 @@ export const de: Dict = {
     backupBody:
       'Nur der Passkey, den dein Gesicht oder Finger öffnet, hält dieses Geld. Geht er verloren (Handy und Apple- oder Google-Konto weg), bevor das Geld in Klimper ist, ist es weg: Niemand kann es zurückholen.',
     backupBodyDevice:
-      'Dieses Geld liegt nur in diesem Browser. Löschst du ihn oder verlierst das Handy, bevor das Geld in Klimper ist, ist es weg.',
+      'Dieses Geld ist noch nicht durch einen Passkey geschützt. Tippe auf „Jetzt sichern“, damit dein Gesicht oder Finger es schützt.',
     backupHow: 'Hol dir Klimper, öffne es und tippe auf „Mein Clap-and-Pay-Geld nutzen“.',
     backupGet: 'Klimper holen',
     logOut: 'Abmelden',
@@ -193,6 +195,8 @@ export const de: Dict = {
     takingBack: 'Wird zurückgeholt…',
     receiveTitle: 'Empfangen',
     receiveBody: 'Das ist deine Adresse. Geld, das hierhin geschickt wird, landet bei dir.',
+    receiveSmall:
+      'Schick hierhin nur kleine Beträge. Das hier ist zum Spaß, nicht zum Aufbewahren.',
     addressLabel: 'Deine Adresse',
     qrLabel: 'Deine Adresse als Code zum Scannen',
     sendTitle: 'Senden',

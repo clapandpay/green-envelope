@@ -56,6 +56,7 @@ describe('GET /g/:pk', () => {
     expect(response.headers.get('x-robots-tag')).toBe('noindex');
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('strict-transport-security')).toBe('max-age=31536000');
     expect(response.headers.get('permissions-policy')).toBe(
       'publickey-credentials-get=(self), publickey-credentials-create=(self)',
     );

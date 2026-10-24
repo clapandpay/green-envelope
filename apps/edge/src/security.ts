@@ -29,6 +29,9 @@ export function securityHeaders(chainEndpoints: readonly string[]): SecurityHead
     ['referrer-policy', 'no-referrer'],
     ['x-content-type-options', 'nosniff'],
     ['permissions-policy', 'publickey-credentials-get=(self), publickey-credentials-create=(self)'],
+    // HTTPS only from the first visit on, so nobody on the network can serve the wallet's script.
+    // Browsers ignore it over plain http, so localhost keeps working.
+    ['strict-transport-security', 'max-age=31536000'],
   ];
 }
 

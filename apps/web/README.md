@@ -79,8 +79,9 @@ built-in sensor and nothing else, so a Mac without Touch ID would look like a ma
 passkeys at all and quietly get the weaker device wallet.
 
 What is required is the **PRF extension**, because that is where the wallet key comes from. A
-provider that cannot do PRF gets a device wallet instead, which lives in this browser and can be
-secured with a passkey later (see below). Most providers evaluate PRF on `get` rather than
+provider that cannot do PRF is told so and offered a new passkey: the app never makes a wallet
+that lives only in the browser. Device wallets made before that rule still open, and are asked
+to secure themselves with a passkey (see below). Most providers evaluate PRF on `get` rather than
 `create`, so making a wallet for the first time asks twice: once to make the passkey, once to
 read from it.
 

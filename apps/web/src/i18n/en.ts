@@ -136,6 +136,7 @@ export const en = {
   wallet: {
     title: 'Your money',
     onTheMove: (amount: string) => `${amount} on the move`,
+    pocketNote: 'Pocket money for envelopes, not savings. Keep larger amounts in Klimper.',
     newEnvelope: 'New envelope',
     receive: 'Receive',
     send: 'Send',
@@ -147,9 +148,10 @@ export const en = {
     starting: 'Getting ready…',
     secureAction: 'Secure now',
     securing: 'Securing…',
-    keepHere: 'Keep it in this browser only',
-    keepHereWarn:
-      'Then it lives only in this browser: clear it and the money is gone. Bring it into Klimper soon.',
+    newPasskey: 'Create a new passkey',
+    newPasskeyWorking: 'Creating…',
+    newPasskeyNote:
+      'Passkey not working? Make a new one. Money behind another passkey stays there: log out and pick that one to get back to it.',
     newWallet: 'Open a second account',
     newWalletTitle: 'Open a second account?',
     newWalletBody:
@@ -167,7 +169,7 @@ export const en = {
     backupBody:
       'Only the passkey your face or finger opens holds this money. Lose it (a lost phone and Apple or Google account) before the money is in Klimper, and it is gone: nobody can get it back.',
     backupBodyDevice:
-      'This money lives only in this browser. Clear it, or lose this phone, before bringing the money into Klimper, and it is gone.',
+      'This money is not behind a passkey yet. Tap "Secure now" so your face or finger protects it.',
     backupHow: 'Get Klimper, open it, and tap "Use my Clap and Pay money".',
     backupGet: 'Get Klimper',
     logOut: 'Log out',
@@ -193,6 +195,7 @@ export const en = {
     takingBack: 'Taking it back…',
     receiveTitle: 'Receive',
     receiveBody: 'This is your address. Money sent here lands with you.',
+    receiveSmall: 'Only send small amounts here. This is for fun, not for keeping money.',
     addressLabel: 'Your address',
     qrLabel: 'Your address as a code to scan',
     sendTitle: 'Send',

@@ -235,11 +235,13 @@ describe('ensure(): one tap, sign in before making a wallet (TASK-127, TASK-059)
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('makes a browser-only wallet only through keepInBrowser()', async () => {
+  it('never makes a browser-only wallet', async () => {
     const keyStore = stubKeyStore();
     const create = vi.spyOn(keyStore, 'create');
-    await appWith(keyStore).wallet.keepInBrowser();
-    expect(create).toHaveBeenCalledWith({ prefer: 'device' });
+    const app = appWith(keyStore);
+    expect('keepInBrowser' in app.wallet).toBe(false);
+    await app.wallet.makeNew();
+    for (const [opts] of create.mock.calls) expect(opts?.prefer).not.toBe('device');
   });
 
   it('makes a second passkey wallet in place of the current one through makeNew()', async () => {
