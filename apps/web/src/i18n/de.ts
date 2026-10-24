@@ -113,7 +113,10 @@ export const de: Dict = {
     share: 'In den Chat schicken',
     copyLink: 'Link kopieren',
     linkLabel: 'Der Link',
-    cashNote: 'Der Link ist wie Bargeld. Wer ihn hat, kann den Umschlag öffnen.',
+    cashNote:
+      'Der Link ist wie Bargeld: Wer ihn hat, kann den Umschlag öffnen. Teile ihn nur mit Menschen, denen du vertraust.',
+    trustNote:
+      'Wer den Link hat, kann ihn öffnen, wie Bargeld. Schick ihn nur an Menschen, denen du vertraust.',
     done: 'Fertig',
   },
   wallet: {
@@ -138,6 +141,9 @@ export const de: Dict = {
     aboutPocketTitle: 'Taschengeld, kein Sparkonto',
     aboutPasskeyTitle: 'Dein Passkey',
     aboutBiggerTitle: 'Größere Beträge',
+    aboutLinkTitle: 'Ein Umschlag-Link ist wie Bargeld',
+    aboutLinkBody:
+      'Wer den Link hat, kann den Umschlag öffnen. Die App gibt jeder Person einen Anteil, aber mit eigenen Werkzeugen könnte jemand alle übrigen Anteile nehmen. Schick Links nur an Menschen, denen du vertraust, und hol dir zurück, was übrig ist, wenn du fertig bist. An dein übriges Geld kommt der Link nie heran.',
     aboutKeyTitle: 'Dein Schlüssel bleibt auf deinem Handy',
     aboutKeyBody:
       'Keine Website kann ihn lesen oder kopieren, auch diese nicht. Eine Website kann dein Handy nur bitten, eine Zahlung freizugeben, und die Abfrage mit Gesicht oder Finger zeigt nicht, welche. Gib also nur frei, direkt nachdem du hier auf Senden, Erstellen oder Bringen getippt hast. Bald: ein zweiter Schlüssel, etwa Chia Signer, der Betrag und Adresse zeigt, bevor er freigibt.',

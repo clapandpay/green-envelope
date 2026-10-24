@@ -668,3 +668,9 @@ textarea.input {
 .fee-line__total {
   font-weight: 700;
 }
+
+.create__trust {
+  margin: 0;
+  font-size: var(--text-s);
+  text-align: center;
+}

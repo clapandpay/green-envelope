@@ -291,6 +291,7 @@ export function CreateScreen(props: { prefill: bigint | null }) {
       {quote !== null && (
         <FeeLine fee={quote.fee} total={quote.fee === null ? null : quote.total + quote.fee} />
       )}
+      <p class="soft create__trust">{t.create.trustNote}</p>
       <button type="submit" class="btn btn--primary btn--huge create__submit" aria-busy={busy}>
         {busy ? t.create.making : t.create.submit}
       </button>

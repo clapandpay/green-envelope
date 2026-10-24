@@ -113,7 +113,9 @@ export const en = {
     share: 'Send to chat',
     copyLink: 'Copy link',
     linkLabel: 'The link',
-    cashNote: 'The link is like cash. Whoever has it can open the envelope.',
+    cashNote:
+      'The link is like cash: whoever has it can open the envelope. Share it only with people you trust.',
+    trustNote: 'Anyone with the link can open it, like cash. Send it only to people you trust.',
     done: 'Done',
   },
   wallet: {
@@ -138,6 +140,9 @@ export const en = {
     aboutPocketTitle: 'Pocket money, not savings',
     aboutPasskeyTitle: 'Your passkey',
     aboutBiggerTitle: 'Bigger amounts',
+    aboutLinkTitle: 'An envelope link is like cash',
+    aboutLinkBody:
+      'Whoever has the link can open the envelope. The app gives each person one share, but someone with their own tools could take every share that is left. Send links only to people you trust, and take back what is left when you are done. The link never reaches your other money.',
     aboutKeyTitle: 'Your key stays on your phone',
     aboutKeyBody:
       'No website can read or copy it, this one included. A website can only ask your phone to approve one payment, and the face or finger prompt does not show what it is. So only approve right after you tapped Send, Make or Move here. Coming soon: a second key, like Chia Signer, that shows the amount and the address before it approves.',
