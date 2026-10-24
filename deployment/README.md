@@ -32,7 +32,7 @@ It runs as a non-root user and writes no files; `CHAIN_ENDPOINTS`, `PORT` (defau
 The image is ONCE-compatible (once.com): it serves HTTP on port 80, answers the health check
 at `/up`, and keeps no data, so `/storage` stays empty. Install it with the image name above and
 nothing else: it starts on mainnet with the public Coinset node, and takes its address from the
-`BASE_URL` ONCE passes. Every variable can be set later in ONCE; [`.env.example`](.env.example)
+`BASE_URL` ONCE passes. Every variable can be set later in ONCE; [`.env.example`](../.env.example)
 lists them all with what to put in each; without `PORT` the server
 also listens on 8787, the port this image used before.
 
