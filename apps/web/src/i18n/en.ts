@@ -51,8 +51,7 @@ export const en = {
     youGot: 'You got',
     onItsWay: 'On its way · about a minute',
     arrived: 'Arrived. It is yours.',
-    backupNote:
-      'Pocket money, kept by your passkey alone. Bigger amounts belong in Klimper, with its own recovery words.',
+    backupNote: 'Pocket money · small amounts only',
     announce: (amount: string) => `You got ${amount}`,
     sendOn: 'Send it on',
     keep: 'Keep it',
@@ -120,7 +119,13 @@ export const en = {
   wallet: {
     title: 'Your money',
     onTheMove: (amount: string) => `${amount} on the move`,
-    pocketNote: 'Pocket money for envelopes, not savings. Keep larger amounts in Klimper.',
+    smallNote: 'Pocket money · small amounts only',
+    aboutOpen: 'About this money',
+    aboutTitle: 'About this money',
+    aboutPocketTitle: 'Pocket money, not savings',
+    aboutPasskeyTitle: 'Your passkey',
+    aboutBiggerTitle: 'Bigger amounts',
+    pocketNote: 'This is for sending envelopes and small amounts for fun, not for keeping money.',
     passkeyNote: (domain: string) =>
       `Your passkey belongs to ${domain}, and it is the only key to this money: use it for small amounts only. Coming soon you can add more passkeys or Chia Signer with vault manager.`,
     newEnvelope: 'New envelope',
@@ -149,7 +154,7 @@ export const en = {
     earlierMoving: 'Moving…',
     earlierMoved: 'On its way. It arrives in about a minute.',
     earlierMore: 'Part of it is on its way. Tap again for the rest.',
-    backupTitle: 'More than pocket money? Move it to Klimper',
+    backupTitle: 'More than pocket money?',
     backupBody:
       'Your passkey is the only key to this money. Lose it (a lost phone and Apple or Google account) and the money is gone. Klimper keeps money with its own 24 recovery words.',
     backupGet: 'Get Klimper',
@@ -192,7 +197,7 @@ export const en = {
     takingBack: 'Taking it back…',
     receiveTitle: 'Receive',
     receiveBody: 'This is your address. Money sent here lands with you.',
-    receiveSmall: 'Only send small amounts here. This is for fun, not for keeping money.',
+    receiveSmall: 'Small amounts only.',
     addressLabel: 'Your address',
     qrLabel: 'Your address as a code to scan',
     sendTitle: 'Send',

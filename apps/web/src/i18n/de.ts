@@ -51,8 +51,7 @@ export const de: Dict = {
     youGot: 'Du bekommst',
     onItsWay: 'Unterwegs · etwa eine Minute',
     arrived: 'Angekommen. Es gehört dir.',
-    backupNote:
-      'Taschengeld, das nur dein Passkey hält. Größere Beträge gehören in Klimper, mit eigenen Wiederherstellungswörtern.',
+    backupNote: 'Taschengeld · nur kleine Beträge',
     announce: (amount) => `Du bekommst ${amount}`,
     sendOn: 'Weiterschenken',
     keep: 'Behalten',
@@ -120,7 +119,14 @@ export const de: Dict = {
   wallet: {
     title: 'Dein Geld',
     onTheMove: (amount) => `${amount} unterwegs`,
-    pocketNote: 'Taschengeld für Umschläge, kein Sparkonto. Größere Beträge gehören in Klimper.',
+    smallNote: 'Taschengeld · nur kleine Beträge',
+    aboutOpen: 'Über dieses Geld',
+    aboutTitle: 'Über dieses Geld',
+    aboutPocketTitle: 'Taschengeld, kein Sparkonto',
+    aboutPasskeyTitle: 'Dein Passkey',
+    aboutBiggerTitle: 'Größere Beträge',
+    pocketNote:
+      'Das ist zum Verschicken von Umschlägen und kleinen Beträgen zum Spaß, nicht zum Aufbewahren.',
     passkeyNote: (domain: string) =>
       `Dein Passkey gehört zu ${domain} und ist der einzige Schlüssel zu diesem Geld: nur für kleine Beträge. Bald kannst du mit dem Vault Manager weitere Passkeys oder Chia Signer hinzufügen.`,
     newEnvelope: 'Neuer Umschlag',
@@ -149,7 +155,7 @@ export const de: Dict = {
     earlierMoving: 'Wird geholt…',
     earlierMoved: 'Unterwegs. In etwa einer Minute ist es da.',
     earlierMore: 'Ein Teil ist unterwegs. Tipp nochmal für den Rest.',
-    backupTitle: 'Mehr als Taschengeld? Ab damit zu Klimper',
+    backupTitle: 'Mehr als Taschengeld?',
     backupBody:
       'Dein Passkey ist der einzige Schlüssel zu diesem Geld. Geht er verloren (Handy und Apple- oder Google-Konto weg), ist das Geld weg. Klimper sichert Geld mit eigenen 24 Wiederherstellungswörtern.',
     backupGet: 'Klimper holen',
@@ -192,8 +198,7 @@ export const de: Dict = {
     takingBack: 'Wird zurückgeholt…',
     receiveTitle: 'Empfangen',
     receiveBody: 'Das ist deine Adresse. Geld, das hierhin geschickt wird, landet bei dir.',
-    receiveSmall:
-      'Schick hierhin nur kleine Beträge. Das hier ist zum Spaß, nicht zum Aufbewahren.',
+    receiveSmall: 'Nur kleine Beträge.',
     addressLabel: 'Deine Adresse',
     qrLabel: 'Deine Adresse als Code zum Scannen',
     sendTitle: 'Senden',

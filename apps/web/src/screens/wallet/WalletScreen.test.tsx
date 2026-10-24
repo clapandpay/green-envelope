@@ -287,9 +287,14 @@ describe('moving to Klimper', () => {
     const services = createWorld().services;
     renderScreen(<WalletScreen />, { services });
     fireEvent.click(await screen.findByRole('button', { name: /tap the envelope/i }));
-    expect(await screen.findByText(/your passkey belongs to/i)).toBeTruthy();
-    expect(screen.getByText(/small amounts only/i)).toBeTruthy();
-    expect(screen.getByText(/more passkeys or chia signer/i)).toBeTruthy();
+    // Up front: one short line. The whole story: one tap on (i).
+    expect(await screen.findByText(/small amounts only/i)).toBeTruthy();
+    expect(screen.queryByText(/your passkey belongs to/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /about this money/i }));
+    const about = await screen.findByRole('dialog');
+    expect(within(about).getByText(/your passkey belongs to/i)).toBeTruthy();
+    expect(within(about).getByText(/more passkeys or chia signer/i)).toBeTruthy();
+    expect(within(about).getByText(/24 recovery words/i)).toBeTruthy();
   });
 
   it('is not shown on an empty wallet, and the wallet keeps working', async () => {

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
 import { Envelope, type EnvelopeState } from '../../components/Envelope';
-import { DownIcon, PlusIcon, UpIcon } from '../../components/icons';
+import { DownIcon, InfoIcon, PlusIcon, UpIcon } from '../../components/icons';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
 import { errorCode, errorText } from '../../lib/errors';
@@ -71,7 +71,9 @@ export function WalletScreen() {
   const services = useServices();
   const { rate } = useRate();
   const [load, setLoad] = useState<Load>({ s: 'loading' });
-  const [sheet, setSheet] = useState<'receive' | 'send' | 'out' | 'new' | 'klimper' | null>(null);
+  const [sheet, setSheet] = useState<
+    'receive' | 'send' | 'out' | 'new' | 'klimper' | 'about' | null
+  >(null);
   const [working, setWorking] = useState<Work | null>(null);
   /** The passkey failed or was not found: offer to make a new one (never a browser-only wallet). */
   const [offerNew, setOfferNew] = useState(false);
@@ -344,9 +346,19 @@ export function WalletScreen() {
             </>
           )}
         </p>
-        {/* Always there, never dismissable: this wallet lives in a browser (docs/wallet-security.md). */}
-        <p class="soft balance__note">{t.wallet.pocketNote}</p>
-        <p class="soft balance__note">{t.wallet.passkeyNote(passkeyDomain())}</p>
+        {/* Always there, never dismissable: one short line; the whole story is one tap away. */}
+        <p class="soft balance__note">
+          {t.wallet.smallNote}
+          <button
+            type="button"
+            class="info-btn"
+            aria-label={t.wallet.aboutOpen}
+            title={t.wallet.aboutOpen}
+            onClick={() => setSheet('about')}
+          >
+            <InfoIcon />
+          </button>
+        </p>
       </section>
 
       <a class="btn btn--primary btn--huge" href="/new" onClick={onLinkClick}>
@@ -368,11 +380,10 @@ export function WalletScreen() {
       {(balance?.confirmed ?? 0n) > 0n && (
         // Never in the way: a passkey is the only key here, so larger amounts belong in
         // Klimper, a wallet with its own 24 words. Moving is a plain send to it.
-        <section class="card stack" aria-labelledby="klimper-title">
+        <section class="card wallet__klimper" aria-labelledby="klimper-title">
           <h2 id="klimper-title" class="wallet__h2">
             {t.wallet.backupTitle}
           </h2>
-          <p class="soft">{t.wallet.backupBody}</p>
           <button type="button" class="btn" onClick={() => setSheet('klimper')}>
             {t.wallet.klimperOpen}
           </button>
@@ -466,6 +477,25 @@ export function WalletScreen() {
 
       {sheet === 'receive' && (
         <ReceiveSheet address={load.wallet.address} onClose={() => setSheet(null)} />
+      )}
+      {sheet === 'about' && (
+        <Sheet open title={t.wallet.aboutTitle} onClose={() => setSheet(null)}>
+          <div class="stack about">
+            <h3 class="wallet__h2">{t.wallet.aboutPocketTitle}</h3>
+            <p class="soft">{t.wallet.pocketNote}</p>
+            <h3 class="wallet__h2">{t.wallet.aboutPasskeyTitle}</h3>
+            <p class="soft">{t.wallet.passkeyNote(passkeyDomain())}</p>
+            <h3 class="wallet__h2">{t.wallet.aboutBiggerTitle}</h3>
+            <p class="soft">{t.wallet.backupBody}</p>
+            <button
+              type="button"
+              class="btn"
+              onClick={() => setSheet((balance?.confirmed ?? 0n) > 0n ? 'klimper' : null)}
+            >
+              {(balance?.confirmed ?? 0n) > 0n ? t.wallet.klimperOpen : t.footer.howClose}
+            </button>
+          </div>
+        </Sheet>
       )}
       {sheet === 'klimper' && (
         <KlimperSheet

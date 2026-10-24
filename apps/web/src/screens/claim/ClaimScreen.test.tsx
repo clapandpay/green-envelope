@@ -287,12 +287,12 @@ describe('claim: where the money is, on mempoolxch.space', () => {
 });
 
 describe('claim: pocket money in a passkey vault', () => {
-  it('says plainly, under the amount, that bigger amounts belong in Klimper', async () => {
+  it('says plainly, under the amount, that this is for small amounts only', async () => {
     const world = await anEnvelope();
     renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
     expect(await screen.findByText('€7.40')).toBeTruthy();
-    expect(await screen.findByText(/Bigger amounts belong in Klimper/)).toBeTruthy();
+    expect(await screen.findByText(/small amounts only/i)).toBeTruthy();
   });
 
   it('a first claim launches the claimer’s vault on the way; later claims need no prompt', async () => {

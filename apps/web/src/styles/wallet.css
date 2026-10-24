@@ -9,8 +9,47 @@
 }
 
 .balance__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
   font-size: var(--text-s);
+}
+
+/* A small round (i): the whole story, one tap away. Big enough to hit with a thumb. */
+.info-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: -6px 0;
+  padding: 0;
+  border: var(--line-thin) solid var(--ink-soft);
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.info-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.wallet__klimper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.wallet__klimper .wallet__h2 {
+  margin: 0;
+}
+
+.about h3 {
+  margin-top: 8px;
 }
 
 .balance__pending {
