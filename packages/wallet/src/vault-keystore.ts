@@ -15,19 +15,29 @@ import {
 import type { Assertion } from '@ge/vault';
 import { WalletError } from './errors';
 
-/** One browser's wallet: a passkey and, once launched, its vault. */
+/** One browser's wallet on one network: a passkey and, once launched, its vault there. */
 export interface VaultRecord {
   credentialId: Bytes;
   /** 33-byte compressed P-256 public key of the passkey. */
   publicKey: Bytes;
-  /** The vault's launcher id, set as soon as the launch is sent; null before. */
+  /** The vault's launcher id on this network, set as soon as the launch is sent; null before. */
   launcherId: Bytes | null;
+}
+
+/**
+ * What is stored: the passkey once, and a vault per network. The same passkey controls a vault
+ * on mainnet and another on testnet11; they are different coins with different launcher ids.
+ */
+export interface StoredVault {
+  credentialId: Bytes;
+  publicKey: Bytes;
+  launchers: Record<string, Bytes>;
 }
 
 /** Where the record lives. Values must survive a structured clone. */
 export interface VaultStorage {
-  load(): Promise<VaultRecord | null>;
-  save(record: VaultRecord): Promise<void>;
+  load(): Promise<StoredVault | null>;
+  save(record: StoredVault): Promise<void>;
   clear(): Promise<void>;
 }
 
@@ -58,6 +68,8 @@ export interface VaultKeyStore {
 
 /** Options of `createVaultKeyStore`; everything defaults to the browser. */
 export interface VaultKeyStoreOptions {
+  /** Which network's vault `status` reports and `setLauncher` sets. */
+  network?: string;
   rpId?: string;
   rpName?: string;
   storage?: VaultStorage;
@@ -82,6 +94,7 @@ async function signer<T>(work: () => Promise<T>): Promise<T> {
 export function createVaultKeyStore(opts: VaultKeyStoreOptions = {}): VaultKeyStore {
   const env = (): SignerEnv => opts.env ?? browserSignerEnv();
   const rp: RelyingParty = { rpId: opts.rpId, rpName: opts.rpName ?? 'Green Envelope' };
+  const network = opts.network ?? 'mainnet';
   let fallback: VaultStorage | undefined;
   const storage = (): VaultStorage => {
     if (opts.storage !== undefined) return opts.storage;
@@ -90,7 +103,15 @@ export function createVaultKeyStore(opts: VaultKeyStoreOptions = {}): VaultKeySt
   };
 
   return {
-    status: () => storage().load(),
+    async status() {
+      const stored = await storage().load();
+      if (stored === null) return null;
+      return {
+        credentialId: stored.credentialId,
+        publicKey: stored.publicKey,
+        launcherId: stored.launchers[network] ?? null,
+      };
+    },
 
     async passkeySupported() {
       return env().credentials !== undefined;
@@ -98,9 +119,8 @@ export function createVaultKeyStore(opts: VaultKeyStoreOptions = {}): VaultKeySt
 
     async create(label) {
       const made: Passkey = await signer(() => createPasskey(env(), rp, label));
-      const record: VaultRecord = { ...made, launcherId: null };
-      await storage().save(record);
-      return record;
+      await storage().save({ ...made, launchers: {} });
+      return { ...made, launcherId: null };
     },
 
     find: () => signer(() => findPasskey(env(), rp)),
@@ -108,7 +128,12 @@ export function createVaultKeyStore(opts: VaultKeyStoreOptions = {}): VaultKeySt
     narrow: (credentialId, candidates) =>
       signer(() => narrowKey(env(), rp, credentialId, candidates)),
 
-    remember: (record) => storage().save(record),
+    remember: (record) =>
+      storage().save({
+        credentialId: record.credentialId,
+        publicKey: record.publicKey,
+        launchers: record.launcherId === null ? {} : { [network]: record.launcherId },
+      }),
 
     async sign(challenge) {
       const record = await storage().load();
@@ -120,9 +145,13 @@ export function createVaultKeyStore(opts: VaultKeyStoreOptions = {}): VaultKeySt
     },
 
     async setLauncher(launcherId) {
-      const record = await storage().load();
-      if (record === null) throw new WalletError('no_wallet', 'no passkey here');
-      await storage().save({ ...record, launcherId });
+      const stored = await storage().load();
+      if (stored === null) throw new WalletError('no_wallet', 'no passkey here');
+      const { [network]: _old, ...others } = stored.launchers;
+      await storage().save({
+        ...stored,
+        launchers: launcherId === null ? others : { ...others, [network]: launcherId },
+      });
     },
 
     forget: () => storage().clear(),
@@ -136,18 +165,23 @@ function isBytes(value: unknown): value is Bytes {
   return value instanceof Uint8Array;
 }
 
-/** Reads a stored record; anything else is `corrupt`, never silently "no wallet". */
-export function parseVaultRecord(value: unknown): VaultRecord | null {
+/**
+ * Reads a stored record; anything else is `corrupt`, never silently "no wallet". A record from
+ * before networks had one `launcherId` and no network: it is kept without it, and the vault is
+ * found again on the chain by its hint.
+ */
+export function parseVaultRecord(value: unknown): StoredVault | null {
   if (value === undefined || value === null) return null;
   if (typeof value === 'object') {
-    const v = value as Partial<Record<keyof VaultRecord, unknown>>;
-    if (
-      isBytes(v.credentialId) &&
-      isBytes(v.publicKey) &&
-      v.publicKey.length === 33 &&
-      (v.launcherId === null || (isBytes(v.launcherId) && v.launcherId.length === 32))
-    ) {
-      return { credentialId: v.credentialId, publicKey: v.publicKey, launcherId: v.launcherId };
+    const v = value as Partial<Record<'credentialId' | 'publicKey' | 'launchers', unknown>>;
+    if (isBytes(v.credentialId) && isBytes(v.publicKey) && v.publicKey.length === 33) {
+      const launchers: Record<string, Bytes> = {};
+      if (typeof v.launchers === 'object' && v.launchers !== null) {
+        for (const [name, id] of Object.entries(v.launchers)) {
+          if (isBytes(id) && id.length === 32) launchers[name] = id;
+        }
+      }
+      return { credentialId: v.credentialId, publicKey: v.publicKey, launchers };
     }
   }
   throw new WalletError('corrupt', 'the stored wallet record has an unknown shape');
@@ -155,7 +189,7 @@ export function parseVaultRecord(value: unknown): VaultRecord | null {
 
 /** In memory, for tests and for browsers without IndexedDB. */
 export function memoryVaultStorage(): VaultStorage {
-  let record: VaultRecord | null = null;
+  let record: StoredVault | null = null;
   return {
     load: async () => record,
     save: async (next) => {

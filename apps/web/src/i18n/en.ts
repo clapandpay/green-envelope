@@ -216,6 +216,9 @@ export const en = {
   },
   footer: {
     language: 'Language',
+    network: 'Network',
+    mainnet: 'Mainnet',
+    testnet: 'Testnet',
     how: 'How does this work?',
     howTitle: 'How does this work?',
     howPoints: [

@@ -544,6 +544,12 @@ textarea.input {
   background: var(--paper-raised);
 }
 
+/* Test money is play money: the pressed testnet button says so in ochre. */
+.lang--test[aria-pressed="true"] {
+  border-color: var(--sun);
+  color: var(--sun);
+}
+
 .how li {
   position: relative;
   padding: 10px 0 10px 34px;

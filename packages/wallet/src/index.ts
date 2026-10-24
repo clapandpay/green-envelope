@@ -29,6 +29,7 @@ export {
   indexedDbVaultStorage,
   memoryVaultStorage,
   parseVaultRecord,
+  type StoredVault,
   type VaultKeyStore,
   type VaultKeyStoreOptions,
   type VaultRecord,

@@ -116,9 +116,9 @@ function legacyKeyStore(legacy: NonNullable<KeyStoreScript['legacy']>): KeyStore
  * The real vault keystore over a software passkey. Prompts are counted, and the script decides
  * which of them are dismissed.
  */
-function scriptedKeyStore(script: KeyStoreScript) {
+function scriptedKeyStore(script: KeyStoreScript, network: string) {
   const fake = fakePasskeys(script.noPrf === true ? { noEs256: true } : {});
-  const inner = createVaultKeyStore({ env: fake.env, storage: memoryVaultStorage() });
+  const inner = createVaultKeyStore({ network, env: fake.env, storage: memoryVaultStorage() });
   let prompts = 0;
   const prompt = () => {
     prompts += 1;
@@ -235,7 +235,7 @@ export function createWorld(options: WorldOptions = {}) {
   const network = networkName === 'mainnet' ? MAINNET : TESTNET11;
   const now = () => 1_800_000_000;
   const script = options.keyStore ?? {};
-  const scripted = scriptedKeyStore(script);
+  const scripted = scriptedKeyStore(script, networkName);
   const state = createLocalState(memoryStorage());
   const legacyAccount =
     script.legacy === undefined ? null : accountFromSeed(legacySeedOf('old wallet'), network);

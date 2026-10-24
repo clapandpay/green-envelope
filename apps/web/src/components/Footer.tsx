@@ -1,15 +1,34 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useState } from 'preact/hooks';
 import { LANGS, useI18n } from '../i18n';
+import { type NetworkName, resolveNetwork } from '../lib/network';
 import { Sheet } from './Sheet';
 
 // `v0.1.0 · 3e7d6fc`. Empty outside a Vite build (the tests), where there is no release to name.
 const { APP_VERSION, APP_COMMIT } = import.meta.env;
 const BUILD = [APP_VERSION && `v${APP_VERSION}`, APP_COMMIT].filter(Boolean).join(' · ');
 
+const NETWORKS: readonly NetworkName[] = ['mainnet', 'testnet11'];
+
+/**
+ * The same page on the other network. A claim link belongs to the chain it was made on, so from
+ * an envelope the switch goes to the wallet instead. A full load: every service is built for
+ * one network.
+ */
+export function switchNetworkUrl(
+  where: { pathname: string; search: string },
+  to: NetworkName,
+): string {
+  const path = where.pathname.startsWith('/g/') ? '/' : where.pathname;
+  const params = new URLSearchParams(where.search);
+  params.set('net', to === 'mainnet' ? 'main' : 'testnet');
+  return `${path}?${params.toString()}`;
+}
+
 export function Footer() {
   const { t, lang, setLang } = useI18n();
   const [howOpen, setHowOpen] = useState(false);
+  const network = resolveNetwork(location.search, import.meta.env.VITE_NETWORK);
   return (
     <footer class="footer">
       <button type="button" class="btn btn--plain" onClick={() => setHowOpen(true)}>
@@ -27,6 +46,22 @@ export function Footer() {
             onClick={() => setLang(code)}
           >
             {code}
+          </button>
+        ))}
+      </fieldset>
+      <fieldset class="footer__lang footer__net">
+        <legend class="sr-only">{t.footer.network}</legend>
+        {NETWORKS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            class={`lang${name === 'testnet11' ? ' lang--test' : ''}`}
+            aria-pressed={name === network}
+            onClick={() => {
+              if (name !== network) location.assign(switchNetworkUrl(location, name));
+            }}
+          >
+            {name === 'mainnet' ? t.footer.mainnet : t.footer.testnet}
           </button>
         ))}
       </fieldset>

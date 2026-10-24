@@ -217,6 +217,9 @@ export const de: Dict = {
   },
   footer: {
     language: 'Sprache',
+    network: 'Netzwerk',
+    mainnet: 'Mainnet',
+    testnet: 'Testnet',
     how: 'Wie funktioniert das?',
     howTitle: 'Wie funktioniert das?',
     howPoints: [

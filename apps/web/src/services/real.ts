@@ -52,6 +52,7 @@ import {
   createKeyStore,
   createVaultKeyStore,
   currentVault,
+  findLauncherId,
   type KeyStore,
   keyWithMoney,
   MAX_INPUTS,
@@ -271,8 +272,22 @@ export function createServicesFrom(deps: RealDeps): AppServices {
   }
 
   /** The one tap: the wallet here, else the passkey the phone has, else a new one. */
+  /**
+   * This browser's record, with this network's vault filled in from the chain when it is not
+   * known here yet (another network was used first, or an older record). A launch is never
+   * made for a passkey that already has a vault.
+   */
+  async function knownRecord(): Promise<VaultRecord | null> {
+    const record = await keyStore.status();
+    if (record === null || record.launcherId !== null) return record;
+    const launcherId = await findLauncherId(chain, record.publicKey);
+    if (launcherId === null) return record;
+    await keyStore.setLauncher(launcherId);
+    return { ...record, launcherId };
+  }
+
   async function ensureRecord(): Promise<VaultRecord> {
-    const here = await keyStore.status();
+    const here = await knownRecord();
     if (here !== null) return here;
     try {
       return await signIn();
@@ -285,7 +300,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
   }
 
   async function requireRecord(): Promise<VaultRecord> {
-    const record = await keyStore.status();
+    const record = await knownRecord();
     if (record === null) throw new ServiceError('no_wallet_here');
     return record;
   }
@@ -634,7 +649,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
 
       balance: () =>
         guarded(async (): Promise<Balance> => {
-          const record = await keyStore.status();
+          const record = await knownRecord();
           if (record === null) return { confirmed: 0n, pending: 0n };
           // Public data only: reading the balance never needs the passkey.
           const { money, setup } = await walletCoins(chain, record.publicKey, record.launcherId);
@@ -681,7 +696,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       // cannot tell a new person from a hesitant one. Making one is a separate, asked-for step.
       open: () =>
         guarded(async (): Promise<WalletInfo> => {
-          const here = await keyStore.status();
+          const here = await knownRecord();
           if (here !== null) return adopt(here);
           return adopt(await signIn());
         }),
@@ -839,7 +854,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       takeBack: (id) =>
         guarded(async () => {
           const record = state.sent().find((entry) => entry.id === id);
-          const wallet = await keyStore.status();
+          const wallet = await knownRecord();
           if (record === undefined || wallet === null) throw new ServiceError('unknown');
           // The envelope's own secret signs; the wallet's passkey is not needed, so no prompt.
           const link = decodeLink(record.link);
@@ -906,7 +921,11 @@ export function createRealServices(): AppServices {
   return createServicesFrom({
     network,
     chain: createChainClient({ endpoints: configured.length > 0 ? configured : [direct] }),
-    keyStore: createVaultKeyStore({ rpName: 'Clap and Pay', ...rpIdOption(location.hostname) }),
+    keyStore: createVaultKeyStore({
+      network: network.name,
+      rpName: 'Clap and Pay',
+      ...rpIdOption(location.hostname),
+    }),
     legacyKeyStore: createKeyStore({ rpName: 'Clap and Pay', ...rpIdOption(location.hostname) }),
     state: createLocalState(localStorage),
     origin: String(env.VITE_PUBLIC_ORIGIN ?? location.origin),
