@@ -490,6 +490,8 @@ export function WalletScreen() {
             <p class="soft">{t.wallet.pocketNote}</p>
             <h3 class="wallet__h2">{t.wallet.aboutPasskeyTitle}</h3>
             <p class="soft">{t.wallet.passkeyNote(passkeyDomain())}</p>
+            <h3 class="wallet__h2">{t.wallet.aboutKeyTitle}</h3>
+            <p class="soft">{t.wallet.aboutKeyBody}</p>
             <h3 class="wallet__h2">{t.wallet.aboutBiggerTitle}</h3>
             <p class="soft">{t.wallet.backupBody}</p>
             <button
