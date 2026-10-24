@@ -17,6 +17,8 @@ import {
   TESTNET11,
   toHex,
 } from '@ge/chia';
+import { buildVaultSpend, launchVault, signatureFromDer } from '@ge/vault';
+import { p256 } from '@noble/curves/nist.js';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   buildCreate,
@@ -271,5 +273,81 @@ describe('buildSweep', () => {
         network,
       }),
     ).toThrowError(/insufficient_funds/);
+  });
+});
+
+describe('with a passkey vault', () => {
+  // A software passkey: it signs what a real one signs.
+  const passkeySk = sha256(text('the claimer passkey'));
+  const passkeyPk = p256.getPublicKey(passkeySk, true);
+  function sign(challenge: Uint8Array) {
+    const authenticatorData = Uint8Array.from([...sha256(text('clapandpay.com')), 5, 0, 0, 0, 1]);
+    const clientDataJSON = text(
+      `{"type":"webauthn.get","challenge":"${Buffer.from(challenge).toString('base64url')}"}`,
+    );
+    const der = p256.sign(sha256(authenticatorData, sha256(clientDataJSON)), passkeySk, {
+      prehash: false,
+      format: 'der',
+    });
+    return { authenticatorData, clientDataJSON, signature: signatureFromDer(der) };
+  }
+
+  const amounts = [400_000n, 600_000n];
+  const funding = walletCoin(sender, 'vault test funding', 2_000_000n);
+  const created = buildCreate({
+    inputs: [{ coin: funding, signer: sender }],
+    envelopePk: envelope.publicKey,
+    amounts,
+    changePuzzleHash: sender.puzzleHash,
+    fee: 0n,
+    network,
+  });
+  const share = created.shares[0];
+  if (share === undefined) throw new Error('no share');
+
+  it('the first claim launches the claimer’s vault from the share, with no prompt', () => {
+    let launched: ReturnType<typeof launchVault> | undefined;
+    const opened = buildOpen({
+      share,
+      envelopeSk: envelope.secretKey,
+      toPuzzleHash: (spent) => {
+        launched = launchVault(coinId(spent), passkeyPk);
+        return {
+          puzzleHash: launched.moneyPuzzleHash,
+          conditions: launched.conditions,
+          spends: [launched.launcherSpend],
+          cost: 1n,
+        };
+      },
+      fee: 500n,
+      network,
+    });
+    if (launched === undefined) throw new Error('no launch');
+    expect(opened.received).toBe(share.coin.amount - 500n - 1n);
+    expect(opened.destination.puzzleHash).toEqual(launched.moneyPuzzleHash);
+    record('open: the first claim also launches the claimer’s vault', [share.coin], opened.bundle);
+
+    // From then on the vault spends: an envelope of its own, out of the money it received.
+    const money = {
+      parentCoinInfo: coinId(share.coin),
+      puzzleHash: launched.moneyPuzzleHash,
+      amount: opened.received,
+    };
+    const next = envelopeKeys(sha256(text('the claimer’s own envelope')).slice(0, 16));
+    const shareAmounts = [100_000n, 150_000n];
+    const unsigned = buildVaultSpend({
+      vault: launched.vault,
+      money: [money],
+      outputs: shareAmounts.map((amount, index) => ({
+        puzzleHash: sharePuzzleHash(next.publicKey, index),
+        amount,
+      })),
+      fee: 500n,
+    });
+    record(
+      'create: an envelope paid from a passkey vault (one prompt)',
+      [launched.vault.coin, money],
+      unsigned.finish(sign(unsigned.challenge)),
+    );
   });
 });

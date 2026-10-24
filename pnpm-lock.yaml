@@ -255,6 +255,13 @@ importers:
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
+    devDependencies:
+      '@ge/vault':
+        specifier: workspace:*
+        version: link:../vault
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
 
   packages/handoff: {}
 
@@ -290,6 +297,12 @@ importers:
       '@ge/chia':
         specifier: workspace:*
         version: link:../chia
+      '@ge/passkey-signer':
+        specifier: workspace:*
+        version: link:../passkey-signer
+      '@ge/vault':
+        specifier: workspace:*
+        version: link:../vault
       '@scure/bip39':
         specifier: 2.4.0
         version: 2.4.0

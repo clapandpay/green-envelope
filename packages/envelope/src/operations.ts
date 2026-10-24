@@ -10,7 +10,7 @@ import {
   type SecretKey,
   toHex,
 } from '@ge/chia';
-import { buildOpen, buildTakeBack } from './builders';
+import { buildOpen, buildTakeBack, type Destination, destinationFor, type To } from './builders';
 import { MAX_SHARES } from './constants';
 import { EnvelopeError } from './errors';
 import { sharePuzzleHash } from './shares';
@@ -79,6 +79,8 @@ export interface OpenedShare {
   received: bigint;
   /** The coin that will exist in the claimer's wallet once confirmed. */
   output: Coin;
+  /** Where it went (and whether the claim also launched a vault). */
+  destination: Destination;
 }
 
 function isLostRace(error: unknown): boolean {
@@ -97,7 +99,7 @@ export async function openEnvelope(args: {
   envelopeSk: SecretKey;
   envelopePk: PublicKey;
   sharesHint?: number;
-  toPuzzleHash: Bytes;
+  toPuzzleHash: To;
   fee: bigint;
   network: Network;
   random?: () => number;
@@ -110,13 +112,22 @@ export async function openEnvelope(args: {
     const shares = await inspectEnvelope(chain, envelopePk, sharesHint);
     if (shares.length === 0) throw new EnvelopeError('not_found');
     const candidates = shares.filter(
-      (share) => !share.opened && !tried.has(share.index) && share.coin.amount > fee,
+      (share) =>
+        !share.opened &&
+        !tried.has(share.index) &&
+        share.coin.amount > fee + (destinationFor(toPuzzleHash, share.coin).cost ?? 0n),
     );
     while (candidates.length > 0) {
       const [share] = candidates.splice(Math.floor(random() * candidates.length), 1);
       if (share === undefined) break;
       tried.add(share.index);
-      const { bundle, received } = buildOpen({ share, envelopeSk, toPuzzleHash, fee, network });
+      const { bundle, received, destination } = buildOpen({
+        share,
+        envelopeSk,
+        toPuzzleHash,
+        fee,
+        network,
+      });
       try {
         await chain.pushTx(bundle);
       } catch (error) {
@@ -126,7 +137,12 @@ export async function openEnvelope(args: {
       return {
         share,
         received,
-        output: { parentCoinInfo: coinId(share.coin), puzzleHash: toPuzzleHash, amount: received },
+        output: {
+          parentCoinInfo: coinId(share.coin),
+          puzzleHash: destination.puzzleHash,
+          amount: received,
+        },
+        destination,
       };
     }
   }

@@ -12,5 +12,9 @@
     "@ge/chain": "workspace:*",
     "@ge/chia": "workspace:*",
     "@noble/hashes": "2.4.0"
+  },
+  "devDependencies": {
+    "@ge/vault": "workspace:*",
+    "@noble/curves": "2.4.0"
   }
 }
