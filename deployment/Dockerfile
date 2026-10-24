@@ -9,7 +9,7 @@
 # handler either way — apps/edge is written to web-standard Request/Response precisely so that
 # the runtime is a choice.
 #
-# Built context is green-envelope/. Published by .github/workflows/green-envelope.yml on a release.
+# Built context is the repository root. Published by .github/workflows/green-envelope.yml on a release.
 
 # ---------------------------------------------------------------------------------------------
 # Build: the web bundle. Nothing from this stage reaches the runtime except apps/web/dist.

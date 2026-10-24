@@ -6,3 +6,6 @@ node_modules
 tools/vectors/target
 **/*.log
 .DS_Store
+# The repository root is the context (DIR: .): its history and CI files are not the product.
+.git
+.github

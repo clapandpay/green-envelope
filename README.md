@@ -2,9 +2,7 @@
 
 Money as a link in the group chat. Tap, open with your face or fingerprint, and it is yours:
 no app to install, no account. The first product of [Clap and Pay](https://clapandpay.com);
-this folder of the clapandpay monorepo is self-contained (own toolchain, lockfile, licence and
-CI workflow, `.github/workflows/green-envelope.yml`), so it can become its own repository
-(`../SPLITTING.md`).
+it moved here from the clapandpay monorepo on 2026-10-24 with its history.
 
 - Contracts between the packages: [docs/contracts.md](docs/contracts.md)
 
@@ -28,5 +26,7 @@ pnpm verify:spends  # runs TypeScript-built spend bundles through the Rust simul
 Rules: TypeScript strict and no `any`; bytes are `Uint8Array`, amounts are `bigint`; no code that
 builds a spend merges without a simulator check; the claim route stays under 100 kB gzipped.
 
-Licence: AGPL-3.0-or-later with the app store exception (`../LICENSE-APP-STORE-EXCEPTION.md`).
-Commercial licences: `../COMMERCIAL-LICENSE.md`.
+Licence: AGPL-3.0-or-later with the app store exception (`LICENSE-APP-STORE-EXCEPTION.md`).
+Contributions are signed off under the DCO, no CLA (`CONTRIBUTING.md`); vulnerabilities are
+reported privately (`SECURITY.md`). "Clap and Pay", "clapandpay" and the logos are trademarks
+(`TRADEMARK.md`).

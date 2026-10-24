@@ -8,7 +8,7 @@ web-standard `Request`/`Response` precisely so the runtime is a choice.
 docker run -p 8787:8787 \
   -e NETWORK=mainnet \
   -e PUBLIC_ORIGIN=https://envelope.clapandpay.com \
-  ghcr.io/maximedogawa/clapandpay/green-envelope:latest
+  ghcr.io/clapandpay/green-envelope/green-envelope:latest
 ```
 
 It runs as a non-root user and writes no files; `CHAIN_ENDPOINTS`, `PORT` and the optional
@@ -16,7 +16,7 @@ It runs as a non-root user and writes no files; `CHAIN_ENDPOINTS`, `PORT` and th
 `.github/workflows/green-envelope.yml` on a `green-envelope-v*` release; a prerelease does not move
 `:latest`.
 
-To build one locally, from `green-envelope/`:
+To build one locally, from the repository root:
 
 ```sh
 docker build -f deployment/Dockerfile --build-arg GIT_COMMIT="$(git rev-parse HEAD)" -t green-envelope .
@@ -24,6 +24,5 @@ docker build -f deployment/Dockerfile --build-arg GIT_COMMIT="$(git rev-parse HE
 
 ## Running it on clapandpay.com
 
-The production launch (this image next to the clapandpay.com website image, behind Caddy) is in
-[`../../deploy/`](../../deploy/README.md): it only pulls published images and does not belong to
-either product.
+The production launch (this image next to the clapandpay.com website image, behind Caddy) lives
+with the website, in its `deploy/` folder: it only pulls published images.
