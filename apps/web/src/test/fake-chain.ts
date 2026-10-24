@@ -104,7 +104,7 @@ function outputsOf(parent: Coin, solution: Bytes): Created[] {
 export function createFakeChain() {
   const records = new Map<string, CoinRecord>();
   const hints = new Map<string, string>(); // coin id -> hint
-  const mempool = new Map<string, Created[]>();
+  const mempool = new Map<string, { coin: Coin; outputs: Created[] }>();
   let height = 100;
 
   function add(coin: Coin, hint: Bytes | null = null): void {
@@ -146,13 +146,25 @@ export function createFakeChain() {
     },
     async pushTx(bundle) {
       const spends = bundle.coinSpends.map((spend) => ({ id: toHex(coinId(spend.coin)), spend }));
+      // A coin made and spent in the same bundle (a vault's launcher) needs no record yet.
+      const madeHere = new Set(
+        spends.flatMap(({ spend }) =>
+          outputsOf(spend.coin, spend.solution).map((out) => toHex(coinId(out.coin))),
+        ),
+      );
       for (const { id } of spends) {
         const record = records.get(id);
-        if (record === undefined) throw new ChainError('unknown_coin', 'UNKNOWN_UNSPENT');
-        if (record.spentHeight !== null) throw new ChainError('double_spend', 'DOUBLE_SPEND');
+        if (record === undefined && !madeHere.has(id)) {
+          throw new ChainError('unknown_coin', 'UNKNOWN_UNSPENT');
+        }
+        if (record !== undefined && record.spentHeight !== null) {
+          throw new ChainError('double_spend', 'DOUBLE_SPEND');
+        }
         if (mempool.has(id)) throw new ChainError('double_spend', 'MEMPOOL_CONFLICT');
       }
-      for (const { id, spend } of spends) mempool.set(id, outputsOf(spend.coin, spend.solution));
+      for (const { id, spend } of spends) {
+        mempool.set(id, { coin: spend.coin, outputs: outputsOf(spend.coin, spend.solution) });
+      }
       return { status: 'success' };
     },
     async peakHeight() {
@@ -165,10 +177,14 @@ export function createFakeChain() {
     add,
     farmBlock(): void {
       height += 1;
-      for (const [id, outputs] of mempool) {
+      // Outputs first, so a coin made and spent in this block exists before it is spent.
+      for (const { outputs } of mempool.values()) {
+        for (const output of outputs) add(output.coin, output.hint);
+      }
+      for (const [id, { coin }] of mempool) {
+        if (!records.has(id)) add(coin);
         const record = records.get(id);
         if (record !== undefined) record.spentHeight = height;
-        for (const output of outputs) add(output.coin, output.hint);
       }
       mempool.clear();
     },

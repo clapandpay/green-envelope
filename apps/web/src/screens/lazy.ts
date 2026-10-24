@@ -3,8 +3,6 @@
 
 export const loadCreateScreen = () => import('./create/CreateScreen').then((m) => m.CreateScreen);
 export const loadHelloScreen = () => import('./hello/HelloScreen').then((m) => m.HelloRoute);
-export const loadConnectScreen = () =>
-  import('./connect/ConnectScreen').then((m) => m.ConnectScreen);
 export const loadWalletScreen = () => import('./wallet/WalletScreen').then((m) => m.WalletScreen);
 
 /** Fetches both chunks while the person is busy being happy; failures do not matter here. */

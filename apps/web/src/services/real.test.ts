@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { decodeAddress, sha256, TESTNET11 } from '@ge/chia';
 import { decodeLink } from '@ge/envelope';
-import { createHandoffRequest } from '@ge/handoff';
-import type { KeyStore } from '@ge/wallet';
+import { fakePasskeys } from '@ge/passkey-signer/fake';
+import { createVaultKeyStore, memoryVaultStorage, type VaultKeyStore } from '@ge/wallet';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeChain } from '../test/fake-chain';
 import { createLocalState } from './local-state';
@@ -19,51 +19,18 @@ function memoryStorage() {
   };
 }
 
-/** A keystore with a fixed seed per person, created on first use like the real one. */
-function keyStoreFor(name: string): KeyStore {
-  let exists = false;
-  const unlockedWallet = () => ({
-    kind: 'device' as const,
-    version: 1 as const,
-    seed: sha256(text(`seed of ${name}`)),
-    entropy: null,
-  });
-  return {
-    status: async () =>
-      exists ? { kind: 'device' as const, version: 1 as const, restorable: false } : null,
-    passkeySupported: async () => false,
-    create: async () => {
-      exists = true;
-      return unlockedWallet();
-    },
-    unlock: async () => unlockedWallet(),
-    signIn: async () => {
-      exists = true;
-      return unlockedWallet();
-    },
-    forget: async () => {
-      exists = false;
-    },
-    importWallet: async (seed: Uint8Array) => {
-      exists = true;
-      return {
-        kind: 'device' as const,
-        version: 1 as const,
-        seed: new Uint8Array(seed),
-        entropy: null,
-      };
-    },
-    secureWithPasskey: async () => unlockedWallet(),
-  };
+/** The real vault keystore over a software passkey: one per person, as one phone each. */
+function keyStoreFor(): VaultKeyStore {
+  return createVaultKeyStore({ env: fakePasskeys().env, storage: memoryVaultStorage() });
 }
 
 function world(fee = 0n) {
   const fake = createFakeChain();
-  const person = (name: string): AppServices =>
+  const person = (_name: string): AppServices =>
     createServicesFrom({
       network: TESTNET11,
       chain: fake.chain,
-      keyStore: keyStoreFor(name),
+      keyStore: keyStoreFor(),
       state: createLocalState(memoryStorage()),
       origin: 'https://clapandpay.test',
       fetch: async () => new Response('{}', { status: 500 }),
@@ -77,6 +44,10 @@ function world(fee = 0n) {
       },
     });
   return { fake, person };
+}
+
+async function addressOf(who: AppServices): Promise<string> {
+  return (await who.wallet.ensure()).address;
 }
 
 async function fund(fake: ReturnType<typeof createFakeChain>, who: AppServices, amount: bigint) {
@@ -113,7 +84,8 @@ describe('the whole loop', () => {
     fake.farmBlock();
     // The outgoing amount stops counting as pending once the next poll sees the envelope.
     await vi.waitFor(async () =>
-      expect(await anna.wallet.balance()).toEqual({ confirmed: 1_000_000_000n, pending: 0n }),
+      // Her first spend launched her vault: 1 mojo is the vault itself, not money.
+      expect(await anna.wallet.balance()).toEqual({ confirmed: 999_999_999n, pending: 0n }),
     );
     expect(await kai.envelopes.inspect(sent.link)).toMatchObject({
       from: 'Anna',
@@ -126,7 +98,8 @@ describe('the whole loop', () => {
     // Everybody taps within the same block.
     const family = ['kai', 'ben', 'chris', 'dana', 'eli'].map(person);
     const opened = await Promise.all(family.map((p) => p.envelopes.open(sent.link)));
-    expect(opened.reduce((sum, o) => sum + o.amount, 0n)).toBe(1_000_000_000n);
+    // Each first claim also launched that person's vault: 1 mojo each, out of the share.
+    expect(opened.reduce((sum, o) => sum + o.amount, 0n)).toBe(1_000_000_000n - 5n);
 
     const late = person('late');
     await expect(late.envelopes.open(sent.link)).rejects.toMatchObject({ code: 'envelope_empty' });
@@ -160,9 +133,10 @@ describe('the whole loop', () => {
 
     const kai = person('kai');
     const first = await kai.envelopes.open(sent.link);
-    expect(first.amount).toBe(200_000n);
+    // Kai's first claim also launched his vault, out of the share: 1 mojo.
+    expect(first.amount).toBe(200_000n - 1n);
     await expect(kai.envelopes.open(sent.link)).rejects.toMatchObject({ code: 'already_opened' });
-    expect((await kai.envelopes.inspect(sent.link)).openedAmount).toBe(200_000n);
+    expect((await kai.envelopes.inspect(sent.link)).openedAmount).toBe(200_000n - 1n);
   });
 
   it('takes back what nobody opened, with the fee paid by the shares', async () => {
@@ -180,7 +154,7 @@ describe('the whole loop', () => {
 
     const kai = person('kai');
     const opened = await kai.envelopes.open(sent.link);
-    expect(opened.amount).toBe(2_000_000n - 1_000n);
+    expect(opened.amount).toBe(2_000_000n - 1_000n - 1n); // and Kai's vault
     fake.farmBlock();
 
     const back = await anna.envelopes.takeBack(sent.id);
@@ -188,9 +162,9 @@ describe('the whole loop', () => {
     fake.farmBlock();
     await back.confirmed;
 
-    // 10M - 6M - create fee + 4M - take-back fee
+    // 10M - 6M - create fee - her vault + 4M - take-back fee
     expect((await anna.wallet.balance()).confirmed).toBe(
-      10_000_000n - 6_000_000n - 1_000n + 3_999_000n,
+      10_000_000n - 6_000_000n - 1_000n - 1n + 3_999_000n,
     );
     const [listed] = await anna.envelopes.listSent();
     expect(listed).toMatchObject({
@@ -214,7 +188,7 @@ describe('the whole loop', () => {
     expect((await kai.wallet.balance()).pending).toBe(-4_000n);
     fake.farmBlock();
     await sending.confirmed;
-    expect(await kai.wallet.balance()).toEqual({ confirmed: 5_000n, pending: 0n });
+    expect(await kai.wallet.balance()).toEqual({ confirmed: 4_999n, pending: 0n }); // vault: 1
     expect((await anna.wallet.balance()).confirmed).toBe(4_000n);
 
     await expect(kai.wallet.send(address.replace(/^txch/, 'xch'), 1n)).rejects.toMatchObject({
@@ -225,7 +199,7 @@ describe('the whole loop', () => {
     await expect(kai.wallet.send('@anna', 1n)).rejects.toMatchObject({
       code: 'handles_mainnet_only',
     });
-    await expect(kai.wallet.send(address, 6_000n)).rejects.toMatchObject({
+    await expect(kai.wallet.send(address, 5_000n)).rejects.toMatchObject({
       code: 'insufficient_funds',
     });
   });
@@ -251,21 +225,30 @@ describe('the whole loop', () => {
   });
 });
 
-describe('handing the wallet to Klimper', () => {
-  it('refuses a wallet from before recovery words: it has none to hand over', async () => {
-    const { person } = world();
-    const kai = person('kai'); // this stub keystore holds version 1 wallets
-    await kai.wallet.ensure();
+describe('moving to Klimper', () => {
+  it('sends everything to a Klimper address with one prompt, and refuses another network', async () => {
+    const { fake, person } = world(1_000n);
+    const kai = person('kai');
+    await fund(fake, kai, 2_000_000n);
+    // The first spend from setup money also launches the vault.
+    await kai.wallet.send(await addressOf(person('lea')), 100_000n);
+    fake.farmBlock();
+    const before = (await kai.wallet.balance()).confirmed;
+    expect(before).toBe(2_000_000n - 100_000n - 1_000n - 1n);
 
-    const klimper = await createHandoffRequest('https://clapandpay.test');
-    const search = new URL(klimper.url).hash;
-    expect(await kai.wallet.connectRequest(search)).toEqual({});
-    await expect(kai.wallet.connectApprove(search)).rejects.toMatchObject({
-      code: 'wallet_too_old',
+    const klimper = await addressOf(person('klimper'));
+    await expect(
+      kai.wallet.moveToKlimper('xch1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'),
+    ).rejects.toMatchObject({
+      code: 'invalid_recipient',
     });
-    await expect(kai.wallet.connectRequest('#v=2&k=nope')).rejects.toMatchObject({
-      code: 'bad_request',
-    });
+    const moved = await kai.wallet.moveToKlimper(klimper);
+    expect(moved.amount).toBe(before - 1_000n);
+    expect(moved.more).toBe(false);
+    fake.farmBlock();
+    await moved.confirmed;
+    expect((await kai.wallet.balance()).confirmed).toBe(0n);
+    expect(fake.balanceOf(decodeAddress(klimper).puzzleHash)).toBe(before - 1_000n);
   });
 });
 

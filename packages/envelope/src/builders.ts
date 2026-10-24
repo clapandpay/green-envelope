@@ -197,23 +197,33 @@ export function buildTakeBack(args: {
  */
 export function buildSweep(args: {
   inputs: readonly OwnedCoin[];
-  toPuzzleHash: Bytes;
+  toPuzzleHash: To;
   fee: bigint;
   network: Network;
-}): { bundle: SpendBundle; amount: bigint } {
-  const { inputs, toPuzzleHash, fee, network } = args;
-  const amount = sum(inputs.map((input) => input.coin.amount)) - fee;
-  if (amount <= 0n) throw new EnvelopeError('insufficient_funds', 'nothing left after the fee');
+}): { bundle: SpendBundle; amount: bigint; destination: Destination } {
+  const { inputs, fee, network } = args;
+  const first = inputs[0];
+  if (first === undefined) throw new EnvelopeError('insufficient_funds', 'no coins to spend');
+  // The destination may launch a vault from the first coin (an old wallet moving in).
+  const destination = destinationFor(args.toPuzzleHash, first.coin);
+  const amount = sum(inputs.map((input) => input.coin.amount)) - fee - (destination.cost ?? 0n);
+  if (fee < 0n || amount <= 0n) {
+    throw new EnvelopeError('insufficient_funds', 'nothing left after the fee');
+  }
+  const to = destination.puzzleHash;
+  const conditions: Condition[] = [
+    ...(destination.conditions ?? []),
+    { kind: 'createCoin', puzzleHash: to, amount, memos: [to] },
+    ...feeCondition(fee),
+  ];
+  const signed = spendTogether(inputs, conditions, network);
   return {
-    bundle: buildSend({
-      inputs,
-      toPuzzleHash,
-      amount,
-      changePuzzleHash: toPuzzleHash,
-      fee,
-      network,
-    }),
+    bundle: {
+      coinSpends: [...(destination.spends ?? []), ...signed.coinSpends],
+      aggregatedSignature: signed.aggregatedSignature,
+    },
     amount,
+    destination,
   };
 }
 

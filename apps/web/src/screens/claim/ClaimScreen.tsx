@@ -69,8 +69,6 @@ function RevealPanel(props: {
   rate: Rate | null;
   fresh: boolean;
   confirmed: boolean;
-  /** Not yet handed to Klimper, the only backup (TASK-131). */
-  backupDue: boolean;
 }) {
   const { t } = useI18n();
   const { amount, view, fresh } = props;
@@ -116,7 +114,7 @@ function RevealPanel(props: {
           </p>
         )}
       </div>
-      {props.fresh && props.backupDue && (
+      {props.fresh && (
         <p class="claim__note soft rv" style="--i:5">
           {t.claim.backupNote}
         </p>
@@ -187,21 +185,6 @@ export function ClaimScreen(props: { link: string }) {
   const { t, locale } = useI18n();
   const { rate } = useRate();
   const { state, open, openWithNewPasskey, retry } = useClaim(props.link);
-  const services = useServices();
-  // Asked once the money is in a wallet: before that there is nothing to back up.
-  const [backupDue, setBackupDue] = useState(false);
-  const inWallet = state.s === 'opened' && state.fresh;
-  useEffect(() => {
-    if (!inWallet) return;
-    let current = true;
-    services.wallet.backedUp().then(
-      (done) => current && setBackupDue(!done),
-      () => {},
-    );
-    return () => {
-      current = false;
-    };
-  }, [inWallet, services]);
   const opened = state.s === 'opened';
   const fresh = opened && state.fresh;
   // Until it is opened there is nothing on the page but the envelope.
@@ -262,7 +245,6 @@ export function ClaimScreen(props: { link: string }) {
             rate={rate}
             fresh={state.fresh}
             confirmed={state.confirmed}
-            backupDue={backupDue}
           />
         )}
         {(state.s === 'gone' || state.s === 'failed') && (

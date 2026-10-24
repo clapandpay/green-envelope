@@ -15,9 +15,9 @@ first release. TypeScript, Preact, Vite; a Rust verifier; pnpm 12. CI and git ru
 - Images: `deployment/Dockerfile`, built by `.github/workflows/green-envelope.yml` on a
   `green-envelope-v*` release that matches `package.json`. The production host is the website
   repository's `deploy/`.
-- Two tests reach into the sibling `../klimper/` (the handoff receiver must be byte for byte the
-  same file there). They skip, or the e2e fails to import, unless Klimper is checked out next
-  to this repository as `klimper` (`git clone https://github.com/clapandpay/Klimper klimper`).
+- The wallet is a passkey vault (`packages/vault`, `packages/passkey-signer`): no wallet key
+  ever exists in the browser. Moving money to Klimper is a plain send to a Klimper address;
+  nothing hands keys or words to another app.
 
 ## CI
 

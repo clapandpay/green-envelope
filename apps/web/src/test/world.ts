@@ -3,15 +3,16 @@
 //
 // There is no second implementation of `AppServices` any more. What a screen talks to here is
 // `createServicesFrom` — the same function `createRealServices` calls — wired to a fake chain,
-// a keystore that answers without a fingerprint sensor, and a `fetch` that serves the handful
-// of routes the app asks for. A test reaches a situation by putting the chain into it
+// the real vault keystore over a software passkey (real P-256 signatures, no sensor), and a
+// `fetch` that serves the handful of routes the app asks for. A test reaches a situation by putting the chain into it
 // (`fund`, `makeEnvelope`, `openOneShare`), not by asking a stand-in to pretend.
 
 import { ChainError } from '@ge/chain';
 import type { Coin } from '@ge/chia';
 import { decodeAddress, MAINNET, sha256, TESTNET11 } from '@ge/chia';
-import type { KeyStore, UnlockedWallet, WalletKind } from '@ge/wallet';
-import { accountFromSeed, seedFromEntropy, WalletError } from '@ge/wallet';
+import { fakePasskeys } from '@ge/passkey-signer/fake';
+import type { KeyStore, UnlockedWallet, VaultKeyStore, WalletKind } from '@ge/wallet';
+import { accountFromSeed, createVaultKeyStore, memoryVaultStorage, WalletError } from '@ge/wallet';
 import type { NetworkName } from '../lib/network';
 import { createLocalState } from '../services/local-state';
 import { createServicesFrom } from '../services/real';
@@ -23,32 +24,23 @@ const text = (value: string) => new TextEncoder().encode(value);
 /** The seed a scripted passkey held before 24 words. */
 export const earlierSeedOf = (name: string) => sha256(text(`earlier seed of ${name}`));
 
-/** How the keystore behaves, for the cases a screen has to handle. */
+/** How the passkey behaves, for the cases a screen has to handle. */
 export interface KeyStoreScript {
-  /** 'device' is a wallet the browser holds alone; 'passkey' is derived and comes back. */
-  kind?: WalletKind;
-  /** A wallet is already on this device, so opening unlocks instead of signing in. */
+  /** This browser already knows its passkey, so opening needs no prompt. */
   exists?: boolean;
-  /**
-   * The passkey also held a wallet from before 24 words: unlock and sign-in hand over its seed
-   * (TASK-128). The value names that seed.
-   */
-  earlier?: string;
   /** The first prompt is dismissed, the way a cancelled Face ID sheet behaves. */
   cancelFirst?: boolean;
-  /** The record's version; 2 unless a test is about an older wallet. */
-  version?: 1 | 2;
   /** Every prompt is dismissed: the sign-in sheet and the create sheet after it. */
   cancelAll?: boolean;
-  /** WebAuthn works but has no PRF here: no passkey wallet can be made or opened. */
+  /** No passkey can be made here (no ES256): what an unsupported browser looks like. */
   noPrf?: boolean;
-  /** No passkey for this site: what a person who has never been here looks like. */
+  /** No passkey for this site on the phone: the default, named for the tests that rely on it. */
   noPasskey?: boolean;
   /**
-   * Whether a passkey could be made here at all. Independent of `kind`: a browser-only wallet
-   * on a phone that does support passkeys is exactly when securing it is worth offering.
+   * An old wallet in this browser, from before the vault: its key lived here. 'device' was the
+   * browser-only kind; `earlier` names a seed the old passkey also held (TASK-128).
    */
-  passkeySupported?: boolean;
+  legacy?: { kind?: WalletKind; earlier?: string };
 }
 
 /** What `fetch` should answer, for the routes the app reaches for. */
@@ -74,6 +66,7 @@ export interface WorldOptions {
   network?: NetworkName;
   /** Share another world's chain, so two people can meet on it. */
   shared?: ReturnType<typeof createFakeChain>;
+  /** Who this is, when two worlds share a chain; only for reading the test. */
   seedName?: string;
   keyStore?: KeyStoreScript;
   fetch?: FetchScript;
@@ -88,63 +81,86 @@ function memoryStorage() {
   };
 }
 
-/** A keystore that answers as scripted. Nothing here touches WebAuthn. */
-function scriptedKeyStore(script: KeyStoreScript, seed: () => Uint8Array): KeyStore {
-  const kind = script.kind ?? 'passkey';
-  const earlier = script.earlier;
-  // A 24-word wallet unless the script is about an older one: entropy named after the person,
-  // and the real BIP-39 seed of its words, so the words a handoff carries give this address.
-  const unlocked = async (): Promise<UnlockedWallet> => {
-    const extra = earlier === undefined ? {} : { earlierSeed: earlierSeedOf(earlier) };
-    if (script.version === 1) return { kind, version: 1, seed: seed(), entropy: null, ...extra };
-    const entropy = seed();
-    return { kind, version: 2, seed: await seedFromEntropy(entropy), entropy, ...extra };
+/** The seed of the old wallet a script names. */
+const legacySeedOf = (name: string) => sha256(text(`legacy seed of ${name}`));
+
+/** The keystore of an old wallet: it opens without a sensor and hands out its seed. */
+function legacyKeyStore(legacy: NonNullable<KeyStoreScript['legacy']>): KeyStore {
+  const kind = legacy.kind ?? 'passkey';
+  let exists = true;
+  const unlocked = async (): Promise<UnlockedWallet> => ({
+    kind,
+    version: 1,
+    seed: legacySeedOf('old wallet'),
+    entropy: null,
+    ...(legacy.earlier === undefined ? {} : { earlierSeed: earlierSeedOf(legacy.earlier) }),
+  });
+  const gone = () => {
+    throw new WalletError('no_wallet');
   };
-  let exists = script.exists ?? false;
+  return {
+    status: async () => (exists ? { kind, version: 1, restorable: kind === 'passkey' } : null),
+    passkeySupported: async () => true,
+    create: async () => gone(),
+    unlock: async () => (exists ? unlocked() : gone()),
+    signIn: async () => gone(),
+    secureWithPasskey: async () => gone(),
+    importWallet: async () => gone(),
+    forget: async () => {
+      exists = false;
+    },
+  };
+}
+
+/**
+ * The real vault keystore over a software passkey. Prompts are counted, and the script decides
+ * which of them are dismissed.
+ */
+function scriptedKeyStore(script: KeyStoreScript) {
+  const fake = fakePasskeys(script.noPrf === true ? { noEs256: true } : {});
+  const inner = createVaultKeyStore({ env: fake.env, storage: memoryVaultStorage() });
   let prompts = 0;
   const prompt = () => {
     prompts += 1;
     if (script.cancelFirst === true && prompts === 1) throw new WalletError('cancelled');
     if (script.cancelAll === true) throw new WalletError('cancelled');
   };
-  return {
-    status: async () =>
-      exists ? { kind, version: script.version ?? 2, restorable: kind === 'passkey' } : null,
-    passkeySupported: async () => script.passkeySupported ?? true,
-    create: async (opts) => {
-      if (opts?.prefer === 'device') {
-        exists = true;
-        return { ...(await unlocked()), kind: 'device' };
-      }
-      prompt();
-      if (script.noPrf === true) throw new WalletError('unsupported');
-      exists = true;
-      return unlocked();
-    },
-    unlock: async () => {
-      prompt();
-      return unlocked();
-    },
-    signIn: async () => {
-      prompt();
-      // The keystore's own two signals, and they are not the same: 'no_wallet' is an
-      // authenticator that answered with no credential, 'cancelled' is a prompt somebody
-      // dismissed. A screen treats them differently, so a script must be able to say which.
-      if (script.noPasskey === true) throw new WalletError('no_wallet');
-      exists = true;
-      return unlocked();
-    },
-    secureWithPasskey: () => unlocked(),
-    importWallet: async (imported) => ({
-      kind,
-      version: 1,
-      seed: new Uint8Array(imported),
-      entropy: null,
-    }),
-    forget: async () => {
-      exists = false;
-    },
+  // `exists`: the passkey and its record are there before the test starts, made silently.
+  let primed = script.exists !== true;
+  const prime = async () => {
+    if (primed) return;
+    primed = true;
+    await inner.create('Clap and Pay wallet (existing)');
   };
+  const keyStore: VaultKeyStore = {
+    status: async () => {
+      await prime();
+      return inner.status();
+    },
+    passkeySupported: () => inner.passkeySupported(),
+    create: async (label) => {
+      await prime();
+      prompt();
+      return inner.create(label);
+    },
+    find: async () => {
+      await prime();
+      prompt();
+      return inner.find();
+    },
+    narrow: async (credentialId, candidates) => {
+      prompt();
+      return inner.narrow(credentialId, candidates);
+    },
+    remember: (record) => inner.remember(record),
+    sign: async (challenge) => {
+      prompt();
+      return inner.sign(challenge);
+    },
+    setLauncher: (launcherId) => inner.setLauncher(launcherId),
+    forget: () => inner.forget(),
+  };
+  return { keyStore, prompts: () => prompts, passkeys: fake };
 }
 
 const PUZZLE_HASH = 'a'.repeat(64);
@@ -218,14 +234,25 @@ export function createWorld(options: WorldOptions = {}) {
   const networkName = options.network ?? 'testnet11';
   const network = networkName === 'mainnet' ? MAINNET : TESTNET11;
   const now = () => 1_800_000_000;
-  // Which seed the keystore answers with; `switchSeed` changes it, as a new wallet would.
-  let seedName = options.seedName ?? 'someone';
+  const script = options.keyStore ?? {};
+  const scripted = scriptedKeyStore(script);
+  const state = createLocalState(memoryStorage());
+  const legacyAccount =
+    script.legacy === undefined ? null : accountFromSeed(legacySeedOf('old wallet'), network);
+  if (legacyAccount !== null) {
+    // What the old app remembered: its wallet, by address.
+    state.setWallet(networkName, {
+      kind: script.legacy?.kind ?? 'passkey',
+      address: legacyAccount.address,
+    });
+  }
 
   const services: AppServices = createServicesFrom({
     network,
     chain: flaky,
-    keyStore: scriptedKeyStore(options.keyStore ?? {}, () => sha256(text(`seed of ${seedName}`))),
-    state: createLocalState(memoryStorage()),
+    keyStore: scripted.keyStore,
+    legacyKeyStore: script.legacy === undefined ? null : legacyKeyStore(script.legacy),
+    state,
     origin: 'https://ge.test',
     fetch: scriptedFetch(options.fetch ?? {}, now),
     now,
@@ -281,16 +308,23 @@ export function createWorld(options: WorldOptions = {}) {
     makeEnvelope,
     payHandle,
     network: networkName,
-    /** From now on the keystore opens another wallet, the way a new one replaces the old. */
-    switchSeed: (name: string) => {
-      seedName = name;
-    },
-    /** Puts `amount` at the earlier address of the scripted passkey (`keyStore.earlier`). */
-    fundEarlier: (amount: bigint) => {
-      const name = options.keyStore?.earlier;
-      if (name === undefined) throw new Error('the script has no earlier wallet');
-      const { puzzleHash } = accountFromSeed(earlierSeedOf(name), network);
-      fake.add({ parentCoinInfo: sha256(text(`faucet earlier ${amount}`)), puzzleHash, amount });
+    /** How many times the passkey was asked (create, find, sign). */
+    prompts: scripted.prompts,
+    /** The software passkey behind the keystore. */
+    passkeys: scripted.passkeys,
+    /** Puts `amount` into the old wallet (`keyStore.legacy`); `earlier` its earlier address. */
+    fundLegacy: (amount: bigint, which: 'wallet' | 'earlier' = 'wallet') => {
+      const legacy = options.keyStore?.legacy;
+      if (legacy === undefined || legacyAccount === null) throw new Error('no old wallet');
+      const puzzleHash =
+        which === 'wallet'
+          ? legacyAccount.puzzleHash
+          : accountFromSeed(earlierSeedOf(legacy.earlier ?? 'x'), network).puzzleHash;
+      fake.add({
+        parentCoinInfo: sha256(text(`faucet legacy ${which} ${amount} ${Math.random()}`)),
+        puzzleHash,
+        amount,
+      });
     },
     /** The next `calls` chain calls fail; -1 is "until further notice". */
     goOffline: (calls = -1) => {

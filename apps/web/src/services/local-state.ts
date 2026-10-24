@@ -24,21 +24,22 @@ export interface LocalState {
    */
   wallet(network: string): WalletInfo | null;
   setWallet(network: string, info: WalletInfo): void;
-  /** Forgets the remembered wallet, whatever chain it was for, and its earlier address. */
+  /** Forgets the remembered wallet, whatever chain it was for. */
   clearWallet(): void;
   /**
-   * The address of the wallet this passkey held before 24 words (TASK-128), for `network`.
-   * Public, like the wallet's own address: its balance is read without a prompt.
+   * The address of the wallet a passkey held before 24 words (TASK-128), for `network`, as
+   * the old app remembered it. Public: its balance is read without a prompt.
    */
   earlierAddress(network: string): string | null;
   setEarlierAddress(network: string, address: string): void;
   /**
-   * Whether the wallet at `address` was handed to Klimper from this browser (TASK-131): the
-   * person tapped "Open Klimper" on /connect. Klimper's import cannot be seen from here, so this
-   * is the closest signal; clearing site data forgets it, which errs on the safe side.
+   * The address of this browser's wallet from before the passkey vault (its keys lived in the
+   * browser), until its money has been moved into the vault.
    */
-  backedUp(network: string, address: string): boolean;
-  markBackedUp(network: string, address: string): void;
+  legacyAddress(network: string): string | null;
+  setLegacyAddress(network: string, address: string): void;
+  /** Forgets both old addresses: the old wallet's money has moved. */
+  clearLegacy(network: string): void;
   /** What this browser got out of envelope `id`, or null. */
   openedAmount(id: string): bigint | null;
   setOpened(id: string, amount: bigint): void;
@@ -61,7 +62,7 @@ const KEY = {
   counter: 'ge.counter',
   paidHandles: 'ge.paidHandles',
   earlier: 'ge.earlier',
-  backedUp: 'ge.backedUp',
+  legacy: 'ge.legacy',
 };
 
 /** How many paid handles are remembered; enough to be the person's circle, not their history. */
@@ -106,19 +107,24 @@ export function createLocalState(storage: StringStorage): LocalState {
     setWallet: (network, info) => write(KEY.wallet, { ...info, network }),
     clearWallet: () => {
       write(KEY.wallet, null);
-      write(KEY.earlier, null);
     },
     earlierAddress: (network) => {
       const stored = read<{ network: string; address: string } | null>(KEY.earlier, null);
       return stored !== null && stored.network === network ? stored.address : null;
     },
     setEarlierAddress: (network, address) => write(KEY.earlier, { network, address }),
-    backedUp: (network, address) =>
-      read<string[]>(KEY.backedUp, []).includes(`${network}:${address}`),
-    markBackedUp: (network, address) => {
-      const entry = `${network}:${address}`;
-      const all = read<string[]>(KEY.backedUp, []);
-      if (!all.includes(entry)) write(KEY.backedUp, [...all, entry]);
+    legacyAddress: (network) => {
+      const stored = read<{ network: string; address: string } | null>(KEY.legacy, null);
+      return stored !== null && stored.network === network ? stored.address : null;
+    },
+    setLegacyAddress: (network, address) => write(KEY.legacy, { network, address }),
+    clearLegacy: (network) => {
+      if (read<{ network: string } | null>(KEY.legacy, null)?.network === network) {
+        write(KEY.legacy, null);
+      }
+      if (read<{ network: string } | null>(KEY.earlier, null)?.network === network) {
+        write(KEY.earlier, null);
+      }
     },
 
     openedAmount(id) {

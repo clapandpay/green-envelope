@@ -50,8 +50,8 @@ export interface VaultKeyStore {
   remember(record: VaultRecord): Promise<void>;
   /** Asks the remembered passkey to sign `challenge` (one prompt). */
   sign(challenge: Bytes): Promise<Assertion>;
-  /** Records the vault's launcher id once its launch has been sent. */
-  setLauncher(launcherId: Bytes): Promise<void>;
+  /** Records the vault's launcher id once its launch has been sent; null forgets a launch that lost. */
+  setLauncher(launcherId: Bytes | null): Promise<void>;
   /** Forgets the record. Nothing is lost: the passkey and the vault are where they were. */
   forget(): Promise<void>;
 }

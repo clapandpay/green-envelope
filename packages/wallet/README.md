@@ -1,8 +1,21 @@
 # @ge/wallet
 
-The wallet in the browser. This package holds the **keystore**: it creates, unlocks and forgets
-the one wallet of a browser profile and hands out its seed, plus the account derivation and coin
-selection on top.
+The wallet in the browser: a **passkey vault**. Keys never leave the passkey.
+
+- `createVaultKeyStore` remembers which passkey this browser uses (credential id, public key,
+  the vault's launcher id: all public) and asks it to sign challenges, through
+  `@ge/passkey-signer`. There is no seed and nothing secret to store.
+- `currentVault`, `walletCoins`, `findLauncherId`, `keyWithMoney` read the vault and its money
+  from the chain with public data only.
+- The spends themselves are built by `@ge/vault` (CHIP-0043 vault, passkey member).
+
+See `docs/wallet-security.md` for the model and what it does and does not protect.
+
+## Legacy: wallets from before the vault
+
+Everything below describes the old keystore (`createKeyStore`), whose keys lived in the browser.
+It is kept only so the app can move an old wallet's money into the vault once
+(`wallet.moveEarlier`), and will be deleted one release later. Nothing new is made with it.
 
 ```ts
 const store = createKeyStore({ rpName: 'Clap and Pay', rpId: 'clapandpay.com' });

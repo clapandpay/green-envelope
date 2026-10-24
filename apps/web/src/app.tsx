@@ -8,12 +8,7 @@ import { Footer } from './components/Footer';
 import { I18nProvider, type Lang, useI18n } from './i18n';
 import { onLinkClick, type Route, useRoute } from './router';
 import { ClaimScreen } from './screens/claim/ClaimScreen';
-import {
-  loadConnectScreen,
-  loadCreateScreen,
-  loadHelloScreen,
-  loadWalletScreen,
-} from './screens/lazy';
+import { loadCreateScreen, loadHelloScreen, loadWalletScreen } from './screens/lazy';
 import { ServicesProvider } from './services/context';
 import type { AppServices } from './services/types';
 
@@ -84,9 +79,6 @@ function Screen(props: { route: Route }) {
       return <Lazy load={loadWalletScreen} with={{}} />;
     case 'hello':
       return <Lazy load={loadHelloScreen} with={{}} />;
-    case 'connect':
-      // The fragment carries the app's one-time public key, and is never sent to the server.
-      return <Lazy load={loadConnectScreen} with={{ search: location.hash }} />;
     default:
       return <NotFound />;
   }

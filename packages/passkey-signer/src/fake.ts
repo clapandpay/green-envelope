@@ -15,6 +15,8 @@ export interface FakePasskeyOptions {
   pick?: 'newest' | 'oldest';
   /** An ES256 key is not offered (an authenticator that can only do RS256). */
   noEs256?: boolean;
+  /** Makes keys from this seed instead of at random, so a run can find its passkey again. */
+  seed?: Uint8Array;
 }
 
 const SPKI_PREFIX = Uint8Array.from(
@@ -49,7 +51,10 @@ export function fakePasskeys(options: FakePasskeyOptions = {}) {
       if (behaviour.noEs256 === true || !params.some((p) => p.alg === -7)) {
         throw new DOMException('no supported algorithm', 'NotSupportedError');
       }
-      const secret = p256.utils.randomSecretKey();
+      const secret =
+        behaviour.seed === undefined
+          ? p256.utils.randomSecretKey()
+          : sha256(behaviour.seed, Uint8Array.of(keys.length));
       const id = Uint8Array.from([++counter, ...sha256(secret).slice(0, 15)]);
       keys.push({ id, secret, label: request?.publicKey?.user.name ?? '' });
       const point = p256.getPublicKey(secret, false);

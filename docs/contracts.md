@@ -62,6 +62,8 @@ export type Condition =
   | { kind: 'createCoin'; puzzleHash: Bytes; amount: bigint; memos?: Bytes[] }
   | { kind: 'reserveFee'; amount: bigint }
   | { kind: 'assertConcurrentSpend'; coinId: Bytes }
+  | { kind: 'assertCoinAnnouncement'; announcementId: Bytes }
+  | { kind: 'sendMessage'; mode: number; message: Bytes; receiverCoinId: Bytes }
   | { kind: 'assertBeforeSecondsAbsolute'; seconds: bigint };
 
 export interface CoinSpend { coin: Coin; puzzleReveal: Bytes; solution: Bytes }
@@ -107,6 +109,8 @@ export class ChainError extends Error { code: ChainErrorCode; detail?: string }
 export interface ChainClient {
   coinRecordsByPuzzleHashes(puzzleHashes: Bytes[], opts?: { includeSpent?: boolean }): Promise<CoinRecord[]>;
   coinRecordByName(coinId: Bytes): Promise<CoinRecord | null>;
+  coinRecordsByHint(hint: Bytes, opts?: { includeSpent?: boolean }): Promise<CoinRecord[]>;
+  coinRecordsByParentIds(parentIds: Bytes[], opts?: { includeSpent?: boolean }): Promise<CoinRecord[]>;
   pushTx(bundle: SpendBundle): Promise<{ status: 'success' | 'pending' }>;
   peakHeight(): Promise<number>;
 }
@@ -123,25 +127,49 @@ Coinset-compatible means Chia full-node RPC over HTTPS POST with JSON bodies:
 `POST {base}/get_coin_record_by_name {"name":"0x.."}`. Public bases: `https://api.coinset.org`
 (mainnet), `https://testnet11.api.coinset.org` (testnet11).
 
+## `@ge/vault` and `@ge/passkey-signer`
+
+The wallet is a CHIP-0043 vault whose custody is a passkey (`docs/wallet-security.md`). No
+private key of the wallet exists in JavaScript.
+
+```ts
+// @ge/passkey-signer
+export function createPasskey(env, rp, label): Promise<{ credentialId: Bytes; publicKey: Bytes }>; // ES256 only
+export function signChallenge(env, rp, challenge: Bytes, credentialId: Bytes | null): Promise<{ credentialId; assertion: Assertion }>;
+export function findPasskey(env, rp): Promise<{ credentialId: Bytes; candidates: Bytes[] }>; // public key recovered from a signature
+export function narrowKey(env, rp, credentialId, candidates): Promise<Bytes>;
+
+// @ge/vault
+export interface Assertion { authenticatorData: Bytes; clientDataJSON: Bytes; signature: Bytes /* r||s */ }
+export interface VaultCoin { coin: Coin; launcherId: Bytes; publicKey: Bytes; lineage: LineageProof }
+export function custodyHash(publicKey: Bytes): Bytes;      // also the setup address
+export function moneyPuzzleHash(launcherId: Bytes): Bytes; // the wallet's address
+export function launchVault(parentCoinId: Bytes, publicKey: Bytes): Launch; // conditions + launcher spend
+export function buildVaultSpend(args: { vault: VaultCoin; money: Coin[]; outputs: Output[]; fee: bigint }): Unsigned<VaultCoin>;
+export function buildSetupSpend(args: { publicKey: Bytes; coin: Coin; conditions: Condition[]; alsoSpend?: CoinSpend[] }): Unsigned;
+// Unsigned = { challenge: Bytes; finish(assertion): SpendBundle; next }
+```
+
 ## `@ge/wallet`
 
 ```ts
-export type WalletKind = 'passkey' | 'device';
-export interface KeyStore {
-  /** What exists on this device, without prompting the user. */
-  status(): Promise<{ kind: WalletKind } | null>;
-  passkeySupported(): Promise<boolean>; // WebAuthn + PRF extension available
-  /** Creates a wallet and returns its 32-byte seed. Prefers passkey when `prefer` allows and it is supported. */
-  create(opts?: { prefer?: WalletKind }): Promise<{ kind: WalletKind; seed: Bytes }>;
-  /** Returns the seed of the existing wallet (passkey: prompts biometrics). */
-  unlock(): Promise<{ kind: WalletKind; seed: Bytes }>;
+export interface VaultRecord { credentialId: Bytes; publicKey: Bytes; launcherId: Bytes | null }
+export interface VaultKeyStore {
+  status(): Promise<VaultRecord | null>;      // never prompts
+  create(label: string): Promise<VaultRecord>; // one prompt
+  find(): Promise<{ credentialId: Bytes; candidates: Bytes[] }>; // one prompt
+  narrow(credentialId: Bytes, candidates: Bytes[]): Promise<Bytes>;
+  remember(record: VaultRecord): Promise<void>;
+  sign(challenge: Bytes): Promise<Assertion>; // one prompt
+  setLauncher(launcherId: Bytes | null): Promise<void>;
   forget(): Promise<void>;
 }
-export function createKeyStore(opts?: { rpId?: string; rpName?: string; storage?: KeyStoreStorage }): KeyStore;
+export function createVaultKeyStore(opts?: { rpId?: string; rpName?: string; storage?; env? }): VaultKeyStore;
+export function currentVault(chain, publicKey, launcherId): Promise<VaultCoin | null>;
+export function walletCoins(chain, publicKey, launcherId): Promise<{ money: Coin[]; setup: Coin[] }>;
 ```
 
-The rest of `@ge/wallet` (balance, coin selection, send) and all of `@ge/envelope` sit on top of
-`@ge/chia` and are integrated after it lands.
+`createKeyStore` (the old keystore, keys in the browser) remains only to move old wallets.
 
 ## `@ge/envelope` (the parts that need no chain)
 
@@ -168,9 +196,8 @@ verifier), and the operations `inspectEnvelope`, `openEnvelope` (retries another
 race is lost), `waitForOutput` (a claim counts only once its output coin exists, because a node
 may answer "pending" to a claim that later loses) and `takeBackEnvelope`.
 
-`@ge/wallet` adds `accountFromSeed` (path m/12381/8444/2/0, one address), `envelopeSecret`
-(derived from a hardened sibling key and a counter, so a sender can recover envelopes) and
-`selectCoins`.
+`@ge/wallet` adds `selectCoins`. Envelope secrets are random (16 bytes); the sender's browser
+keeps the link. A claim's destination may launch the claimer's vault (`To`, `Destination`).
 
 ## `apps/web` services seam
 
@@ -183,4 +210,4 @@ real one wired to the packages.
 `export default { fetch(request: Request, env: Env): Promise<Response> }` and nothing
 runtime-specific. Routes: `GET /g/:pk` (app shell with Open Graph tags and live share state),
 `GET /api/price` (`{ eur: number, at: number }`, cached 60 s), `POST /api/rpc/:method`
-(allow-listed proxy to the chain endpoints), everything else falls through to static assets.
+(allow-listed proxy to the chain endpoints, including hint and parent lookups), everything else falls through to static assets.

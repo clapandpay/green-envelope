@@ -29,7 +29,8 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/chain/package.json ./packages/chain/
 COPY packages/chia/package.json ./packages/chia/
 COPY packages/envelope/package.json ./packages/envelope/
-COPY packages/handoff/package.json ./packages/handoff/
+COPY packages/vault/package.json ./packages/vault/
+COPY packages/passkey-signer/package.json ./packages/passkey-signer/
 COPY packages/wallet/package.json ./packages/wallet/
 RUN --mount=type=cache,target=/pnpm-store \
     pnpm config set store-dir /pnpm-store && pnpm install --frozen-lockfile

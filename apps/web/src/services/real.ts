@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The services wired to @ge/wallet, @ge/envelope and @ge/chain. Screens never see this file's
-// imports; they see `AppServices`.
+// The services wired to @ge/wallet, @ge/vault, @ge/envelope and @ge/chain. Screens never see
+// this file's imports; they see `AppServices`.
+//
+// The wallet is a passkey vault: no private key of the wallet ever exists here. Opening it needs
+// public data only (no prompt); every spend is built here, signed by the passkey (one prompt),
+// and checked on-chain. Envelope shares are the exception by design: their keys are in the link.
 import { type ChainClient, ChainError, createChainClient } from '@ge/chain';
 import {
   type Bytes,
   type Coin,
+  type Condition,
   coinId,
   decodeAddress,
+  encodeAddress,
   MAINNET,
   type Network,
   TESTNET11,
@@ -14,9 +20,8 @@ import {
   toHex,
 } from '@ge/chia';
 import {
-  buildCreate,
-  buildSend,
   buildSweep,
+  type Destination,
   decodeLink,
   EnvelopeError,
   type EnvelopeLink,
@@ -24,22 +29,37 @@ import {
   envelopeKeys,
   inspectEnvelope,
   openEnvelope,
+  SECRET_BYTES,
+  sharePuzzleHash,
   splitAmounts,
+  type To,
   takeBackEnvelope,
   type Waiting,
   waitForOutput,
 } from '@ge/envelope';
 import {
+  buildSetupSpend,
+  buildVaultSpend,
+  launchVault,
+  moneyPuzzleHash,
+  type Output,
+  setupPuzzleHash,
+  VaultError,
+} from '@ge/vault';
+import {
   type Account,
   accountFromSeed,
   createKeyStore,
-  envelopeSecret,
+  createVaultKeyStore,
+  currentVault,
   type KeyStore,
+  keyWithMoney,
   MAX_INPUTS,
-  masterSecretKey,
   selectCoins,
-  type UnlockedWallet,
+  type VaultKeyStore,
+  type VaultRecord,
   WalletError,
+  walletCoins,
   wipeUnlocked as wipe,
 } from '@ge/wallet';
 import { builtNetwork, type NetworkName, resolveNetwork, withNetwork } from '../lib/network';
@@ -49,7 +69,6 @@ import { createLocalState, type LocalState, type SentRecord } from './local-stat
 import {
   type AppServices,
   type Balance,
-  type ConnectRequest,
   type EnvelopeView,
   type HandleLookup,
   type RecipientPick,
@@ -68,7 +87,9 @@ function rpIdOption(hostname: string): { rpId?: string } {
 export interface RealDeps {
   network: Network;
   chain: ChainClient;
-  keyStore: KeyStore;
+  keyStore: VaultKeyStore;
+  /** The keystore of wallets from before the vault (keys in the browser), for moving them. */
+  legacyKeyStore?: KeyStore | null;
   state: LocalState;
   /** Where envelope links point, e.g. https://envelope.clapandpay.com */
   origin: string;
@@ -97,10 +118,14 @@ export function toServiceError(error: unknown): ServiceError {
   if (error instanceof ServiceError) return error;
   if (error instanceof WalletError) {
     if (error.code === 'cancelled') return new ServiceError('wallet_cancelled');
-    if (error.code === 'no_wallet' || error.code === 'unsupported') {
-      return new ServiceError('no_wallet_here');
-    }
+    if (error.code === 'no_wallet') return new ServiceError('no_wallet_here');
+    if (error.code === 'unsupported') return new ServiceError('passkey_unavailable');
     if (error.code === 'insufficient_funds') return new ServiceError('insufficient_funds');
+  }
+  if (error instanceof VaultError) {
+    if (error.code === 'insufficient_funds' || error.code === 'no_coins') {
+      return new ServiceError('insufficient_funds');
+    }
   }
   if (error instanceof EnvelopeError) {
     if (error.code === 'bad_link') return new ServiceError('bad_link');
@@ -171,25 +196,16 @@ export function priceIn(body: unknown): number | null {
   return typeof eur === 'number' && Number.isFinite(eur) && eur > 0 ? eur : null;
 }
 
-/** Only the connect page needs the handoff code, so it stays out of the claim route's bundle. */
-async function readConnectRequest(search: string) {
-  const { HandoffError, parseHandoffRequest } = await import('@ge/handoff');
-  try {
-    return await parseHandoffRequest(search);
-  } catch (error) {
-    throw error instanceof HandoffError ? new ServiceError('bad_request') : error;
-  }
-}
-
 /** Builds the services from their dependencies. */
 export function createServicesFrom(deps: RealDeps): AppServices {
   const { network, chain, keyStore, state, fee } = deps;
+  const legacy = deps.legacyKeyStore ?? null;
   const handlesApi = deps.handlesApi ?? null;
-  let account: Account | null = null;
   /** Accepted by the network, not confirmed yet: positive is on its way in. */
   let pending = 0n;
 
   const landed = (spent: Coin, output: Coin) => waitForOutput(chain, spent, output, deps.waiting);
+  const address = (puzzleHash: Bytes) => encodeAddress(puzzleHash, network.addressPrefix);
 
   function track(amount: bigint, done: Promise<void>): Promise<void> {
     pending += amount;
@@ -198,23 +214,6 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     };
     done.then(settle, settle);
     return done;
-  }
-
-  /** Remembers an unlocked wallet as the current one and reports it. Wipes the seed and words. */
-  function adopt(unlockedWallet: UnlockedWallet): WalletInfo {
-    try {
-      account = accountFromSeed(unlockedWallet.seed, network);
-      // Only the address is kept: its balance is public, its key is derived again to move it.
-      if (unlockedWallet.earlierSeed !== undefined) {
-        const earlier = accountFromSeed(unlockedWallet.earlierSeed, network).address;
-        if (earlier !== account.address) state.setEarlierAddress(network.name, earlier);
-      }
-    } finally {
-      wipe(unlockedWallet);
-    }
-    const info: WalletInfo = { kind: unlockedWallet.kind, address: account.address };
-    state.setWallet(network.name, info);
-    return info;
   }
 
   /**
@@ -226,46 +225,216 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     return `Clap and Pay wallet ${made.slice(0, 10)} ${made.slice(11, 16)}`;
   }
 
-  /** No passkey wallet can be made or opened in this browser: a reason, not a failure. */
-  function passkeyProblem(error: unknown): unknown {
-    return error instanceof WalletError && error.code === 'unsupported'
-      ? new ServiceError('passkey_unavailable')
-      : error;
+  /**
+   * Where this wallet's money is received. The vault's address once the vault exists on the
+   * chain; until then the setup address, which the passkey alone controls. Never the address
+   * of a vault that is still being launched: if that launch lost a race, money sent there
+   * would be locked for good.
+   */
+  async function receivingPuzzleHash(record: VaultRecord): Promise<Bytes> {
+    if (record.launcherId !== null) {
+      const vault = await currentVault(chain, record.publicKey, record.launcherId);
+      if (vault !== null) return moneyPuzzleHash(record.launcherId);
+    }
+    return setupPuzzleHash(record.publicKey);
+  }
+
+  /** Remembers the record as this browser's wallet and reports it. */
+  async function adopt(record: VaultRecord): Promise<WalletInfo> {
+    const info: WalletInfo = {
+      kind: 'passkey',
+      address: address(await receivingPuzzleHash(record)),
+    };
+    state.setWallet(network.name, info);
+    return info;
+  }
+
+  /** The record of this browser, or the passkey this person already has, found with one prompt. */
+  async function signIn(): Promise<VaultRecord> {
+    const found = await keyStore.find();
+    const match = await keyWithMoney(chain, found.candidates);
+    let record: VaultRecord;
+    if (match !== null) {
+      record = { credentialId: found.credentialId, ...match };
+    } else {
+      // Nothing on the chain tells the two candidate keys apart: a passkey that never held
+      // money. A second signature settles it.
+      const [only] = found.candidates;
+      const publicKey =
+        found.candidates.length === 1 && only !== undefined
+          ? only
+          : await keyStore.narrow(found.credentialId, found.candidates);
+      record = { credentialId: found.credentialId, publicKey, launcherId: null };
+    }
+    await keyStore.remember(record);
+    return record;
   }
 
   /** The one tap: the wallet here, else the passkey the phone has, else a new one. */
-  async function openOrMake(): Promise<UnlockedWallet> {
-    if ((await keyStore.status()) !== null) return keyStore.unlock();
+  async function ensureRecord(): Promise<VaultRecord> {
+    const here = await keyStore.status();
+    if (here !== null) return here;
     try {
-      return await keyStore.signIn();
+      return await signIn();
     } catch (error) {
-      // 'no_wallet': no WebAuthn answer at all; 'cancelled': no passkey picked, which is also
-      // what a phone without one for this site says. Either way the phone's create sheet comes
-      // next, and that sheet is the person's own yes or no.
-      if (
-        !(error instanceof WalletError) ||
-        (error.code !== 'no_wallet' && error.code !== 'cancelled')
-      ) {
-        throw passkeyProblem(error);
-      }
+      // 'cancelled' is also what a phone without a passkey for this site says. Either way the
+      // phone's create sheet comes next, and that sheet is the person's own yes or no.
+      if (!(error instanceof WalletError) || error.code !== 'cancelled') throw error;
     }
-    try {
-      return await keyStore.create({ label: walletLabel() });
-    } catch (error) {
-      throw passkeyProblem(error);
-    }
+    return keyStore.create(walletLabel());
   }
 
-  async function unlocked(): Promise<Account> {
-    if (account !== null) return account;
-    adopt(await openOrMake());
-    if (account === null) throw new ServiceError('unknown');
-    return account;
+  async function requireRecord(): Promise<VaultRecord> {
+    const record = await keyStore.status();
+    if (record === null) throw new ServiceError('no_wallet_here');
+    return record;
   }
 
-  async function spendable(owner: Account): Promise<Coin[]> {
-    const records = await chain.coinRecordsByPuzzleHashes([owner.puzzleHash]);
-    return records.map((record) => record.coin);
+  /** CREATE_COIN conditions for outputs, hinted to their receivers. */
+  function payments(outputs: Output[]): Condition[] {
+    return outputs.map((output) => ({
+      kind: 'createCoin',
+      puzzleHash: output.puzzleHash,
+      amount: output.amount,
+      memos: [output.puzzleHash],
+    }));
+  }
+
+  /**
+   * Pays `outputs` (plus the fee) out of the wallet, with one passkey prompt. `all` spends every
+   * coin (up to 50) and pays their whole value, minus the fee, to the first output instead.
+   * Returns the coin the first output becomes, to wait for.
+   */
+  async function pay(
+    outputs: Output[],
+    opts: { all?: boolean } = {},
+  ): Promise<{ first: Coin; firstOutput: Coin; total: bigint; more: boolean }> {
+    const record = await requireRecord();
+    const { money, setup } = await walletCoins(chain, record.publicKey, record.launcherId);
+    const vault =
+      record.launcherId === null
+        ? null
+        : await currentVault(chain, record.publicKey, record.launcherId);
+
+    if (vault !== null && money.length > 0) {
+      const wanted = outputs.reduce((sum, o) => sum + o.amount, 0n) + fee;
+      const coins = opts.all === true ? money.slice(0, MAX_INPUTS) : selectCoins(money, wanted);
+      const total = coins.reduce((sum, coin) => sum + coin.amount, 0n);
+      const plan = opts.all === true ? sweepTo(outputs, total) : outputs;
+      const unsigned = buildVaultSpend({ vault, money: coins, outputs: plan, fee });
+      const bundle = unsigned.finish(await keyStore.sign(unsigned.challenge));
+      await chain.pushTx(bundle);
+      const first = coins[0];
+      const out = plan[0];
+      if (first === undefined || out === undefined) throw new ServiceError('unknown');
+      return {
+        first,
+        firstOutput: {
+          parentCoinInfo: coinId(first),
+          puzzleHash: out.puzzleHash,
+          amount: out.amount,
+        },
+        total: plan.reduce((sum, o) => sum + o.amount, 0n),
+        more: opts.all === true && money.length > coins.length,
+      };
+    }
+
+    if (record.launcherId !== null && vault === null && money.length + setup.length > 0) {
+      // Launched, not confirmed yet: the vault cannot sign before it exists.
+      throw new ServiceError('wallet_settling');
+    }
+
+    // No vault yet: one coin at the setup address pays, and launches the vault on the way.
+    const wanted = outputs.reduce((sum, o) => sum + o.amount, 0n) + fee + 1n;
+    const coin =
+      opts.all === true
+        ? setup.reduce<Coin | undefined>(
+            (a, b) => (a === undefined || b.amount > a.amount ? b : a),
+            undefined,
+          )
+        : setup.filter((c) => c.amount >= wanted).sort((a, b) => (a.amount < b.amount ? -1 : 1))[0];
+    if (coin === undefined) {
+      throw new ServiceError(
+        setup.length > 0 && opts.all !== true ? 'insufficient_funds' : 'insufficient_funds',
+      );
+    }
+    const launch = launchVault(coinId(coin), record.publicKey);
+    const plan = opts.all === true ? sweepTo(outputs, coin.amount - 1n) : outputs;
+    const paid = plan.reduce((sum, o) => sum + o.amount, 0n);
+    const change = coin.amount - 1n - paid - fee;
+    if (change < 0n) throw new ServiceError('insufficient_funds');
+    const conditions: Condition[] = [
+      ...launch.conditions,
+      ...payments(plan),
+      ...(change > 0n ? payments([{ puzzleHash: launch.moneyPuzzleHash, amount: change }]) : []),
+      ...(fee > 0n ? [{ kind: 'reserveFee' as const, amount: fee }] : []),
+    ];
+    const unsigned = buildSetupSpend({
+      publicKey: record.publicKey,
+      coin,
+      conditions,
+      alsoSpend: [launch.launcherSpend],
+    });
+    const bundle = unsigned.finish(await keyStore.sign(unsigned.challenge));
+    await chain.pushTx(bundle);
+    await keyStore.setLauncher(launch.launcherId);
+    const out = plan[0];
+    if (out === undefined) throw new ServiceError('unknown');
+    return {
+      first: coin,
+      firstOutput: { parentCoinInfo: coinId(coin), puzzleHash: out.puzzleHash, amount: out.amount },
+      total: paid,
+      more: opts.all === true && setup.length > 1,
+    };
+  }
+
+  /** Everything (minus the fee) to the first output's address. */
+  function sweepTo(outputs: Output[], total: bigint): Output[] {
+    const [target] = outputs;
+    if (target === undefined) throw new ServiceError('unknown');
+    const amount = total - fee;
+    if (amount <= 0n) throw new ServiceError('insufficient_funds');
+    return [{ puzzleHash: target.puzzleHash, amount }];
+  }
+
+  /**
+   * Where a claim sends a share: the vault's address once it exists; otherwise the claim also
+   * launches it, paid out of the share (1 mojo), so the money is visible at once and the vault
+   * is there from the next block. While a launch is still unconfirmed, claims go to the setup
+   * address instead, so no money can be sent to a vault that might never exist.
+   */
+  async function claimDestination(
+    record: VaultRecord,
+  ): Promise<{ to: To; launches: Map<string, Bytes> }> {
+    const launches = new Map<string, Bytes>();
+    if (record.launcherId !== null) {
+      const vault = await currentVault(chain, record.publicKey, record.launcherId);
+      return {
+        to: vault !== null ? moneyPuzzleHash(record.launcherId) : setupPuzzleHash(record.publicKey),
+        launches,
+      };
+    }
+    const to = (spent: Coin): Destination => {
+      const launch = launchVault(coinId(spent), record.publicKey);
+      launches.set(toHex(coinId(spent)), launch.launcherId);
+      return {
+        puzzleHash: launch.moneyPuzzleHash,
+        conditions: launch.conditions,
+        spends: [launch.launcherSpend],
+        cost: 1n,
+      };
+    };
+    return { to, launches };
+  }
+
+  /** The addresses of an old wallet (keys in the browser), from what the old app remembered. */
+  function legacyAddresses(): string[] {
+    const out: string[] = [];
+    const earlier = state.earlierAddress(network.name);
+    if (earlier !== null) out.push(earlier);
+    const old = state.legacyAddress(network.name);
+    if (old !== null) out.push(old);
+    return [...new Set(out)];
   }
 
   async function recipient(to: string): Promise<Bytes> {
@@ -360,177 +529,161 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     network: network.name,
 
     wallet: {
-      current: async () => state.wallet(network.name),
+      current: async () => {
+        // A wallet from the time before the vault: remember its address for the move, and let
+        // the first tap make the new wallet.
+        const info = state.wallet(network.name);
+        if (info !== null && (await keyStore.status()) === null && legacy !== null) {
+          if ((await legacy.status()) !== null) {
+            state.setLegacyAddress(network.name, info.address);
+            state.clearWallet();
+            return null;
+          }
+        }
+        return info;
+      },
 
       ensure: () =>
         guarded(async (): Promise<WalletInfo> => {
-          const owner = await unlocked();
-          return state.wallet(network.name) ?? { kind: 'device', address: owner.address };
+          try {
+            return await adopt(await ensureRecord());
+          } catch (error) {
+            const mapped = toServiceError(error);
+            if (mapped.code === 'no_wallet_here') throw new ServiceError('passkey_unavailable');
+            throw mapped;
+          }
         }),
 
       earlier: () =>
         guarded(async () => {
-          const address = state.earlierAddress(network.name);
-          if (address === null) return null;
-          const { puzzleHash } = decodeAddress(address);
-          const records = await chain.coinRecordsByPuzzleHashes([puzzleHash]);
+          const addresses = legacyAddresses();
+          if (addresses.length === 0) return null;
+          const records = await chain.coinRecordsByPuzzleHashes(
+            addresses.map((a) => decodeAddress(a).puzzleHash),
+          );
           const balance = records.reduce((sum, record) => sum + record.coin.amount, 0n);
-          return balance > 0n ? { address, balance } : null;
+          const [first] = addresses;
+          return balance > 0n && first !== undefined ? { address: first, balance } : null;
         }),
 
       moveEarlier: () =>
         guarded(async () => {
-          // A fresh prompt: the earlier key is derived for this spend and for nothing else.
-          const { earlierSeed, ...current } = await keyStore.unlock();
-          // The wallet itself is adopted as on any unlock; the earlier seed stays here.
-          adopt(current);
-          if (earlierSeed === undefined) {
-            throw new ServiceError('unknown', 'this wallet has no earlier one');
+          if (legacy === null || (await legacy.status()) === null) {
+            throw new ServiceError('unknown', 'there is no old wallet here');
           }
-          let earlier: Account;
+          const record = await ensureRecord();
+          // The old key, one last time: it signs the move and is wiped at once.
+          const opened = await legacy.unlock();
+          const olds: Account[] = [];
           try {
-            earlier = accountFromSeed(earlierSeed, network);
+            olds.push(accountFromSeed(opened.seed, network));
+            if (opened.earlierSeed !== undefined) {
+              olds.push(accountFromSeed(opened.earlierSeed, network));
+            }
           } finally {
-            earlierSeed.fill(0);
+            wipe(opened);
           }
-          const owner = account;
-          if (owner === null) throw new ServiceError('unknown');
           try {
-            const coins = await spendable(earlier);
-            const batch = [...coins]
+            const records = await chain.coinRecordsByPuzzleHashes(olds.map((o) => o.puzzleHash));
+            const inputs = records
+              .map((r) => r.coin)
               .sort((a, b) => (a.amount < b.amount ? 1 : a.amount > b.amount ? -1 : 0))
-              .slice(0, MAX_INPUTS);
-            const first = batch[0];
+              .slice(0, MAX_INPUTS)
+              .map((coin) => {
+                const owner = olds.find((o) => toHex(o.puzzleHash) === toHex(coin.puzzleHash));
+                if (owner === undefined) throw new ServiceError('unknown');
+                return { coin, signer: owner };
+              });
+            const first = inputs[0];
             if (first === undefined) throw new ServiceError('insufficient_funds');
-            const { bundle, amount } = buildSweep({
-              inputs: batch.map((coin) => ({ coin, signer: earlier })),
-              toPuzzleHash: owner.puzzleHash,
+            const { to, launches } = await claimDestination(record);
+            const { bundle, amount, destination } = buildSweep({
+              inputs,
+              toPuzzleHash: to,
               fee,
               network,
             });
             await chain.pushTx(bundle);
+            const launched = launches.get(toHex(coinId(first.coin)));
+            if (launched !== undefined) await keyStore.setLauncher(launched);
             const output: Coin = {
-              parentCoinInfo: coinId(first),
-              puzzleHash: owner.puzzleHash,
+              parentCoinInfo: coinId(first.coin),
+              puzzleHash: destination.puzzleHash,
               amount,
             };
-            return {
-              amount,
-              confirmed: track(amount, landed(first, output)),
-              more: coins.length > batch.length,
-            };
+            const more = records.length > inputs.length;
+            const confirmed = track(amount, landed(first.coin, output)).then(async () => {
+              if (!more && legacy !== null) {
+                await legacy.forget();
+                state.clearLegacy(network.name);
+              }
+            });
+            return { amount, confirmed, more };
           } finally {
-            // The earlier key is for this one spend: gone once the transaction is sent.
-            earlier.syntheticSk.fill(0);
-            earlier.envelopeRoot.fill(0);
+            for (const old of olds) {
+              old.syntheticSk.fill(0);
+              old.envelopeRoot.fill(0);
+            }
           }
         }),
 
-      backedUp: async () => {
-        const info = state.wallet(network.name);
-        return info === null || state.backedUp(network.name, info.address);
-      },
-
-      markBackedUp: () => {
-        const info = state.wallet(network.name);
-        if (info !== null) state.markBackedUp(network.name, info.address);
-      },
-
-      canMakeNew: () =>
-        guarded(async () => {
-          const stored = await keyStore.status();
-          return stored?.restorable === true && stored.version === 2;
-        }),
+      canMakeNew: () => guarded(async () => (await keyStore.status()) !== null),
 
       makeNew: () =>
-        guarded(async (): Promise<WalletInfo> => {
-          try {
-            return adopt(await keyStore.create({ label: walletLabel(), replace: true }));
-          } catch (error) {
-            throw passkeyProblem(error);
-          }
-        }),
+        guarded(async (): Promise<WalletInfo> => adopt(await keyStore.create(walletLabel()))),
 
       balance: () =>
         guarded(async (): Promise<Balance> => {
-          const info = state.wallet(network.name);
-          if (info === null) return { confirmed: 0n, pending: 0n };
-          // The address is public: reading the balance never needs the key or a prompt.
-          const { puzzleHash } = decodeAddress(info.address);
-          const records = await chain.coinRecordsByPuzzleHashes([puzzleHash]);
-          return { confirmed: records.reduce((sum, r) => sum + r.coin.amount, 0n), pending };
+          const record = await keyStore.status();
+          if (record === null) return { confirmed: 0n, pending: 0n };
+          // Public data only: reading the balance never needs the passkey.
+          const { money, setup } = await walletCoins(chain, record.publicKey, record.launcherId);
+          const confirmed = [...money, ...setup].reduce((sum, coin) => sum + coin.amount, 0n);
+          // The address shown moves to the vault's once the vault is on the chain.
+          await adopt(record);
+          return { confirmed, pending };
         }),
 
       send: (to, amount) =>
         guarded(async () => {
           const toPuzzleHash = await recipient(to);
-          const owner = await unlocked();
-          const coins = selectCoins(await spendable(owner), amount + fee);
-          const first = coins[0];
-          if (first === undefined) throw new ServiceError('insufficient_funds');
-          const bundle = buildSend({
-            inputs: coins.map((coin) => ({ coin, signer: owner })),
-            toPuzzleHash,
-            amount,
-            changePuzzleHash: owner.puzzleHash,
-            fee,
-            network,
-          });
-          await chain.pushTx(bundle);
+          const { first, firstOutput } = await pay([{ puzzleHash: toPuzzleHash, amount }]);
           // Accepted by the network: this is the first moment the name has been paid, and the
           // only one that should make it a name this person trusts.
           const handle = parseHandle(to);
           if (to.trim().startsWith('@') && handle !== null) state.rememberPaidHandle(handle);
-          const output: Coin = { parentCoinInfo: coinId(first), puzzleHash: toPuzzleHash, amount };
-          return { confirmed: track(-(amount + fee), landed(first, output)) };
+          return { confirmed: track(-(amount + fee), landed(first, firstOutput)) };
         }),
 
-      // One tap on the envelope: unlock what is on this device, otherwise open the wallet this
-      // person already has somewhere else.
-      //
-      // It never creates. WebAuthn answers "there is no passkey here" and "you dismissed the
-      // prompt" with the same NotAllowedError, so a keystore cannot tell a new person from a
-      // hesitant one, and guessing wrong either way is bad: guess "new" and a returning person
-      // gets a second, empty wallet while their money sits in the first; guess "hesitant" and
-      // a new person never gets a wallet at all. Making one is a separate, asked-for step.
+      moveToKlimper: (to) =>
+        guarded(async () => {
+          let puzzleHash: Bytes;
+          try {
+            const decoded = decodeAddress(to.trim());
+            if (decoded.prefix !== network.addressPrefix) throw new Error('other network');
+            puzzleHash = decoded.puzzleHash;
+          } catch {
+            throw new ServiceError('invalid_recipient');
+          }
+          const { first, firstOutput, total, more } = await pay([{ puzzleHash, amount: 0n }], {
+            all: true,
+          });
+          return {
+            amount: total,
+            confirmed: track(-(total + fee), landed(first, firstOutput)),
+            more,
+          };
+        }),
+
+      // One tap on the envelope: the wallet of this browser, otherwise the one this person
+      // already has somewhere else. It never creates: WebAuthn answers "there is no passkey
+      // here" and "you dismissed the prompt" with the same NotAllowedError, so a keystore
+      // cannot tell a new person from a hesitant one. Making one is a separate, asked-for step.
       open: () =>
         guarded(async (): Promise<WalletInfo> => {
-          if ((await keyStore.status()) !== null) return adopt(await keyStore.unlock());
-          return adopt(await keyStore.signIn());
-        }),
-
-      connectRequest: (search) =>
-        guarded(async (): Promise<ConnectRequest> => {
-          await readConnectRequest(search);
-          return {};
-        }),
-
-      connectApprove: (search) =>
-        guarded(async () => {
-          const request = await readConnectRequest(search);
-          const [{ sealHandoffResponse }, { mnemonicFromEntropy }] = await Promise.all([
-            import('@ge/handoff'),
-            import('@ge/wallet/mnemonic'),
-          ]);
-          // Always a fresh prompt: handing over the wallet is never done on a remembered unlock.
-          const opened = await keyStore.signIn();
-          let words: string;
-          let owner: Account;
-          try {
-            if (opened.entropy === null) throw new ServiceError('wallet_too_old');
-            owner = accountFromSeed(opened.seed, network);
-            words = mnemonicFromEntropy(opened.entropy);
-          } finally {
-            wipe(opened);
-          }
-          state.setWallet(network.name, { kind: opened.kind, address: owner.address });
-          // The words are a string and cannot be wiped; they live for this one seal.
-          return sealHandoffResponse(request, {
-            v: 2,
-            network: network.name,
-            address: owner.address,
-            words,
-          });
+          const here = await keyStore.status();
+          if (here !== null) return adopt(here);
+          return adopt(await signIn());
         }),
 
       lookupHandle: (input) =>
@@ -562,7 +715,9 @@ export function createServicesFrom(deps: RealDeps): AppServices {
             body: JSON.stringify({
               text,
               candidates,
-              ...(account === null ? {} : { ownAddress: account.address }),
+              ...(state.wallet(network.name) === null
+                ? {}
+                : { ownAddress: state.wallet(network.name)?.address }),
             }),
           });
           if (!response.ok) return null;
@@ -574,28 +729,13 @@ export function createServicesFrom(deps: RealDeps): AppServices {
         }
       },
 
-      // A device wallet lives in this browser and dies with it. Behind a passkey it is the
-      // same wallet, the same address and the same money, with a face or finger in front of
-      // it: the seed is kept wrapped by a key only the passkey can derive. Nothing moves, so
-      // there is no transaction here and nothing to lose in the middle.
-      canRestoreElsewhere: () =>
-        guarded(async () => (await keyStore.status())?.restorable === true),
+      canRestoreElsewhere: () => guarded(async () => (await keyStore.status()) !== null),
 
       forget: () =>
         guarded(async () => {
           await keyStore.forget();
           state.clearWallet();
-          // The unlocked key is gone with the record; nothing may keep signing with it.
-          account = null;
         }),
-
-      canUpgradeToPasskey: () =>
-        guarded(async () => {
-          const stored = await keyStore.status();
-          return stored?.kind === 'device' && (await keyStore.passkeySupported());
-        }),
-      upgradeToPasskey: () =>
-        guarded(async (): Promise<WalletInfo> => adopt(await keyStore.secureWithPasskey())),
     },
 
     envelopes: {
@@ -614,48 +754,53 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           const id = toBase64Url(link.publicKey);
           if (state.openedAmount(id) !== null) throw new ServiceError('already_opened');
           const keys = envelopeKeys(link.secret);
-          const owner = await unlocked();
+          // A prompt only for a person without a wallet here: claiming needs an address, and
+          // the share's own key (from the link) signs.
+          const record = await ensureRecord();
+          const { to, launches } = await claimDestination(record);
           const opened = await openEnvelope({
             chain,
             envelopeSk: keys.secretKey,
             envelopePk: keys.publicKey,
             ...(link.shares === undefined ? {} : { sharesHint: link.shares }),
-            toPuzzleHash: owner.puzzleHash,
+            toPuzzleHash: to,
             fee,
             network,
           });
+          const launched = launches.get(toHex(coinId(opened.share.coin)));
+          if (launched !== undefined) await keyStore.setLauncher(launched);
+          await adopt(await requireRecord());
           state.setOpened(id, opened.received);
-          const confirmed = landed(opened.share.coin, opened.output).catch((error: unknown) => {
-            // Somebody else's claim of the same share won after all: let this person try again.
-            if (error instanceof EnvelopeError && error.code === 'lost_race') {
-              state.clearOpened(id);
-            }
-            throw toServiceError(error);
-          });
+          const confirmed = landed(opened.share.coin, opened.output).catch(
+            async (error: unknown) => {
+              // Somebody else's claim of the same share won after all: let this person try
+              // again, and forget a launch that never happened.
+              if (error instanceof EnvelopeError && error.code === 'lost_race') {
+                state.clearOpened(id);
+                if (launched !== undefined) await keyStore.setLauncher(null);
+              }
+              throw toServiceError(error);
+            },
+          );
           return { amount: opened.received, confirmed: track(opened.received, confirmed) };
         }),
 
       create: (input) =>
         guarded(async (): Promise<SentEnvelope> => {
-          const owner = await unlocked();
           const amounts = splitAmounts(input.total, input.shares, input.mode, {
             floor: fee + MIN_SHARE_AFTER_FEE,
           });
-          const coins = selectCoins(await spendable(owner), input.total + fee);
-          const first = coins[0];
-          if (first === undefined) throw new ServiceError('insufficient_funds');
-          const counter = state.nextEnvelopeCounter();
-          const secret = envelopeSecret(owner, counter);
+          // A random secret: nothing about an envelope is derived from the wallet any more.
+          // The link is kept below; it is how this browser takes the envelope back.
+          const secret = globalThis.crypto.getRandomValues(new Uint8Array(SECRET_BYTES));
           const keys = envelopeKeys(secret);
-          const created = buildCreate({
-            inputs: coins.map((coin) => ({ coin, signer: owner })),
-            envelopePk: keys.publicKey,
-            amounts,
-            changePuzzleHash: owner.puzzleHash,
-            fee,
-            network,
-          });
-          await chain.pushTx(created.bundle);
+          const { first, firstOutput } = await pay(
+            amounts.map((amount, index) => ({
+              puzzleHash: sharePuzzleHash(keys.publicKey, index),
+              amount,
+            })),
+          );
+          const counter = state.nextEnvelopeCounter();
           const record: SentRecord = {
             id: toBase64Url(keys.publicKey),
             counter,
@@ -675,10 +820,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
             takenBack: null,
           };
           state.addSent(record);
-          const firstShare = created.shares[0];
-          if (firstShare !== undefined) {
-            track(-(input.total + fee), landed(first, firstShare.coin)).catch(() => {});
-          }
+          track(-(input.total + fee), landed(first, firstOutput)).catch(() => {});
           return {
             id: record.id,
             link: record.link,
@@ -697,9 +839,9 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       takeBack: (id) =>
         guarded(async () => {
           const record = state.sent().find((entry) => entry.id === id);
-          const info = state.wallet(network.name);
-          if (record === undefined || info === null) throw new ServiceError('unknown');
-          // The envelope's own secret signs; the wallet key is not needed, so no prompt.
+          const wallet = await keyStore.status();
+          if (record === undefined || wallet === null) throw new ServiceError('unknown');
+          // The envelope's own secret signs; the wallet's passkey is not needed, so no prompt.
           const link = decodeLink(record.link);
           const keys = envelopeKeys(link.secret);
           const unopened = (await inspectEnvelope(chain, keys.publicKey, record.shares)).filter(
@@ -710,7 +852,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
             envelopeSk: keys.secretKey,
             envelopePk: keys.publicKey,
             sharesHint: record.shares,
-            toPuzzleHash: decodeAddress(info.address).puzzleHash,
+            toPuzzleHash: await receivingPuzzleHash(wallet),
             fee,
             network,
           });
@@ -764,7 +906,8 @@ export function createRealServices(): AppServices {
   return createServicesFrom({
     network,
     chain: createChainClient({ endpoints: configured.length > 0 ? configured : [direct] }),
-    keyStore: createKeyStore({ rpName: 'Clap and Pay', ...rpIdOption(location.hostname) }),
+    keyStore: createVaultKeyStore({ rpName: 'Clap and Pay', ...rpIdOption(location.hostname) }),
+    legacyKeyStore: createKeyStore({ rpName: 'Clap and Pay', ...rpIdOption(location.hostname) }),
     state: createLocalState(localStorage),
     origin: String(env.VITE_PUBLIC_ORIGIN ?? location.origin),
     fetch: (input, init) => fetch(input, init),

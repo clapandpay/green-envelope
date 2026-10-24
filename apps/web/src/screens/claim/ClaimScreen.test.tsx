@@ -271,22 +271,32 @@ describe('claim: the other states', () => {
   });
 });
 
-describe('claim: the Klimper backup (TASK-131)', () => {
-  it('says plainly, under the amount, that the money needs a Klimper backup', async () => {
+describe('claim: pocket money in a passkey vault', () => {
+  it('says plainly, under the amount, that bigger amounts belong in Klimper', async () => {
     const world = await anEnvelope();
     renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
     expect(await screen.findByText('€7.40')).toBeTruthy();
-    expect(await screen.findByText(/Back it up in Klimper/)).toBeTruthy();
+    expect(await screen.findByText(/Bigger amounts belong in Klimper/)).toBeTruthy();
   });
 
-  it('does not say it once the wallet is backed up', async () => {
+  it('a first claim launches the claimer’s vault on the way; later claims need no prompt', async () => {
     const world = await anEnvelope();
-    // The sender's wallet opens the envelope here; it was handed to Klimper before.
-    world.services.wallet.markBackedUp();
-    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
-    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
-    expect(await screen.findByText('€7.40')).toBeTruthy();
-    expect(screen.queryByText(/Back it up in Klimper/)).toBeNull();
+    const claimer = createWorld({ shared: world.fake });
+    await claimer.services.envelopes.open(world.link);
+    // The sign-in sheet (no passkey yet), then the phone's "create a passkey" sheet. Nothing
+    // signs the claim but the link; the vault costs 1 mojo out of the share.
+    expect(claimer.prompts()).toBe(2);
+    world.fake.farmBlock();
+    expect((await claimer.services.wallet.balance()).confirmed).toBe(TOTAL / BigInt(SHARES) - 1n);
+
+    const next = await world.makeEnvelope({ total: TOTAL, shares: SHARES, mode: 'equal' });
+    const before = claimer.prompts();
+    await claimer.services.envelopes.open(next.link);
+    world.fake.farmBlock();
+    expect(claimer.prompts()).toBe(before);
+    expect((await claimer.services.wallet.balance()).confirmed).toBe(
+      2n * (TOTAL / BigInt(SHARES)) - 1n,
+    );
   });
 });

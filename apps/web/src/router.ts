@@ -6,7 +6,6 @@ export type Route =
   | { name: 'wallet' }
   | { name: 'create'; amount: bigint | null }
   | { name: 'claim'; id: string }
-  | { name: 'connect' }
   | { name: 'hello' }
   | { name: 'notFound' };
 
@@ -23,7 +22,6 @@ export function matchRoute(pathname: string, search = ''): Route {
     return { name: 'create', amount: amount && /^\d{1,30}$/.test(amount) ? BigInt(amount) : null };
   }
   if (path === '/hello') return { name: 'hello' };
-  if (path === '/connect') return { name: 'connect' };
   const claim = /^\/g\/([^/]+)$/.exec(path);
   if (claim?.[1]) return { name: 'claim', id: claim[1] };
   return { name: 'notFound' };

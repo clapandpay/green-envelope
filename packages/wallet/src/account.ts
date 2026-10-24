@@ -64,7 +64,7 @@ export function envelopeSecret(account: Account, counter: number): Bytes {
 
 /**
  * The wallet's master secret key: what another Chia wallet needs to become this wallet.
- * Only for a handoff the person confirmed; everything else uses `accountFromSeed`.
+ * Only for tools and tests; the app uses `accountFromSeed`, and only to move old wallets.
  */
 export function masterSecretKey(seed: Bytes): SecretKey {
   return keyGen(seed);
