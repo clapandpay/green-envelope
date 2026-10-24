@@ -144,3 +144,34 @@ describe('an @name says where it goes', () => {
     expect(await screen.findByText(/only work on the real network/i)).toBeTruthy();
   });
 });
+
+describe('the network fee of a send', () => {
+  it('is shown before sending, with the total, and that fee is the one paid', async () => {
+    const world = createWorld({ fee: 10_000_000n });
+    await world.fund(5_000_000_000n);
+    world.fake.farmBlock();
+    const send = vi.spyOn(world.services.wallet, 'send');
+    renderScreen(
+      <SendSheet
+        rate={null}
+        balance={{ confirmed: 5_000_000_000n, pending: 0n }}
+        onClose={() => {}}
+        onChanged={() => {}}
+      />,
+      { services: world.services },
+    );
+    const other = createWorld({ shared: world.fake });
+    const { address } = await other.services.wallet.ensure();
+    fireEvent.input(screen.getByLabelText(/to whom/i), { target: { value: address } });
+    fireEvent.input(screen.getByLabelText(/how much/i), { target: { value: '0.001' } });
+    fireEvent.click(screen.getByRole('button', { name: /next|continue|send/i }));
+
+    expect(await screen.findByText(/network fee/i)).toBeTruthy();
+    expect(await screen.findByText(/0[.,]00001\s*XCH/)).toBeTruthy();
+    expect(screen.getByText(/in total/i)).toBeTruthy();
+    const now = (await screen.findByRole('button', { name: /send now/i })) as HTMLButtonElement;
+    await waitFor(() => expect(now.disabled).toBe(false));
+    fireEvent.click(now);
+    await waitFor(() => expect(send).toHaveBeenCalledWith(address, 1_000_000_000n, 10_000_000n));
+  });
+});

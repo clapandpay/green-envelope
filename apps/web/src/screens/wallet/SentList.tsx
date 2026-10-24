@@ -3,6 +3,7 @@
 import { useState } from 'preact/hooks';
 import { CopyButton } from '../../components/CopyButton';
 import { EnvelopeMark } from '../../components/Envelope';
+import { FeeLine } from '../../components/FeeLine';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
 import type { Dict } from '../../i18n/en';
@@ -63,6 +64,14 @@ export function SentList(props: {
   const { t, locale } = useI18n();
   const services = useServices();
   const [asking, setAsking] = useState<SentEnvelope | null>(null);
+  const [backFee, setBackFee] = useState<bigint | null>(null);
+  const ask = (envelope: SentEnvelope) => {
+    setBackFee(null);
+    setAsking(envelope);
+    services.envelopes.quoteTakeBack(envelope.id).then(setBackFee, (error: unknown) => {
+      setFailure(errorText(errorCode(error), t));
+    });
+  };
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -70,7 +79,7 @@ export function SentList(props: {
     setBusy(true);
     setFailure(null);
     try {
-      const result = await services.envelopes.takeBack(envelope.id);
+      const result = await services.envelopes.takeBack(envelope.id, backFee ?? undefined);
       setAsking(null);
       props.onChanged();
       result.confirmed.then(props.onChanged, () => {});
@@ -110,7 +119,7 @@ export function SentList(props: {
             {canTakeBack(envelope) && (
               <div class="sent__actions">
                 <CopyButton text={envelope.link} label={t.create.copyLink} class="btn btn--small" />
-                <button type="button" class="btn btn--small" onClick={() => setAsking(envelope)}>
+                <button type="button" class="btn btn--small" onClick={() => ask(envelope)}>
                   {t.wallet.takeBack}
                 </button>
               </div>
@@ -138,6 +147,8 @@ export function SentList(props: {
                 formatMoney(asking.total - asking.amountOpened, props.rate, locale),
               )}
             </p>
+            {/* Paid out of the shares that come back. */}
+            <FeeLine fee={backFee} />
             {failure && (
               <p class="notice" role="alert">
                 {failure}
@@ -147,7 +158,7 @@ export function SentList(props: {
               type="button"
               class="btn btn--primary"
               aria-busy={busy}
-              disabled={busy}
+              disabled={busy || backFee === null}
               onClick={() => takeBack(asking)}
             >
               {busy ? t.wallet.takingBack : t.wallet.takeBackConfirm}

@@ -83,6 +83,8 @@ export interface CreateEnvelopeInput {
   mode: 'random' | 'equal';
   from: string | null;
   message: string | null;
+  /** The quoted network fee (`quotePayment`), so the fee shown is the fee paid. */
+  fee?: bigint;
 }
 
 export interface SentEnvelope {
@@ -152,14 +154,24 @@ export interface WalletService {
    */
   makeNew(): Promise<WalletInfo>;
   balance(): Promise<Balance>;
-  /** `to` is an address or an @handle. One passkey prompt. */
-  send(to: string, amount: bigint): Promise<{ confirmed: Promise<void>; coinId: string }>;
+  /**
+   * The network fee of paying `amount` (or everything, `'all'`) now, and what arrives. Shown
+   * before every payment, and handed back to it: the fee shown is the fee paid. Never prompts.
+   */
+  quotePayment(amount: bigint | 'all'): Promise<{ fee: bigint; arriving: bigint }>;
+  /** `to` is an address or an @handle. One passkey prompt. `fee`: the quoted fee. */
+  send(
+    to: string,
+    amount: bigint,
+    fee?: bigint,
+  ): Promise<{ confirmed: Promise<void>; coinId: string }>;
   /**
    * Sends everything to `address` (Klimper's receive address), in one prompt per 50 coins.
    * Rejects with `invalid_recipient` for an address of another network.
    */
   moveToKlimper(
     address: string,
+    fee?: bigint,
   ): Promise<{ amount: bigint; confirmed: Promise<void>; more: boolean; coinId: string }>;
   /**
    * Opens the wallet of this browser, or finds the one this person has elsewhere with the
@@ -192,7 +204,9 @@ export interface EnvelopeService {
   open(link: string): Promise<OpenResult>;
   create(input: CreateEnvelopeInput): Promise<SentEnvelope>;
   listSent(): Promise<SentEnvelope[]>;
-  takeBack(id: string): Promise<{ amount: bigint; confirmed: Promise<void> }>;
+  /** The network fee of taking `id` back now, paid out of the unopened shares. */
+  quoteTakeBack(id: string): Promise<bigint>;
+  takeBack(id: string, fee?: bigint): Promise<{ amount: bigint; confirmed: Promise<void> }>;
   /**
    * Removes a finished or taken-back envelope from this browser's list. Refuses one that is
    * still open: its stored link is the only way to take it back.

@@ -638,3 +638,33 @@ textarea.input {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* The network fee of the payment about to be made: always shown, never in the way. */
+.fee-line {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  border: var(--line-thin) dashed var(--ink-soft);
+  border-radius: var(--radius-s);
+  font-size: var(--text-s);
+}
+
+.fee-line > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fee-line dt {
+  color: var(--ink-soft);
+}
+
+.fee-line dd {
+  margin: 0;
+  text-align: right;
+}
+
+.fee-line__total {
+  font-weight: 700;
+}

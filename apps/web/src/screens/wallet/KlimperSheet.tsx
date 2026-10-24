@@ -5,6 +5,7 @@
 import { useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
 import { ExplorerLink } from '../../components/ExplorerLink';
+import { FeeLine } from '../../components/FeeLine';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
 import { errorCode, errorText } from '../../lib/errors';
@@ -30,6 +31,7 @@ export function KlimperSheet(props: {
   const [problem, setProblem] = useState<string | null>(null);
   const [more, setMore] = useState(false);
   const [movedCoin, setMovedCoin] = useState<string | null>(null);
+  const [quote, setQuote] = useState<{ fee: bigint; arriving: bigint } | null>(null);
   const address = to.trim().toLowerCase();
   const valid = ADDRESS.test(address);
 
@@ -37,7 +39,7 @@ export function KlimperSheet(props: {
     setStep('moving');
     setProblem(null);
     try {
-      const moved = await services.wallet.moveToKlimper(address);
+      const moved = await services.wallet.moveToKlimper(address, quote?.fee);
       setMore(moved.more);
       setMovedCoin(moved.coinId);
       setStep('done');
@@ -68,7 +70,9 @@ export function KlimperSheet(props: {
     return (
       <Sheet open title={t.wallet.klimperConfirmTitle} onClose={props.onClose}>
         <div class="stack">
-          <Amount mojos={props.balance} rate={props.rate} align="left" />
+          {/* What arrives in Klimper: everything here, less the network fee. */}
+          <Amount mojos={quote?.arriving ?? null} rate={props.rate} align="left" />
+          <FeeLine fee={quote?.fee ?? null} />
           <div class="field">
             <span class="field__label">{t.wallet.klimperTo}</span>
             <p class="address num">{address}</p>
@@ -83,7 +87,7 @@ export function KlimperSheet(props: {
             type="button"
             class="btn btn--primary btn--huge"
             aria-busy={step === 'moving'}
-            disabled={step === 'moving'}
+            disabled={step === 'moving' || quote === null}
             onClick={move}
           >
             {step === 'moving' ? t.wallet.klimperMoving : t.wallet.klimperMove}
@@ -103,7 +107,13 @@ export function KlimperSheet(props: {
         onSubmit={(event) => {
           event.preventDefault();
           setNudged(true);
-          if (valid) setStep('confirm');
+          if (valid) {
+            setQuote(null);
+            setStep('confirm');
+            services.wallet.quotePayment('all').then(setQuote, (error: unknown) => {
+              setProblem(errorText(errorCode(error), t));
+            });
+          }
         }}
       >
         <p class="soft">{t.wallet.klimperBody}</p>

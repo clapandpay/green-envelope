@@ -117,6 +117,9 @@ export const en = {
     done: 'Done',
   },
   wallet: {
+    feeLine: 'Network fee',
+    feeTotal: 'In total',
+    feeWorking: 'working it out…',
     feeRow: 'Network fee',
     feeTitle: 'Network fee',
     feeBody:

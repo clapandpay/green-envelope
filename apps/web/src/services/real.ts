@@ -375,30 +375,56 @@ export function createServicesFrom(deps: RealDeps): AppServices {
    * coin (up to 50) and pays their whole value, minus the fee, to the first output instead.
    * Returns the coin the first output becomes, to wait for.
    */
-  async function pay(
-    outputs: Output[],
-    opts: { all?: boolean } = {},
-  ): Promise<{ first: Coin; firstOutput: Coin; total: bigint; more: boolean; fee: bigint }> {
+  /** The wallet's spendable state: its record, its coins, and its vault if confirmed. */
+  async function walletNow() {
     const record = await requireRecord();
     const { money, setup } = await walletCoins(chain, record.publicKey, record.launcherId);
     const vault =
       record.launcherId === null
         ? null
         : await currentVault(chain, record.publicKey, record.launcherId);
+    return { record, money, setup, vault };
+  }
 
-    if (vault !== null && money.length > 0) {
-      const paying = outputs.reduce((sum, o) => sum + o.amount, 0n);
-      const pick = (fee: bigint) =>
-        opts.all === true ? money.slice(0, MAX_INPUTS) : selectCoins(money, paying + fee);
-      // The fee depends on how many coins are spent, and which coins on the fee: once more
-      // with the fee for the coins actually picked.
-      let fee = await feeFor(COSTS.vaultSpend(1));
-      let coins = pick(fee);
-      const exact = await feeFor(COSTS.vaultSpend(coins.length));
-      if (exact !== fee) {
-        fee = exact;
-        coins = pick(fee);
-      }
+  /**
+   * The fee of paying `paying` (or everything, with `all`) and the vault coins it spends. The
+   * fee depends on how many coins are spent, and which coins on the fee: so once more with the
+   * fee for the coins actually picked. A `pinned` fee (one the person was shown) is used as is.
+   * Without a confirmed vault the payment comes from the setup address.
+   */
+  async function planPayment(
+    now: Awaited<ReturnType<typeof walletNow>>,
+    paying: bigint,
+    opts: { all?: boolean; fee?: bigint | undefined },
+  ): Promise<{ fee: bigint; coins: Coin[] | null }> {
+    const { money, vault } = now;
+    if (vault === null || money.length === 0) {
+      return { fee: opts.fee ?? (await feeFor(COSTS.setupSpend)), coins: null };
+    }
+    const pick = (fee: bigint) =>
+      opts.all === true ? money.slice(0, MAX_INPUTS) : selectCoins(money, paying + fee);
+    if (opts.fee !== undefined) return { fee: opts.fee, coins: pick(opts.fee) };
+    let fee = await feeFor(COSTS.vaultSpend(1));
+    let coins = pick(fee);
+    const exact = await feeFor(COSTS.vaultSpend(coins.length));
+    if (exact !== fee) {
+      fee = exact;
+      coins = pick(fee);
+    }
+    return { fee, coins };
+  }
+
+  async function pay(
+    outputs: Output[],
+    opts: { all?: boolean; fee?: bigint | undefined } = {},
+  ): Promise<{ first: Coin; firstOutput: Coin; total: bigint; more: boolean; fee: bigint }> {
+    const now = await walletNow();
+    const { record, money, setup, vault } = now;
+    const paying = outputs.reduce((sum, o) => sum + o.amount, 0n);
+    const planned = await planPayment(now, paying, opts);
+
+    if (vault !== null && planned.coins !== null) {
+      const { fee, coins } = planned;
       const total = coins.reduce((sum, coin) => sum + coin.amount, 0n);
       const plan = opts.all === true ? sweepTo(outputs, total, fee) : outputs;
       const unsigned = buildVaultSpend({ vault, money: coins, outputs: plan, fee });
@@ -426,7 +452,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     }
 
     // No vault yet: one coin at the setup address pays, and launches the vault on the way.
-    const fee = await feeFor(COSTS.setupSpend);
+    const { fee } = planned;
     const wanted = outputs.reduce((sum, o) => sum + o.amount, 0n) + fee + 1n;
     const coin =
       opts.all === true
@@ -764,10 +790,21 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           return { confirmed, pending };
         }),
 
-      send: (to, amount) =>
+      quotePayment: (amount) =>
+        guarded(async () => {
+          const now = await walletNow();
+          const all = amount === 'all';
+          const { fee, coins } = await planPayment(now, all ? 0n : amount, { all });
+          const spent = (coins ?? now.setup).reduce((sum, coin) => sum + coin.amount, 0n);
+          return { fee, arriving: all ? spent - fee - (coins === null ? 1n : 0n) : amount };
+        }),
+
+      send: (to, amount, pinnedFee) =>
         guarded(async () => {
           const toPuzzleHash = await recipient(to);
-          const { first, firstOutput, fee } = await pay([{ puzzleHash: toPuzzleHash, amount }]);
+          const { first, firstOutput, fee } = await pay([{ puzzleHash: toPuzzleHash, amount }], {
+            fee: pinnedFee,
+          });
           // Accepted by the network: this is the first moment the name has been paid, and the
           // only one that should make it a name this person trusts.
           const handle = parseHandle(to);
@@ -778,7 +815,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           };
         }),
 
-      moveToKlimper: (to) =>
+      moveToKlimper: (to, pinnedFee) =>
         guarded(async () => {
           let puzzleHash: Bytes;
           try {
@@ -790,6 +827,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           }
           const { first, firstOutput, total, more, fee } = await pay([{ puzzleHash, amount: 0n }], {
             all: true,
+            fee: pinnedFee,
           });
           return {
             amount: total,
@@ -937,6 +975,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
               puzzleHash: sharePuzzleHash(keys.publicKey, index),
               amount,
             })),
+            { fee: input.fee },
           );
           const counter = state.nextEnvelopeCounter();
           const record: SentRecord = {
@@ -985,7 +1024,18 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           state.removeSent(id);
         }),
 
-      takeBack: (id) =>
+      quoteTakeBack: (id) =>
+        guarded(async () => {
+          const record = sentHere().find((entry) => entry.id === id);
+          if (record === undefined) throw new ServiceError('unknown');
+          const keys = envelopeKeys(decodeLink(record.link).secret);
+          const unopened = (await inspectEnvelope(chain, keys.publicKey, record.shares)).filter(
+            (share) => !share.opened,
+          );
+          return feeFor(COSTS.takeBack(unopened.length));
+        }),
+
+      takeBack: (id, pinnedFee) =>
         guarded(async () => {
           const record = sentHere().find((entry) => entry.id === id);
           const wallet = await knownRecord();
@@ -996,7 +1046,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           const unopened = (await inspectEnvelope(chain, keys.publicKey, record.shares)).filter(
             (share) => !share.opened,
           );
-          const fee = await feeFor(COSTS.takeBack(unopened.length));
+          const fee = pinnedFee ?? (await feeFor(COSTS.takeBack(unopened.length)));
           const back = await takeBackEnvelope({
             chain,
             envelopeSk: keys.secretKey,

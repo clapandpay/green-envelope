@@ -117,6 +117,9 @@ export const de: Dict = {
     done: 'Fertig',
   },
   wallet: {
+    feeLine: 'Netzwerkgebühr',
+    feeTotal: 'Insgesamt',
+    feeWorking: 'wird berechnet…',
     feeRow: 'Netzwerkgebühr',
     feeTitle: 'Netzwerkgebühr',
     feeBody:

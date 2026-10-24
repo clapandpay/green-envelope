@@ -300,8 +300,12 @@ describe('moving to Klimper', () => {
     // One look at the whole address before anything moves.
     const confirm = await screen.findByRole('dialog');
     expect(within(confirm).getByText(address)).toBeTruthy();
-    fireEvent.click(within(confirm).getByRole('button', { name: /yes, move it/i }));
-    await waitFor(() => expect(move).toHaveBeenCalledWith(address));
+    const yes = within(confirm).getByRole('button', { name: /yes, move it/i }) as HTMLButtonElement;
+    await waitFor(() => expect(yes.disabled).toBe(false));
+    fireEvent.click(yes);
+    // The fee shown before the tap is the fee handed to the move.
+    expect(await within(confirm).findByText(/network fee/i)).toBeTruthy();
+    await waitFor(() => expect(move).toHaveBeenCalledWith(address, expect.any(BigInt)));
     expect(await screen.findByText(/on its way to klimper/i)).toBeTruthy();
   });
 
