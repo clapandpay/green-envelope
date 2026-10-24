@@ -258,6 +258,18 @@ importers:
 
   packages/handoff: {}
 
+  packages/passkey-signer:
+    dependencies:
+      '@ge/chia':
+        specifier: workspace:*
+        version: link:../chia
+      '@ge/vault':
+        specifier: workspace:*
+        version: link:../vault
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
+
   packages/vault:
     dependencies:
       '@ge/chia':
