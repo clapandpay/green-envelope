@@ -297,16 +297,6 @@ export const en = {
       'Your envelope is not lost, we just cannot reach it. Check your internet and try again.',
     brokenTitle: 'That did not work',
     brokenBody: 'Something went wrong on our side. Please try again in a moment.',
-    // demo: the faucet is not switched on
-    demoTag: 'Demo · not real money',
-    demoTitle: 'A demo envelope',
-    demoLead: 'Try the opening. This one holds no money at all.',
-    demoOpen: 'Open the demo',
-    demoOpening: 'Opening…',
-    demoDoneTitle: 'That is how it feels',
-    demoDoneBody:
-      'This was a rehearsal: nothing arrived, nothing was spent. Real envelopes open just like this.',
-    demoAgain: 'Open it again',
   },
   notFound: {
     title: 'Nothing here',

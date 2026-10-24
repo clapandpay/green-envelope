@@ -295,15 +295,6 @@ export const de: Dict = {
       'Dein Umschlag ist nicht weg, wir erreichen ihn nur gerade nicht. Prüfe dein Internet und versuche es nochmal.',
     brokenTitle: 'Das hat nicht geklappt',
     brokenBody: 'Bei uns ist etwas schiefgegangen. Versuche es gleich nochmal.',
-    demoTag: 'Demo · kein echtes Geld',
-    demoTitle: 'Ein Demo-Umschlag',
-    demoLead: 'Probier das Öffnen aus. In diesem ist überhaupt kein Geld.',
-    demoOpen: 'Demo öffnen',
-    demoOpening: 'Wird geöffnet…',
-    demoDoneTitle: 'So fühlt es sich an',
-    demoDoneBody:
-      'Das war eine Probe: nichts ist angekommen, nichts wurde ausgegeben. Echte Umschläge öffnen sich genauso.',
-    demoAgain: 'Nochmal öffnen',
   },
   notFound: {
     title: 'Hier ist nichts',

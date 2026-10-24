@@ -42,7 +42,7 @@ ARG VITE_NETWORK=mainnet
 # The commit the footer names next to the release number. The context has no .git, so the
 # release workflow passes it in.
 ARG GIT_COMMIT=unknown
-# The faucet behind /hello (docs/faucet.md). Empty means /hello shows the stamped demo envelope
+# The faucet behind /hello (docs/faucet.md). Empty means /hello goes straight to the app's start
 # and never touches the network. These are read at build time, so they belong to the image: set
 # the repository variable FAUCET_URL (green-envelope.yml passes it) or build with --build-arg.
 ARG VITE_FAUCET_URL=

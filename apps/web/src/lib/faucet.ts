@@ -50,7 +50,7 @@ function safeUrl(raw: string): URL | null {
 }
 
 /**
- * Reads the build-time settings. Returns null (the demo envelope) when there is no usable
+ * Reads the build-time settings. Returns null (/hello goes to the app's start) when there is no usable
  * `VITE_FAUCET_URL`. `allowed` is a comma-separated list of extra origins for the links.
  */
 export function faucetConfig(

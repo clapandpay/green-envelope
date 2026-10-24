@@ -10,7 +10,7 @@ the contract between the page and the faucet. The page-side client is
 
 | Variable | Meaning |
 | --- | --- |
-| `VITE_FAUCET_URL` | The endpoint. `https:` only (`http:` on localhost for development), no credentials in the URL. Unset or invalid: `/hello` shows a clearly labelled **demo** envelope with no money. |
+| `VITE_FAUCET_URL` | The endpoint. `https:` only (`http:` on localhost for development), no credentials in the URL. Unset or invalid: there is no envelope to give, so `/hello` goes straight to the app's start (`/`), replacing itself in the history. |
 | `VITE_FAUCET_ORIGINS` | Optional, comma-separated extra origins a returned link may name (for example `https://clapandpay.com` when the app lives on another host). The page's own origin is always allowed. |
 
 If the faucet is on another origin than the app, the edge service's content security policy
@@ -65,10 +65,9 @@ sweep-back so unopened ones return to the faucet after the usual 7 days.
 
 ## States on `/hello`
 
-Faucet not configured (demo), ready, fetching (double-click safe), already got one, empty,
+Ready, fetching (double-click safe), already got one, empty,
 rate limited (countdown), offline, broken. Each has English and German copy in
-`apps/web/src/i18n/` (`hello`) and each ends in an action. The demo is stamped "Demo · not real
-money", wears a DEMO ribbon, shows no amounts and never touches the network or the wallet.
+`apps/web/src/i18n/` (`hello`) and each ends in an action. Without a faucet there is no state: `/hello` goes to `/`.
 
 ## Link previews
 

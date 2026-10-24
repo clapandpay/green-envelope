@@ -16,7 +16,7 @@ interface ImportMetaEnv {
   readonly VITE_FEE_MOJOS?: string;
   /** Handle registry base URL. Default: XCHandles on mainnet, none on a test chain. */
   readonly VITE_HANDLES_API?: string;
-  /** Faucet endpoint for /hello (docs/faucet.md). Unset: /hello shows a labelled demo. */
+  /** Faucet endpoint for /hello (docs/faucet.md). Unset: /hello goes to the app's start. */
   readonly VITE_FAUCET_URL?: string;
   /** Comma-separated extra origins a faucet link may name. This page's own origin always may. */
   readonly VITE_FAUCET_ORIGINS?: string;
