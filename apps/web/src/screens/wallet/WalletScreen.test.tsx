@@ -256,6 +256,22 @@ describe('money from the old wallet', () => {
   });
 });
 
+describe('your envelopes', () => {
+  it('no longer shows one that was taken back', async () => {
+    const world = createWorld();
+    const kept = await world.makeEnvelope({ total: 2_000_000_000n, shares: 2, from: 'kept' });
+    const back = await world.makeEnvelope({ total: 3_000_000_000n, shares: 2, from: 'back' });
+    await world.services.envelopes.takeBack(back.id);
+    world.fake.farmBlock();
+    renderScreen(<WalletScreen />, { services: world.services });
+    await screen.findByText('Your envelopes');
+    const ids = (await world.services.envelopes.listSent()).map((e) => [e.id, e.status]);
+    expect(ids).toContainEqual([back.id, 'taken_back']);
+    await waitFor(() => expect(screen.queryAllByRole('listitem').length).toBe(1));
+    expect(kept.id).not.toBe(back.id);
+  });
+});
+
 describe('moving to Klimper', () => {
   it('is offered once there is money, and sends everything to the pasted address', async () => {
     const world = createWorld();
