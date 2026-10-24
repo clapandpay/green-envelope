@@ -6,7 +6,7 @@ import { createVaultKeyStore, memoryVaultStorage, type VaultKeyStore } from '@ge
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeChain } from '../test/fake-chain';
 import { createLocalState } from './local-state';
-import { createServicesFrom, priceIn, servedChain } from './real';
+import { createServicesFrom, MAX_MOJOS_PER_COST, priceIn, servedChain } from './real';
 import type { AppServices } from './types';
 
 const text = (s: string) => new TextEncoder().encode(s);
@@ -366,6 +366,12 @@ describe('the network fee', () => {
       throw new Error('down');
     });
     expect((await silent.services.wallet.fee()).current).toBe(1_000_000n);
+  });
+
+  it('automatic: an estimate above the ceiling per cost is cut down to it', async () => {
+    const greedy = withFee('auto', async () => 10n ** 15n);
+    const { current } = await greedy.services.wallet.fee();
+    expect(current).toBe((greedy.asked[0] ?? 0n) * MAX_MOJOS_PER_COST);
   });
 
   it('a fixed amount chosen here is kept, and used without asking the network', async () => {

@@ -6,7 +6,7 @@ import { type AssetsFn, createPages } from './pages';
 import { createPriceSource, FRESH_SECONDS } from './price';
 import { pickRecipient, readRecipientQuestion } from './recipient';
 import { createRpcProxy, isJsonContentType, readLimitedBody, rpcError } from './rpc';
-import { isHtml, securityHeaders, withHeaders } from './security';
+import { ASSET_HEADERS, isHtml, securityHeaders, withHeaders } from './security';
 import { createShareStateLookup, type SharesFn } from './share-state';
 
 /** Everything the handler needs from the outside; all of it is replaceable in tests. */
@@ -179,7 +179,7 @@ export function createHandler(deps: HandlerDeps): Handler {
     if (path === '/hello') return pages.hello(request, url);
     if (isAppRoute(path)) return pages.generic(request, url, 200);
     const asset = await deps.assets(request);
-    return isHtml(asset) ? withHeaders(asset, headers) : asset;
+    return withHeaders(asset, isHtml(asset) ? headers : ASSET_HEADERS);
   };
 
   const route = async (request: Request): Promise<Response> => {

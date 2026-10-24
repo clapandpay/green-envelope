@@ -159,11 +159,16 @@ export interface WalletService {
    * before every payment, and handed back to it: the fee shown is the fee paid. Never prompts.
    */
   quotePayment(amount: bigint | 'all'): Promise<{ fee: bigint; arriving: bigint }>;
-  /** `to` is an address or an @handle. One passkey prompt. `fee`: the quoted fee. */
+  /**
+   * `to` is an address or an @handle. One passkey prompt. `fee`: the quoted fee. `address`: for
+   * an @handle, the address the person was shown and confirmed; it is what gets paid, so a
+   * registry that answers differently the second time cannot redirect the money.
+   */
   send(
     to: string,
     amount: bigint,
     fee?: bigint,
+    address?: string,
   ): Promise<{ confirmed: Promise<void>; coinId: string }>;
   /**
    * Sends everything to `address` (Klimper's receive address), in one prompt per 50 coins.
