@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // An in-memory chain for service tests. It reads the CREATE_COIN conditions out of each
-// standard-transaction solution, so bundles built by the real code have their real effect.
-// It does not check signatures or puzzles: the Rust verifier (tools/vectors) does that.
+// solution (standard transaction, MIPS money or setup coin, vault singleton, launcher), so
+// bundles built by the real code have their real effect. It does not check signatures or
+// puzzles: the Rust verifier (tools/vectors) does that.
 import { type ChainClient, ChainError, type CoinRecord } from '@ge/chain';
-import { type Bytes, type Coin, coinId, toHex } from '@ge/chia';
+import { type Bytes, type Coin, coinId, equalBytes, fromHex, toHex } from '@ge/chia';
+
+/** chia-puzzles `SINGLETON_LAUNCHER_HASH`. */
+const LAUNCHER_HASH = fromHex('eff07522495060c066f66f32acc2a77e3a3e737aca8baea4d1a64ea4cdc13da9');
 
 type Node = Bytes | [Node, Node];
 
@@ -39,26 +43,72 @@ function toBigInt(atom: Bytes): bigint {
   return atom.reduce((value, byte) => (value << 8n) | BigInt(byte), 0n);
 }
 
-/** The coins a standard-transaction spend of `parent` creates. */
-function outputsOf(parent: Coin, solution: Bytes): Coin[] {
-  // (() (q . conditions) ())
-  const delegated = items(parse(solution))[1];
+interface Created {
+  coin: Coin;
+  hint: Bytes | null;
+}
+
+const isAtom = (node: Node | undefined): node is Bytes => node instanceof Uint8Array;
+
+/** CREATE_COINs of a `(q . conditions)` delegated puzzle. */
+function created(parent: Coin, delegated: Node | undefined): Created[] {
   if (!Array.isArray(delegated)) return [];
   return items(delegated[1]).flatMap((condition) => {
-    const [opcode, puzzleHash, amount] = items(condition);
-    if (!(opcode instanceof Uint8Array) || opcode[0] !== 51) return [];
-    if (!(puzzleHash instanceof Uint8Array) || !(amount instanceof Uint8Array)) return [];
-    return [{ parentCoinInfo: coinId(parent), puzzleHash, amount: toBigInt(amount) }];
+    const [opcode, puzzleHash, amount, memos] = items(condition);
+    if (!isAtom(opcode) || opcode[0] !== 51) return [];
+    if (!isAtom(puzzleHash) || !isAtom(amount)) return [];
+    const first = memos === undefined ? undefined : items(memos)[0];
+    return [
+      {
+        coin: { parentCoinInfo: coinId(parent), puzzleHash, amount: toBigInt(amount) },
+        hint: isAtom(first) && first.length === 32 ? first : null,
+      },
+    ];
   });
+}
+
+/** The coins a spend of `parent` creates, for the puzzles this app spends. */
+function outputsOf(parent: Coin, solution: Bytes): Created[] {
+  const args = items(parse(solution));
+  // Launcher: (singleton_puzzle_hash amount key_value_list)
+  if (equalBytes(parent.puzzleHash, LAUNCHER_HASH)) {
+    const [puzzleHash, amount] = args;
+    if (!isAtom(puzzleHash) || !isAtom(amount)) return [];
+    return [
+      {
+        coin: { parentCoinInfo: coinId(parent), puzzleHash, amount: toBigInt(amount) },
+        hint: null,
+      },
+    ];
+  }
+  // Standard transaction: (() (q . conditions) ())
+  if (isAtom(args[0])) return created(parent, args[1]);
+  // MIPS (money or setup coin): ((q . conditions) () . member solution)
+  const head = args[0];
+  if (Array.isArray(head) && isAtom(head[0]) && head[0][0] === 1 && head[0].length === 1) {
+    return created(parent, head);
+  }
+  // Vault singleton: (lineage_proof amount (delegated_puzzle () . member solution)). The odd
+  // CREATE_COIN names the inner puzzle; the singleton layer wraps it, and as the custody does
+  // not change here, the child is at the parent's own puzzle hash.
+  const inner = args[2];
+  const delegated = inner === undefined ? undefined : items(inner)[0];
+  return created(parent, delegated).map((out) =>
+    out.coin.amount % 2n === 1n
+      ? { ...out, coin: { ...out.coin, puzzleHash: parent.puzzleHash } }
+      : out,
+  );
 }
 
 /** Creates the chain. `farmBlock()` confirms what is in the mempool. */
 export function createFakeChain() {
   const records = new Map<string, CoinRecord>();
-  const mempool = new Map<string, Coin[]>();
+  const hints = new Map<string, string>(); // coin id -> hint
+  const mempool = new Map<string, Created[]>();
   let height = 100;
 
-  function add(coin: Coin): void {
+  function add(coin: Coin, hint: Bytes | null = null): void {
+    if (hint !== null) hints.set(toHex(coinId(coin)), toHex(hint));
     records.set(toHex(coinId(coin)), {
       coin,
       confirmedHeight: height,
@@ -78,6 +128,21 @@ export function createFakeChain() {
     },
     async coinRecordByName(id) {
       return records.get(toHex(id)) ?? null;
+    },
+    async coinRecordsByHint(hint, opts) {
+      const wanted = toHex(hint);
+      return [...records.entries()]
+        .filter(([id, record]) => hints.get(id) === wanted)
+        .map(([, record]) => record)
+        .filter((record) => opts?.includeSpent === true || record.spentHeight === null);
+    },
+    async coinRecordsByParentIds(parentIds, opts) {
+      const wanted = new Set(parentIds.map(toHex));
+      return [...records.values()].filter(
+        (record) =>
+          wanted.has(toHex(record.coin.parentCoinInfo)) &&
+          (opts?.includeSpent === true || record.spentHeight === null),
+      );
     },
     async pushTx(bundle) {
       const spends = bundle.coinSpends.map((spend) => ({ id: toHex(coinId(spend.coin)), spend }));
@@ -103,7 +168,7 @@ export function createFakeChain() {
       for (const [id, outputs] of mempool) {
         const record = records.get(id);
         if (record !== undefined) record.spentHeight = height;
-        for (const output of outputs) add(output);
+        for (const output of outputs) add(output.coin, output.hint);
       }
       mempool.clear();
     },

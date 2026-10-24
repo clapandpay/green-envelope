@@ -15,6 +15,8 @@ export interface RpcDeps {
 export const RPC_METHODS: ReadonlySet<string> = new Set([
   'get_coin_records_by_puzzle_hashes',
   'get_coin_record_by_name',
+  'get_coin_records_by_hint',
+  'get_coin_records_by_parent_ids',
   'get_blockchain_state',
   'push_tx',
 ]);

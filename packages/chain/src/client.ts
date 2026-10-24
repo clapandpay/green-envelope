@@ -18,6 +18,13 @@ export interface ChainClient {
   ): Promise<CoinRecord[]>;
   /** One coin by its id, or `null` when the node does not know it. */
   coinRecordByName(coinId: Bytes): Promise<CoinRecord | null>;
+  /** Every coin created with `hint` as its first memo (how a vault is found again). */
+  coinRecordsByHint(hint: Bytes, opts?: { includeSpent?: boolean }): Promise<CoinRecord[]>;
+  /** Every coin whose parent is one of `parentIds` (how a vault's next coin is found). */
+  coinRecordsByParentIds(
+    parentIds: Bytes[],
+    opts?: { includeSpent?: boolean },
+  ): Promise<CoinRecord[]>;
   /** Submits a spend bundle to the mempool; definitive rejections throw a typed `ChainError`. */
   pushTx(bundle: SpendBundle): Promise<{ status: 'success' | 'pending' }>;
   /** Height of the current peak block. */
@@ -70,6 +77,29 @@ export function createChainClient(opts: TransportOptions): ChainClient {
         ),
       );
       return pages.length === 1 && pages[0] !== undefined ? pages[0] : pages.flat();
+    },
+
+    async coinRecordsByHint(hint, callOpts) {
+      return transport.call({
+        method: 'get_coin_records_by_hint',
+        body: {
+          hint: hash32ToHex(hint, 'hint'),
+          include_spent_coins: callOpts?.includeSpent ?? false,
+        },
+        parse: parseCoinRecords,
+      });
+    },
+
+    async coinRecordsByParentIds(parentIds, callOpts) {
+      if (parentIds.length === 0) return [];
+      return transport.call({
+        method: 'get_coin_records_by_parent_ids',
+        body: {
+          parent_ids: parentIds.map((id) => hash32ToHex(id, 'parent id')),
+          include_spent_coins: callOpts?.includeSpent ?? false,
+        },
+        parse: parseCoinRecords,
+      });
     },
 
     async coinRecordByName(coinId) {
