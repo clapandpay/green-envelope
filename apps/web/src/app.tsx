@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { AlphaBanner } from './components/AlphaBanner';
 import { Footer } from './components/Footer';
 import { I18nProvider, type Lang, useI18n } from './i18n';
+import { reloadForNewBuild } from './lib/reload';
 import { onLinkClick, type Route, useRoute } from './router';
 import { ClaimScreen } from './screens/claim/ClaimScreen';
 import { loadCreateScreen, loadHelloScreen, loadWalletScreen } from './screens/lazy';
@@ -24,7 +25,9 @@ function Lazy<P extends object>(props: { load: () => Promise<ComponentType<P>>; 
     setFailed(false);
     load().then(
       (component) => alive && setScreen(() => component),
-      () => alive && setFailed(true),
+      // Most often a tab from before a release asking for files that are gone: one reload
+      // brings the current ones. Otherwise (offline), say so and offer to try again.
+      () => alive && !reloadForNewBuild() && setFailed(true),
     );
     return () => {
       alive = false;
