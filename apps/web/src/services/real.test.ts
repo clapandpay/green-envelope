@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { decodeAddress, sha256, TESTNET11 } from '@ge/chia';
-import { decodeLink } from '@ge/envelope';
+import { decodeAddress, MAINNET, sha256, TESTNET11 } from '@ge/chia';
+import { decodeLink, encodeLink, envelopeKeys } from '@ge/envelope';
 import { fakePasskeys } from '@ge/passkey-signer/fake';
 import { createVaultKeyStore, memoryVaultStorage, type VaultKeyStore } from '@ge/wallet';
 import { describe, expect, it, vi } from 'vitest';
@@ -222,6 +222,50 @@ describe('the whole loop', () => {
     const b = await anna.envelopes.create(input);
     expect(a.id).not.toBe(b.id);
     expect((await anna.envelopes.listSent()).map((e) => e.id)).toEqual([b.id, a.id]);
+  });
+});
+
+describe('two networks in one browser', () => {
+  it('lists only the envelopes of the network in use', async () => {
+    const storage = memoryStorage();
+    const state = createLocalState(storage);
+    const record = (id: string, link: string) => ({
+      id,
+      counter: 0,
+      link,
+      createdAt: 0,
+      total: '1000',
+      shares: 1,
+      takenBack: null,
+    });
+    const link = (label: string) => {
+      const secret = sha256(text(label)).slice(0, 16);
+      return encodeLink('https://ge.test', { publicKey: envelopeKeys(secret).publicKey, secret });
+    };
+    state.addSent(record('on-main', link('main')));
+    const test = new URL(link('test'));
+    test.searchParams.set('net', 'testnet');
+    state.addSent(record('on-test', test.toString()));
+    const services = (network: typeof TESTNET11) =>
+      createServicesFrom({
+        network,
+        chain: createFakeChain().chain,
+        keyStore: keyStoreFor(),
+        state,
+        origin: 'https://ge.test',
+        fetch: async () => new Response('{}', { status: 500 }),
+        now: () => 0,
+        fee: 0n,
+        expirySeconds: 1,
+      });
+    const ids = async (network: typeof TESTNET11) =>
+      (
+        await services(network)
+          .envelopes.listSent()
+          .catch(() => [])
+      ).map((e) => e.id);
+    expect(await ids(TESTNET11)).toEqual(['on-test']);
+    expect(await ids(MAINNET)).toEqual(['on-main']);
   });
 });
 

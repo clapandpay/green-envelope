@@ -63,7 +63,13 @@ import {
   walletCoins,
   wipeUnlocked as wipe,
 } from '@ge/wallet';
-import { builtNetwork, type NetworkName, resolveNetwork, withNetwork } from '../lib/network';
+import {
+  builtNetwork,
+  type NetworkName,
+  networkFromSearch,
+  resolveNetwork,
+  withNetwork,
+} from '../lib/network';
 import { relyingPartyId } from '../lib/relying-party';
 import { handlesApiFor, parseHandle, resolveHandle } from './handles';
 import { createLocalState, type LocalState, type SentRecord } from './local-state';
@@ -440,6 +446,20 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       };
     };
     return { to, launches };
+  }
+
+  /**
+   * The envelopes this browser made on this network. Where one site serves both networks
+   * (localhost), the list holds both; a link says its chain (`net=` on testnet).
+   */
+  function sentHere(): SentRecord[] {
+    return state.sent().filter((record) => {
+      try {
+        return (networkFromSearch(new URL(record.link).search) ?? 'mainnet') === network.name;
+      } catch {
+        return false;
+      }
+    });
   }
 
   /** The addresses of an old wallet (keys in the browser), from what the old app remembered. */
@@ -849,11 +869,11 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           };
         }),
 
-      listSent: () => guarded(() => Promise.all(state.sent().map(describe))),
+      listSent: () => guarded(() => Promise.all(sentHere().map(describe))),
 
       takeBack: (id) =>
         guarded(async () => {
-          const record = state.sent().find((entry) => entry.id === id);
+          const record = sentHere().find((entry) => entry.id === id);
           const wallet = await knownRecord();
           if (record === undefined || wallet === null) throw new ServiceError('unknown');
           // The envelope's own secret signs; the wallet's passkey is not needed, so no prompt.

@@ -38,7 +38,7 @@ jobs:
     name: Image
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'green-envelope-v')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
@@ -80,6 +80,12 @@ jobs:
             # :latest is what an unattended deployment follows, so a prerelease must not move it.
             if [ "$PRERELEASE" != "true" ] && [ "$TAG" != "latest" ]; then echo "$IMAGE:latest"; fi
             echo "EOF"
+            # The testnet site (testnet.envelope.clapandpay.com) runs the same code built for
+            # testnet11: the same tags with -testnet.
+            echo "testnet<<EOF"
+            echo "$IMAGE:$TAG-testnet"
+            if [ "$PRERELEASE" != "true" ] && [ "$TAG" != "latest" ]; then echo "$IMAGE:latest-testnet"; fi
+            echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
       # arm64 is emulated, but only where it has to be: the Dockerfile builds the web bundle once,
@@ -111,13 +117,32 @@ jobs:
           cache-to: type=gha,scope=${{ env.IMAGE_NAME }},mode=max
           provenance: false
 
+      # The same image for testnet.envelope.clapandpay.com: only the web bundle's network differs,
+      # so the dependency layers come from the cache of the build above.
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.DIR }}
+          file: ${{ env.DIR }}/deployment/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            VITE_NETWORK=testnet11
+            VITE_FAUCET_URL=${{ vars.FAUCET_URL }}
+            VITE_FAUCET_ORIGINS=${{ vars.FAUCET_ORIGINS }}
+          push: true
+          tags: ${{ steps.meta.outputs.testnet }}
+          cache-from: type=gha,scope=${{ env.IMAGE_NAME }}
+          provenance: false
+
       - name: Say where it went
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
+          TESTNET: ${{ steps.meta.outputs.testnet }}
         run: |
           {
             echo "### $IMAGE_NAME"
             echo '```'
             echo "$TAGS"
+            echo "$TESTNET"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
