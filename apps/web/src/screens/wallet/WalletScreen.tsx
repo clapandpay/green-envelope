@@ -3,17 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
 import { Envelope, type EnvelopeState } from '../../components/Envelope';
-import { DownIcon, PlusIcon, UpIcon } from '../../components/icons';
+import { DownIcon, InfoIcon, PlusIcon, UpIcon } from '../../components/icons';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
 import { errorCode, errorText } from '../../lib/errors';
-import { KLIMPER_DOWNLOAD } from '../../lib/klimper';
 import { formatMoney } from '../../lib/money';
 import { prefersReducedMotion } from '../../lib/motion';
+import { relyingPartyId } from '../../lib/relying-party';
 import { useRate } from '../../lib/use-rate';
 import { onLinkClick } from '../../router';
 import { useServices } from '../../services/context';
 import type { Balance, SentEnvelope, WalletInfo } from '../../services/types';
+import { FeeSheet } from './FeeSheet';
+import { KlimperSheet } from './KlimperSheet';
 import { ReceiveSheet } from './ReceiveSheet';
 import { SendSheet } from './SendSheet';
 import { SentList } from './SentList';
@@ -33,6 +35,9 @@ const REFRESH_MS = 8000;
  */
 const OPEN_HOLD_MS = 1040;
 
+/** The site the passkey belongs to: clapandpay.com in production, the page's own host elsewhere. */
+const passkeyDomain = () => relyingPartyId(location.hostname) ?? location.hostname;
+
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface WalletData {
@@ -41,31 +46,38 @@ interface WalletData {
   balance: Balance | null;
   /** Null while still loading, which is not the same as "none yet". */
   sent: SentEnvelope[] | null;
-  canSecure: boolean;
   /** False when logging out would take the money with it. */
   restorable: boolean;
-  /** A second account can be opened: only from a version 2 passkey wallet. */
+  /** A second account can be opened: there is a passkey here to replace. */
   canMakeNew: boolean;
-  /** Money at the address from before 24 words, to move here once (TASK-128). */
+  /** Money in the old wallet (keys in the browser), to move into the vault once. */
   earlier: { balance: bigint } | null;
-  /** Handed to Klimper from this browser, its only backup (TASK-131). */
-  backedUp: boolean;
 }
+
+/** Errors after which "create a new passkey" is offered: the passkey did not open a wallet. */
+const PASSKEY_FAILED: ReadonlySet<string> = new Set([
+  'wallet_cancelled',
+  'no_wallet_here',
+  'passkey_unavailable',
+  'unknown',
+]);
 
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | ({ s: 'ready' } & WalletData);
 
 /** What a button on this screen is busy doing. */
-type Work = 'start' | 'here' | 'secure' | 'new' | 'out' | 'move';
+type Work = 'start' | 'fresh' | 'new' | 'out' | 'move';
 
 export function WalletScreen() {
   const { t, locale } = useI18n();
   const services = useServices();
   const { rate } = useRate();
   const [load, setLoad] = useState<Load>({ s: 'loading' });
-  const [sheet, setSheet] = useState<'receive' | 'send' | 'out' | 'new' | null>(null);
+  const [sheet, setSheet] = useState<
+    'receive' | 'send' | 'out' | 'new' | 'klimper' | 'about' | 'fee' | null
+  >(null);
   const [working, setWorking] = useState<Work | null>(null);
-  /** No passkey wallet can be kept in this browser: the person may choose a browser-only one. */
-  const [offerHere, setOfferHere] = useState(false);
+  /** The passkey failed or was not found: offer to make a new one (never a browser-only wallet). */
+  const [offerNew, setOfferNew] = useState(false);
   const [opened, setOpened] = useState(false);
   const [message, setMessage] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
   const alive = useRef(true);
@@ -90,20 +102,16 @@ export function WalletScreen() {
             wallet: null,
             balance: null,
             sent: [],
-            canSecure: false,
             restorable: false,
             canMakeNew: false,
             earlier: null,
-            backedUp: true,
           });
         }
         return;
       }
-      const [canSecure, restorable, canMakeNew, backedUp] = await Promise.all([
-        services.wallet.canUpgradeToPasskey(),
+      const [restorable, canMakeNew] = await Promise.all([
         services.wallet.canRestoreElsewhere(),
         services.wallet.canMakeNew(),
-        services.wallet.backedUp(),
       ]);
       if (!alive.current) return;
       setLoad((current) => ({
@@ -112,10 +120,8 @@ export function WalletScreen() {
         // A refresh keeps what is already on screen rather than blinking back to skeletons.
         balance: current.s === 'ready' ? current.balance : null,
         sent: current.s === 'ready' ? current.sent : null,
-        canSecure,
         restorable,
         canMakeNew,
-        backedUp,
         earlier: current.s === 'ready' ? current.earlier : null,
       }));
 
@@ -171,13 +177,13 @@ export function WalletScreen() {
     setWorking(kind);
     setMessage(null);
     try {
-      if (kind === 'start' || kind === 'here') {
+      if (kind === 'start' || kind === 'fresh') {
         // One tap (owner, 2026-10-09): the wallet here, else the passkey the phone has, else
-        // a new one, whose creation the phone's own sheet asks about. A browser-only wallet
-        // only when the person picked it after being told why.
-        if (kind === 'here') await services.wallet.keepInBrowser();
+        // a new one, whose creation the phone's own sheet asks about. When that fails, the
+        // person can make a new passkey ('fresh'). Never a browser-only wallet.
+        if (kind === 'fresh') await services.wallet.makeNew();
         else await services.wallet.ensure();
-        setOfferHere(false);
+        setOfferNew(false);
         setOpened(true);
         // The balance, the envelopes and the two probes are fetched **while** the envelope
         // opens, not after it. The animation is then the waiting, instead of something a
@@ -202,19 +208,15 @@ export function WalletScreen() {
           text: moved.more ? t.wallet.earlierMore : t.wallet.earlierMoved,
         });
         await refresh();
-      } else if (kind === 'new') {
+      } else {
         await services.wallet.makeNew();
         setSheet(null);
-        await refresh();
-      } else {
-        await services.wallet.upgradeToPasskey();
-        setMessage({ tone: 'good', text: t.wallet.secured });
         await refresh();
       }
     } catch (error) {
       setOpened(false);
       const code = errorCode(error);
-      if (code === 'passkey_unavailable' && kind === 'start') setOfferHere(true);
+      if ((kind === 'start' || kind === 'fresh') && PASSKEY_FAILED.has(code)) setOfferNew(true);
       setMessage({ tone: 'bad', text: errorText(code, t) });
     } finally {
       setWorking(null);
@@ -304,17 +306,17 @@ export function WalletScreen() {
           </span>
         </button>
         {notice}
-        {offerHere && (
+        {offerNew && (
           <div class="first-run__choice">
-            <p class="soft">{t.wallet.keepHereWarn}</p>
+            <p class="soft">{t.wallet.newPasskeyNote}</p>
             <button
               type="button"
               class="btn"
-              aria-busy={working === 'here'}
+              aria-busy={working === 'fresh'}
               disabled={working !== null}
-              onClick={() => run('here')}
+              onClick={() => run('fresh')}
             >
-              {t.wallet.keepHere}
+              {working === 'fresh' ? t.wallet.newPasskeyWorking : t.wallet.newPasskey}
             </button>
           </div>
         )}
@@ -345,6 +347,19 @@ export function WalletScreen() {
             </>
           )}
         </p>
+        {/* Always there, never dismissable: one short line; the whole story is one tap away. */}
+        <p class="soft balance__note">
+          {t.wallet.smallNote}
+          <button
+            type="button"
+            class="info-btn"
+            aria-label={t.wallet.aboutOpen}
+            title={t.wallet.aboutOpen}
+            onClick={() => setSheet('about')}
+          >
+            <InfoIcon />
+          </button>
+        </p>
       </section>
 
       <a class="btn btn--primary btn--huge" href="/new" onClick={onLinkClick}>
@@ -363,19 +378,16 @@ export function WalletScreen() {
       </div>
 
       {notice}
-      {!load.backedUp && (
-        // Never in the way: everything above and below keeps working (TASK-131).
-        <section class="card stack" aria-labelledby="backup-title">
-          <h2 id="backup-title" class="wallet__h2">
+      {(balance?.confirmed ?? 0n) > 0n && (
+        // Never in the way: a passkey is the only key here, so larger amounts belong in
+        // Klimper, a wallet with its own 24 words. Moving is a plain send to it.
+        <section class="card wallet__klimper" aria-labelledby="klimper-title">
+          <h2 id="klimper-title" class="wallet__h2">
             {t.wallet.backupTitle}
           </h2>
-          <p class="notice">
-            {load.wallet.kind === 'device' ? t.wallet.backupBodyDevice : t.wallet.backupBody}
-          </p>
-          <p class="soft">{t.wallet.backupHow}</p>
-          <a class="btn" href={KLIMPER_DOWNLOAD}>
-            {t.wallet.backupGet}
-          </a>
+          <button type="button" class="btn" onClick={() => setSheet('klimper')}>
+            {t.wallet.klimperOpen}
+          </button>
         </section>
       )}
       {load.earlier !== null && (
@@ -397,20 +409,6 @@ export function WalletScreen() {
           </button>
         </section>
       )}
-      {load.canSecure && (
-        // One line and one tap. It explains itself by what it does — the phone asks for a face
-        // or a finger — and it is gone the moment it has been done, because `canUpgradeToPasskey`
-        // is false once the wallet is behind a passkey.
-        <button
-          type="button"
-          class="btn wallet__secure"
-          aria-busy={working === 'secure'}
-          disabled={working === 'secure'}
-          onClick={() => run('secure')}
-        >
-          {working === 'secure' ? t.wallet.securing : t.wallet.secureAction}
-        </button>
-      )}
 
       <section class="stack" aria-labelledby="sent-title">
         <h2 id="sent-title" class="wallet__h2 wallet__h2--list">
@@ -423,6 +421,9 @@ export function WalletScreen() {
         )}
       </section>
 
+      <button type="button" class="btn btn--plain wallet__fee" onClick={() => setSheet('fee')}>
+        {t.wallet.feeRow}
+      </button>
       {load.canMakeNew && (
         <button type="button" class="btn btn--plain" onClick={() => setSheet('new')}>
           {t.wallet.newWallet}
@@ -462,19 +463,6 @@ export function WalletScreen() {
             >
               {load.restorable ? t.wallet.logOutSafe : t.wallet.logOutLoses}
             </p>
-            {!load.restorable && load.canSecure && (
-              <button
-                type="button"
-                class="btn btn--primary"
-                disabled={working === 'secure'}
-                onClick={() => {
-                  setSheet(null);
-                  run('secure');
-                }}
-              >
-                {t.wallet.secureAction}
-              </button>
-            )}
             <button
               type="button"
               class="btn"
@@ -493,6 +481,38 @@ export function WalletScreen() {
 
       {sheet === 'receive' && (
         <ReceiveSheet address={load.wallet.address} onClose={() => setSheet(null)} />
+      )}
+      {sheet === 'fee' && <FeeSheet onClose={() => setSheet(null)} onChanged={() => {}} />}
+      {sheet === 'about' && (
+        <Sheet open title={t.wallet.aboutTitle} onClose={() => setSheet(null)}>
+          <div class="stack about">
+            <h3 class="wallet__h2">{t.wallet.aboutPocketTitle}</h3>
+            <p class="soft">{t.wallet.pocketNote}</p>
+            <h3 class="wallet__h2">{t.wallet.aboutPasskeyTitle}</h3>
+            <p class="soft">{t.wallet.passkeyNote(passkeyDomain())}</p>
+            <h3 class="wallet__h2">{t.wallet.aboutLinkTitle}</h3>
+            <p class="soft">{t.wallet.aboutLinkBody}</p>
+            <h3 class="wallet__h2">{t.wallet.aboutKeyTitle}</h3>
+            <p class="soft">{t.wallet.aboutKeyBody}</p>
+            <h3 class="wallet__h2">{t.wallet.aboutBiggerTitle}</h3>
+            <p class="soft">{t.wallet.backupBody}</p>
+            <button
+              type="button"
+              class="btn"
+              onClick={() => setSheet((balance?.confirmed ?? 0n) > 0n ? 'klimper' : null)}
+            >
+              {(balance?.confirmed ?? 0n) > 0n ? t.wallet.klimperOpen : t.footer.howClose}
+            </button>
+          </div>
+        </Sheet>
+      )}
+      {sheet === 'klimper' && (
+        <KlimperSheet
+          rate={rate}
+          balance={balance?.confirmed ?? 0n}
+          onClose={() => setSheet(null)}
+          onChanged={refresh}
+        />
       )}
       {sheet === 'send' && (
         <SendSheet

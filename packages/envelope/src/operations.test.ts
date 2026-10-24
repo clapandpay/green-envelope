@@ -53,6 +53,15 @@ function fakeChain() {
     async coinRecordByName(id) {
       return records.get(toHex(id)) ?? null;
     },
+    async coinRecordsByHint() {
+      return [];
+    },
+    async feeEstimate() {
+      return 0n;
+    },
+    async coinRecordsByParentIds() {
+      return [];
+    },
     async pushTx(bundle) {
       const ids = bundle.coinSpends.map((spend) => toHex(coinId(spend.coin)));
       for (const id of ids) {

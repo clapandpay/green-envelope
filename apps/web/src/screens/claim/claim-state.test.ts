@@ -10,6 +10,7 @@ const view: EnvelopeView = {
   sharesTotal: 5,
   sharesLeft: 3,
   openedAmount: null,
+  fundingCoinId: null,
 };
 const sealed: ClaimState = { s: 'sealed', view, notice: null };
 const opening: ClaimState = { s: 'opening', view };

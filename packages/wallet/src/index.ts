@@ -24,3 +24,15 @@ export {
   type StoredWallet,
   type WalletVersion,
 } from './storage';
+export {
+  createVaultKeyStore,
+  indexedDbVaultStorage,
+  memoryVaultStorage,
+  parseVaultRecord,
+  type StoredVault,
+  type VaultKeyStore,
+  type VaultKeyStoreOptions,
+  type VaultRecord,
+  type VaultStorage,
+} from './vault-keystore';
+export { currentVault, findLauncherId, keyWithMoney, walletCoins } from './vault-state';

@@ -9,6 +9,16 @@ export interface WalletInfo {
   address: string;
 }
 
+/** How the network fee is chosen: asked of the network per transaction, or a fixed amount. */
+export type FeePolicy = { mode: 'auto' } | { mode: 'fixed'; mojos: bigint };
+
+/** The fee setting, and what a send would cost with it right now. */
+export interface FeeInfo {
+  policy: FeePolicy;
+  /** The fee of a typical send now, in mojos; for `auto`, the network's current estimate. */
+  current: bigint;
+}
+
 export interface Balance {
   confirmed: bigint;
   /** Incoming or outgoing amounts the network has accepted but not yet confirmed. */
@@ -29,9 +39,8 @@ export type ServiceErrorCode =
   | 'handles_unavailable' // the registry did not answer; an address still works
   | 'handles_mainnet_only' // @names live on the real network only
   | 'no_wallet_here' // nothing to open on this device: no wallet in this browser, no passkey
-  | 'passkey_unavailable' // this browser cannot keep a passkey wallet (no PRF): say so, offer the browser-only one
-  | 'bad_request' // a connect link that did not come from the app, or came damaged
-  | 'wallet_too_old' // a wallet from before recovery words: it has none to hand to Klimper
+  | 'passkey_unavailable' // no passkey can be made or used here: say so; never a browser-only wallet
+  | 'wallet_settling' // the vault's last transaction is not confirmed yet: try again in a minute
   | 'wallet_cancelled' // the user dismissed the passkey prompt
   | 'network'
   | 'unknown';
@@ -53,10 +62,17 @@ export interface EnvelopeView {
   sharesLeft: number;
   /** Set when this browser already opened a share. */
   openedAmount: bigint | null;
+  /**
+   * The coin that paid for the envelope (hex): every share is a child of it, so its page on a
+   * block explorer shows all shares and which are opened. Null when not known.
+   */
+  fundingCoinId: string | null;
 }
 
 export interface OpenResult {
   amount: bigint;
+  /** The coin the money lands in (hex): what a block explorer shows. */
+  coinId: string;
   /** Resolves when the claim is confirmed on chain (about a minute). */
   confirmed: Promise<void>;
 }
@@ -67,6 +83,8 @@ export interface CreateEnvelopeInput {
   mode: 'random' | 'equal';
   from: string | null;
   message: string | null;
+  /** The quoted network fee (`quotePayment`), so the fee shown is the fee paid. */
+  fee?: bigint;
 }
 
 export interface SentEnvelope {
@@ -80,10 +98,6 @@ export interface SentEnvelope {
   amountOpened: bigint;
   status: 'pending' | 'active' | 'finished' | 'taken_back';
 }
-
-/** The Klimper app asking this page for the wallet. */
-/** A well-formed request from Klimper (`/connect#v=2&k=…&n=…`); nothing in it to show. */
-export type ConnectRequest = Record<string, never>;
 
 /** What an `@name` stands for, and whether it is dressed up as one you already trust. */
 export interface HandleLookup {
@@ -111,60 +125,65 @@ export interface WalletService {
   /** Null when this device has no wallet yet. Never prompts. */
   current(): Promise<WalletInfo | null>;
   /**
-   * One tap (owner, 2026-10-09): unlocks the wallet remembered here; otherwise signs in with a
-   * passkey the phone already has for clapandpay.com; otherwise makes one. Making one always
-   * shows the phone's own "create a passkey" sheet, so a returning person who dismissed the
-   * sign-in sees what is about to happen and can cancel. Never makes a browser-only wallet:
-   * without PRF it rejects with `passkey_unavailable` (`keepInBrowser` is the asked-for way).
+   * The wallet of this browser, made if there is none. Never prompts when this browser already
+   * knows its passkey: opening needs public data only. Otherwise one tap: the passkey the phone
+   * already has for this site, else a new one (the phone's own sheet asks). Rejects with
+   * `passkey_unavailable` when no passkey can be made here; never makes a browser-only wallet.
    */
   ensure(): Promise<WalletInfo>;
-  /** Makes a wallet that lives only in this browser, when the person chose it. */
-  keepInBrowser(): Promise<WalletInfo>;
   /**
-   * Money at the address this passkey had before 24 words (TASK-128), or null when there is
-   * none. Never prompts.
+   * Money in this person's old wallet (one from before the passkey vault: its keys lived in the
+   * browser), or null when there is none. Never prompts.
    */
   earlier(): Promise<{ address: string; balance: bigint } | null>;
   /**
-   * Moves that money into this wallet, in one transaction after a fresh face or finger. The
-   * earlier key exists only for this spend. `more` is true when coins were left for another
-   * move (a transaction takes at most 50); a move that failed or was cut off is simply done
-   * again, because the money stays at the earlier address until it is moved.
+   * Moves the old wallet's money into this one: the old key is opened one last time, and the
+   * transaction also launches the vault when there is none yet. `more` is true when coins were
+   * left for another move (a transaction takes at most 50).
    */
   moveEarlier(): Promise<{ amount: bigint; confirmed: Promise<void>; more: boolean }>;
-  /**
-   * Whether this wallet has been handed to Klimper from this browser, its only backup
-   * (TASK-131). True when there is no wallet. Never prompts.
-   */
-  backedUp(): Promise<boolean>;
-  /** Records that this wallet was handed to Klimper: "Open Klimper" was tapped on /connect. */
-  markBackedUp(): void;
-  /** Whether `makeNew` is possible: a version 2 passkey wallet, which sign-in brings back. */
+  /** The network fee setting and what a send costs with it now. Never prompts. */
+  fee(): Promise<FeeInfo>;
+  /** Chooses the network fee for this network: automatic, or a fixed amount. */
+  setFee(policy: FeePolicy): Promise<FeeInfo>;
+  /** Whether `makeNew` is possible: there is a passkey here to replace. */
   canMakeNew(): Promise<boolean>;
   /**
-   * Makes a second passkey wallet and uses it here instead of the current one. Only from a
-   * passkey wallet, which stays in the person's passkey list and can be signed in to again.
+   * Makes a new passkey and uses it here instead of the current one ("create a new passkey").
+   * The old passkey and its vault are untouched; signing in with it brings them back.
    */
   makeNew(): Promise<WalletInfo>;
   balance(): Promise<Balance>;
-  /** `to` is an address or an @handle. */
-  send(to: string, amount: bigint): Promise<{ confirmed: Promise<void> }>;
   /**
-   * Unlocks the wallet on this device, or opens the one this person already has elsewhere with
-   * the passkey they already hold. **Never creates one**: rejects with `no_wallet_here` or
+   * The network fee of paying `amount` (or everything, `'all'`) now, and what arrives. Shown
+   * before every payment, and handed back to it: the fee shown is the fee paid. Never prompts.
+   */
+  quotePayment(amount: bigint | 'all'): Promise<{ fee: bigint; arriving: bigint }>;
+  /**
+   * `to` is an address or an @handle. One passkey prompt. `fee`: the quoted fee. `address`: for
+   * an @handle, the address the person was shown and confirmed; it is what gets paid, so a
+   * registry that answers differently the second time cannot redirect the money.
+   */
+  send(
+    to: string,
+    amount: bigint,
+    fee?: bigint,
+    address?: string,
+  ): Promise<{ confirmed: Promise<void>; coinId: string }>;
+  /**
+   * Sends everything to `address` (Klimper's receive address), in one prompt per 50 coins.
+   * Rejects with `invalid_recipient` for an address of another network.
+   */
+  moveToKlimper(
+    address: string,
+    fee?: bigint,
+  ): Promise<{ amount: bigint; confirmed: Promise<void>; more: boolean; coinId: string }>;
+  /**
+   * Opens the wallet of this browser, or finds the one this person has elsewhere with the
+   * passkey they hold. **Never creates one**: rejects with `no_wallet_here` or
    * `wallet_cancelled`, which a screen cannot tell apart because WebAuthn cannot either.
-   * `ensure()` is how a wallet is made, and it has to be asked for.
    */
   open(): Promise<WalletInfo>;
-  /** Checks a `/connect` request (`location.hash`). Rejects with `bad_request`. */
-  connectRequest(search: string): Promise<ConnectRequest>;
-  /**
-   * Hands the wallet's 24 words to the app that made the request, after a fresh unlock, as a
-   * clapandpay.com return link that the system gives only to Klimper (TASK-129). The page
-   * opens that link; there is nothing to copy. Rejects with `wallet_too_old` for a wallet from
-   * before recovery words, which has none to hand over.
-   */
-  connectApprove(search: string): Promise<{ returnUrl: string }>;
   /**
    * Chooses between recipients found in one pasted block of text. Only asked when the browser
    * found more than one; resolves to null when there is no suggestion, and the screen then asks
@@ -177,15 +196,12 @@ export interface WalletService {
    */
   lookupHandle(input: string): Promise<HandleLookup>;
   /**
-   * Whether this wallet would come back after `forget()`. True only when the passkey derives
-   * the seed; a browser-only wallet and one brought from elsewhere are both kept here and
-   * nowhere else, so forgetting them loses the money.
+   * Whether this wallet comes back after `forget()`: always, for a passkey vault (sign in with
+   * the passkey). False only for an old wallet whose key lived in this browser alone.
    */
   canRestoreElsewhere(): Promise<boolean>;
   /** Forgets the wallet on this device. Ask first: see `canRestoreElsewhere`. */
   forget(): Promise<void>;
-  canUpgradeToPasskey(): Promise<boolean>;
-  upgradeToPasskey(): Promise<WalletInfo>;
 }
 
 export interface EnvelopeService {
@@ -193,7 +209,14 @@ export interface EnvelopeService {
   open(link: string): Promise<OpenResult>;
   create(input: CreateEnvelopeInput): Promise<SentEnvelope>;
   listSent(): Promise<SentEnvelope[]>;
-  takeBack(id: string): Promise<{ amount: bigint; confirmed: Promise<void> }>;
+  /** The network fee of taking `id` back now, paid out of the unopened shares. */
+  quoteTakeBack(id: string): Promise<bigint>;
+  takeBack(id: string, fee?: bigint): Promise<{ amount: bigint; confirmed: Promise<void> }>;
+  /**
+   * Removes a finished or taken-back envelope from this browser's list. Refuses one that is
+   * still open: its stored link is the only way to take it back.
+   */
+  remove(id: string): Promise<void>;
 }
 
 export interface PriceService {

@@ -12,6 +12,8 @@
   "dependencies": {
     "@ge/chain": "workspace:*",
     "@ge/chia": "workspace:*",
+    "@ge/passkey-signer": "workspace:*",
+    "@ge/vault": "workspace:*",
     "@scure/bip39": "2.4.0"
   }
 }

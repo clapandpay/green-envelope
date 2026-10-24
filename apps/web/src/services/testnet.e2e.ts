@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The whole loop on the real testnet11: create, five simultaneous opens, take back (TASK-038).
+// The whole loop on the real testnet11, on passkey vaults: create, five simultaneous opens (each
+// launching the opener's vault), take back (TASK-038).
 // Needs test coins. Run `pnpm e2e:testnet` once to see the sender's address, fund it from
 // https://testnet11-faucet.chia.net, and run it again. `GE_E2E_SEED` picks another sender.
 import { createChainClient } from '@ge/chain';
 import { sha256, TESTNET11 } from '@ge/chia';
-import type { KeyStore } from '@ge/wallet';
+import { fakePasskeys } from '@ge/passkey-signer/fake';
+import { createVaultKeyStore, findLauncherId, memoryVaultStorage } from '@ge/wallet';
 import { expect, it } from 'vitest';
 import { createLocalState } from './local-state';
 import { createServicesFrom } from './real';
@@ -14,40 +16,18 @@ const run = process.env.GE_E2E_SEED ?? 'green-envelope e2e sender v1';
 const FEE = 0n;
 const TOTAL = 50_000_000n; // 0.00005 TXCH
 
-function person(name: string) {
-  const seed = () => sha256(text(`${run}:${name}`));
-  let exists = false;
-  const keyStore: KeyStore = {
-    status: async () =>
-      exists ? { kind: 'device' as const, version: 1 as const, restorable: false } : null,
-    passkeySupported: async () => false,
-    create: async () => {
-      exists = true;
-      return { kind: 'device', version: 1, seed: seed(), entropy: null };
-    },
-    unlock: async () => ({ kind: 'device', version: 1, seed: seed(), entropy: null }),
-    signIn: async () => ({ kind: 'device', version: 1, seed: seed(), entropy: null }),
-    importWallet: async (imported: Uint8Array) => {
-      exists = true;
-      return {
-        kind: 'device' as const,
-        version: 1 as const,
-        seed: new Uint8Array(imported),
-        entropy: null,
-      };
-    },
-    secureWithPasskey: async () => ({
-      kind: 'passkey' as const,
-      version: 1 as const,
-      seed: seed(),
-      entropy: null,
-    }),
-    forget: async () => {},
-  };
+async function person(name: string) {
+  // A software passkey with a fixed seed, so the sender is the same on every run: fund it once.
+  const chain = createChainClient({ endpoints: ['https://testnet11.api.coinset.org'] });
+  const phone = fakePasskeys({ seed: sha256(text(`${run}:${name}`)) });
+  const keyStore = createVaultKeyStore({ env: phone.env, storage: memoryVaultStorage() });
+  const made = await keyStore.create(name);
+  const launcherId = await findLauncherId(chain, made.publicKey);
+  if (launcherId !== null) await keyStore.setLauncher(launcherId);
   const memory = new Map<string, string>();
   return createServicesFrom({
     network: TESTNET11,
-    chain: createChainClient({ endpoints: ['https://testnet11.api.coinset.org'] }),
+    chain,
     keyStore,
     state: createLocalState({
       getItem: (key) => memory.get(key) ?? null,
@@ -65,7 +45,7 @@ const say = (line: string) => process.stdout.write(`${line}\n`);
 const seconds = (since: number) => `${((Date.now() - since) / 1000).toFixed(1)} s`;
 
 it('create, five simultaneous opens, take back', async () => {
-  const sender = person('sender');
+  const sender = await person('sender');
   const { address } = await sender.wallet.ensure();
   const { confirmed } = await sender.wallet.balance();
   say(`sender ${address} has ${confirmed} mojos`);
@@ -95,7 +75,9 @@ it('create, five simultaneous opens, take back', async () => {
   say(`envelope on chain after ${seconds(at)}`);
 
   at = Date.now();
-  const claimers = ['a', 'b', 'c', 'd', 'e'].map((name) => person(`claimer ${name} ${Date.now()}`));
+  const claimers = await Promise.all(
+    ['a', 'b', 'c', 'd', 'e'].map((name) => person(`claimer ${name} ${Date.now()}`)),
+  );
   const opened = await Promise.all(claimers.map((c) => c.envelopes.open(sent.link)));
   say(`five amounts on screen after ${seconds(at)}: ${opened.map((o) => o.amount).join(', ')}`);
 

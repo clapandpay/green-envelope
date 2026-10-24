@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// The Chia puzzles of a CHIP-0043 passkey vault, serialized, exactly as in chia-puzzles 0.20.3 and
+// chia-sdk-types 0.33 (`tools/vectors vault` writes them; `puzzles.test.ts` checks every hash).
+// None of them is ours: no custom Chialisp anywhere in the wallet.
+
+/** singleton_top_layer_v1_1.clsp (967 bytes). */
+export const SINGLETON_TOP_LAYER_HEX =
+  'ff02ffff01ff02ffff03ffff18ff2fff3480ffff01ff04ffff04ff20ffff04ff2fff808080ffff04ffff02ff3eff' +
+  'ff04ff02ffff04ff05ffff04ffff02ff2affff04ff02ffff04ff27ffff04ffff02ffff03ff77ffff01ff02ff36ff' +
+  'ff04ff02ffff04ff09ffff04ff57ffff04ffff02ff2effff04ff02ffff04ff05ff80808080ff808080808080ffff' +
+  '011d80ff0180ffff04ffff02ffff03ff77ffff0181b7ffff015780ff0180ff808080808080ffff04ff77ff808080' +
+  '808080ffff02ff3affff04ff02ffff04ff05ffff04ffff02ff0bff5f80ffff01ff8080808080808080ffff01ff08' +
+  '8080ff0180ffff04ffff01ffffffff4947ff0233ffff0401ff0102ffffff20ff02ffff03ff05ffff01ff02ff32ff' +
+  'ff04ff02ffff04ff0dffff04ffff0bff3cffff0bff34ff2480ffff0bff3cffff0bff3cffff0bff34ff2c80ff0980' +
+  'ffff0bff3cff0bffff0bff34ff8080808080ff8080808080ffff010b80ff0180ffff02ffff03ffff22ffff09ffff' +
+  '0dff0580ff2280ffff09ffff0dff0b80ff2280ffff15ff17ffff0181ff8080ffff01ff0bff05ff0bff1780ffff01' +
+  'ff088080ff0180ff02ffff03ff0bffff01ff02ffff03ffff02ff26ffff04ff02ffff04ff13ff80808080ffff01ff' +
+  '02ffff03ffff20ff1780ffff01ff02ffff03ffff09ff81b3ffff01818f80ffff01ff02ff3affff04ff02ffff04ff' +
+  '05ffff04ff1bffff04ff34ff808080808080ffff01ff04ffff04ff23ffff04ffff02ff36ffff04ff02ffff04ff09' +
+  'ffff04ff53ffff04ffff02ff2effff04ff02ffff04ff05ff80808080ff808080808080ff738080ffff02ff3affff' +
+  '04ff02ffff04ff05ffff04ff1bffff04ff34ff8080808080808080ff0180ffff01ff088080ff0180ffff01ff04ff' +
+  '13ffff02ff3affff04ff02ffff04ff05ffff04ff1bffff04ff17ff8080808080808080ff0180ffff01ff02ffff03' +
+  'ff17ff80ffff01ff088080ff018080ff0180ffffff02ffff03ffff09ff09ff3880ffff01ff02ffff03ffff18ff2d' +
+  'ffff010180ffff01ff0101ff8080ff0180ff8080ff0180ff0bff3cffff0bff34ff2880ffff0bff3cffff0bff3cff' +
+  'ff0bff34ff2c80ff0580ffff0bff3cffff02ff32ffff04ff02ffff04ff07ffff04ffff0bff34ff3480ff80808080' +
+  '80ffff0bff34ff8080808080ffff02ffff03ffff07ff0580ffff01ff0bffff0102ffff02ff2effff04ff02ffff04' +
+  'ff09ff80808080ffff02ff2effff04ff02ffff04ff0dff8080808080ffff01ff0bffff0101ff058080ff0180ff02' +
+  'ffff03ffff21ff17ffff09ff0bff158080ffff01ff04ff30ffff04ff0bff808080ffff01ff088080ff0180ff0180' +
+  '80';
+export const SINGLETON_TOP_LAYER_HASH_HEX =
+  '7faa3253bfddd1e0decb0906b2dc6247bbc4cf608f58345d173adb63e8b47c9f';
+
+/** singleton_launcher.clsp (175 bytes). */
+export const SINGLETON_LAUNCHER_HEX =
+  'ff02ffff01ff04ffff04ff04ffff04ff05ffff04ff0bff80808080ffff04ffff04ff0affff04ffff02ff0effff04' +
+  'ff02ffff04ffff04ff05ffff04ff0bffff04ff17ff80808080ff80808080ff808080ff808080ffff04ffff01ff33' +
+  'ff3cff02ffff03ffff07ff0580ffff01ff0bffff0102ffff02ff0effff04ff02ffff04ff09ff80808080ffff02ff' +
+  '0effff04ff02ffff04ff0dff8080808080ffff01ff0bffff0101ff058080ff0180ff018080';
+export const SINGLETON_LAUNCHER_HASH_HEX =
+  'eff07522495060c066f66f32acc2a77e3a3e737aca8baea4d1a64ea4cdc13da9';
+
+/** index_wrapper.clsp (7 bytes). */
+export const INDEX_WRAPPER_HEX = 'ff02ff05ff0780';
+export const INDEX_WRAPPER_HASH_HEX =
+  '847d971ef523417d555ea9854b1612837155d34d453298defcd310774305f657';
+
+/** delegated_puzzle_feeder.clsp (203 bytes). */
+export const DELEGATED_PUZZLE_FEEDER_HEX =
+  'ff02ffff01ff02ff04ffff04ff02ffff04ffff02ff05ffff04ffff02ff06ffff04ff02ffff04ff0bff80808080ff' +
+  '1f8080ffff04ffff02ff0bff1780ff8080808080ffff04ffff01ffff02ffff03ff05ffff01ff04ff09ffff02ff04' +
+  'ffff04ff02ffff04ff0dffff04ff0bff808080808080ffff010b80ff0180ff02ffff03ffff07ff0580ffff01ff0b' +
+  'ffff0102ffff02ff06ffff04ff02ffff04ff09ff80808080ffff02ff06ffff04ff02ffff04ff0dff8080808080ff' +
+  'ff01ff0bffff0101ff058080ff0180ff018080';
+export const DELEGATED_PUZZLE_FEEDER_HASH_HEX =
+  '9db33d93853179903d4dd272a00345ee6630dc94907dbcdd96368df6931060fd';
+
+/** passkey_member.clsp (1418 bytes). */
+export const PASSKEY_MEMBER_HEX =
+  'ff02ffff01ff02ff3effff04ff02ffff04ff03ffff04ffff02ff2cffff04ff02ffff04ffff0bff0bff82017f80ff' +
+  '80808080ff8080808080ffff04ffff01ffffffff02ffff03ffff21ffff09ff0bffff0dff178080ffff15ff0bffff' +
+  '0dff17808080ffff01ff0180ffff01ff04ffff02ff05ffff04ffff0cff17ff0bffff10ff0bffff01038080ff8080' +
+  '80ffff02ff10ffff04ff02ffff04ff05ffff04ffff10ff0bffff010380ffff04ff17ff8080808080808080ff0180' +
+  'ff02ffff03ff0bffff01ff02ffff03ff13ffff01ff04ffff02ff05ffff04ff23ff808080ffff02ff18ffff04ff02' +
+  'ffff04ff05ffff04ffff04ff33ff1b80ff808080808080ffff01ff02ff18ffff04ff02ffff04ff05ffff04ff1bff' +
+  '808080808080ff0180ffff01ff018080ff0180ffff0cffff01c0404142434445464748494a4b4c4d4e4f50515253' +
+  '5455565758595a6162636465666768696a6b6c6d6e6f707172737475767778797a303132333435363738392d5fff' +
+  '05ffff10ff05ffff01018080ffff02ff3cffff04ff02ffff04ff03ffff04ffff06ffff14ffff0dff0580ffff0103' +
+  '8080ff8080808080ff02ff12ffff04ff02ffff04ff03ffff04ffff02ffff03ff0bffff01ff11ffff0103ff0b80ff' +
+  'ff01ff018080ff0180ff8080808080ffffff02ff2affff04ff02ffff04ff03ffff04ffff0eff11ffff0cffff0183' +
+  '000000ff80ff0b8080ff8080808080ffff02ff2effff04ff02ffff04ff03ffff04ffff02ff10ffff04ff02ffff04' +
+  'ffff04ffff0102ffff04ffff04ffff0101ffff04ffff0102ffff04ffff04ffff0101ff1680ffff04ffff04ffff01' +
+  '04ffff04ffff04ffff0101ff0280ffff04ffff0101ff80808080ff8080808080ffff04ffff04ffff0104ffff04ff' +
+  'ff04ffff0101ffff04ff15ff808080ffff04ffff0101ff80808080ff80808080ffff04ff80ffff04ff0bff808080' +
+  '808080ff8080808080ff04ff4fffff04ffff19ffff16ff6fffff010480ff2780ffff04ffff19ffff16ff37ffff01' +
+  '0280ff1380ffff04ff1bff8080808080ffff02ff3affff04ff02ffff04ffff04ffff04ff09ff8080ffff04ff0bff' +
+  '808080ffff04ffff14ffff02ffff03ffff15ffff0cff0bffff0102ffff010380ffff0181ff80ffff01ff0cff0bff' +
+  'ff0102ffff010380ffff01ff10ffff0cff0bffff0102ffff010380ffff018201008080ff0180ffff014080ffff04' +
+  'ffff14ffff02ffff03ffff15ffff0cff0bffff0101ffff010280ffff0181ff80ffff01ff0cff0bffff0101ffff01' +
+  '0280ffff01ff10ffff0cff0bffff0101ffff010280ffff018201008080ff0180ffff011080ffff04ffff14ffff02' +
+  'ffff03ffff15ffff0cff0bff80ffff010180ffff0181ff80ffff01ff0cff0bff80ffff010180ffff01ff10ffff0c' +
+  'ff0bff80ffff010180ffff018201008080ff0180ffff010480ff80808080808080ffff0cffff02ffff04ffff04ff' +
+  'ff010eff8080ffff02ff18ffff04ff02ffff04ffff04ffff0102ffff04ffff04ffff0101ff1480ffff04ffff04ff' +
+  'ff0104ffff04ffff04ffff0101ff0280ffff04ffff0101ff80808080ff80808080ffff04ff0bff808080808080ff' +
+  '8080ff80ffff11ffff0dffff02ffff04ffff04ffff010eff8080ffff02ff18ffff04ff02ffff04ffff04ffff0102' +
+  'ffff04ffff04ffff0101ff1480ffff04ffff04ffff0104ffff04ffff04ffff0101ff0280ffff04ffff0101ff8080' +
+  '8080ff80808080ffff04ff0bff808080808080ff808080ff298080ff02ffff03ffff09ffff0cff5dff8200bdffff' +
+  '10ff8200bdffff0dffff0effff018d226368616c6c656e6765223a22ff0bffff012280808080ffff0effff018d22' +
+  '6368616c6c656e6765223a22ff0bffff01228080ffff01ff04ffff04ffff0146ffff04ff8202fdff808080ffff84' +
+  '1c3a8f00ff09ffff0bff2dffff0bff5d8080ff82017d8080ffff01ff088080ff0180ff018080';
+export const PASSKEY_MEMBER_HASH_HEX =
+  '1d66225b71ec6caf33e3771ebaa7fcd50826fd31844dc8258116b37b3ff3c7ae';
+
+/** singleton_member.clsp (361 bytes). */
+export const SINGLETON_MEMBER_HEX =
+  'ff02ffff01ff04ffff04ff12ffff04ffff0117ffff04ff0bffff04ffff02ff2effff04ff02ffff04ff09ffff04ff' +
+  '17ffff04ffff02ff3effff04ff02ffff04ff05ff80808080ff808080808080ff8080808080ff8080ffff04ffff01' +
+  'ffffff0204ff0101ffff4302ffff02ffff03ff05ffff01ff02ff16ffff04ff02ffff04ff0dffff04ffff0bff1aff' +
+  'ff0bff14ff1880ffff0bff1affff0bff1affff0bff14ff1c80ff0980ffff0bff1aff0bffff0bff14ff8080808080' +
+  'ff8080808080ffff010b80ff0180ffff0bff1affff0bff14ff1080ffff0bff1affff0bff1affff0bff14ff1c80ff' +
+  '0580ffff0bff1affff02ff16ffff04ff02ffff04ff07ffff04ffff0bff14ff1480ff8080808080ffff0bff14ff80' +
+  '80808080ff02ffff03ffff07ff0580ffff01ff0bffff0102ffff02ff3effff04ff02ffff04ff09ff80808080ffff' +
+  '02ff3effff04ff02ffff04ff0dff8080808080ffff01ff0bffff0101ff058080ff0180ff018080';
+export const SINGLETON_MEMBER_HASH_HEX =
+  '6f1cebc5a6d3661ad87d3558146259ca580729b244b7662757f8d1c34a6a9ad9';

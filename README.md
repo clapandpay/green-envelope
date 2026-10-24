@@ -5,6 +5,7 @@ no app to install, no account. The first product of [Clap and Pay](https://clapa
 it moved here from the clapandpay monorepo on 2026-10-24 with its history.
 
 - Contracts between the packages: [docs/contracts.md](docs/contracts.md)
+- The wallet holds pocket money, not savings: [docs/wallet-security.md](docs/wallet-security.md)
 
 ```
 packages/chia       pure TypeScript Chia core (BLS, CLVM data, standard transaction)

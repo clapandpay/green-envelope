@@ -31,7 +31,8 @@ async function anEnvelope(
   from = 'Anna',
   message = 'Happy birthday! 🎂',
 ) {
-  const world = createWorld(options);
+  // Mainnet by default: test money shows no euro value.
+  const world = createWorld({ network: 'mainnet', ...options });
   const sent = await world.makeEnvelope({
     total: TOTAL,
     shares: SHARES,
@@ -48,7 +49,11 @@ async function othersOpen(
   count: number,
 ): Promise<void> {
   for (let i = 0; i < count; i += 1) {
-    const other = createWorld({ shared: world.fake, seedName: `claimer${i}` });
+    const other = createWorld({
+      shared: world.fake,
+      seedName: `claimer${i}`,
+      network: world.network,
+    });
     await other.services.envelopes.open(world.link);
     world.fake.farmBlock();
   }
@@ -228,22 +233,24 @@ describe('claim: the other states', () => {
     expect(await screen.findByText('€7.40')).toBeTruthy();
   });
 
-  it('a browser without PRF is told why, and opens into a browser-only wallet when asked', async () => {
+  it('when the passkey fails, offers a new passkey (never a browser-only wallet) and opens into it', async () => {
     const world = await anEnvelope();
     const ensure = vi.spyOn(world.services.wallet, 'ensure');
     ensure.mockRejectedValueOnce(
       new (await import('../../services/types')).ServiceError('passkey_unavailable'),
     );
-    const keepInBrowser = vi.spyOn(world.services.wallet, 'keepInBrowser');
+    const makeNew = vi.spyOn(world.services.wallet, 'makeNew');
     renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
     expect((await screen.findByRole('alert')).textContent).toContain('Safari or Chrome');
-    expect(keepInBrowser).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /browser only/i })).toBeNull();
+    expect(makeNew).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: /keep it in this browser only/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create a new passkey/i }));
     expect(await screen.findByText('€7.40')).toBeTruthy();
-    expect(keepInBrowser).toHaveBeenCalledTimes(1);
+    expect(makeNew).toHaveBeenCalledTimes(1);
+    expect((await world.services.wallet.current())?.kind).toBe('passkey');
   });
 
   it('losing the race for the last share ends in the friendly empty state', async () => {
@@ -269,22 +276,57 @@ describe('claim: the other states', () => {
   });
 });
 
-describe('claim: the Klimper backup (TASK-131)', () => {
-  it('says plainly, under the amount, that the money needs a Klimper backup', async () => {
+describe('claim: where the money is, on mempoolxch.space', () => {
+  it('links the envelope before it is opened, and the coin it landed in after', async () => {
+    const world = await anEnvelope({ network: 'testnet11' });
+    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
+    const envelope = await screen.findByRole('link', { name: /see this envelope on mempoolxch/i });
+    expect(envelope.getAttribute('href')).toMatch(
+      /^https:\/\/mempoolxch\.space\/coin\/0x[0-9a-f]{64}\?network=testnet11$/,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const coin = await screen.findByRole('link', { name: /^see it on mempoolxch/i });
+    expect(coin.getAttribute('href')).toMatch(/\/coin\/0x[0-9a-f]{64}\?network=testnet11$/);
+    expect(coin.getAttribute('rel')).toContain('noreferrer');
+  });
+});
+
+describe('claim: test money', () => {
+  it('shows no euro value on testnet: test money is worth nothing', async () => {
+    const world = await anEnvelope({ network: 'testnet11' });
+    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    expect(await screen.findByText(/small amounts only/i)).toBeTruthy();
+    expect(screen.queryByText(/€/)).toBeNull();
+  });
+});
+
+describe('claim: pocket money in a passkey vault', () => {
+  it('says plainly, under the amount, that this is for small amounts only', async () => {
     const world = await anEnvelope();
     renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
     expect(await screen.findByText('€7.40')).toBeTruthy();
-    expect(await screen.findByText(/Back it up in Klimper/)).toBeTruthy();
+    expect(await screen.findByText(/small amounts only/i)).toBeTruthy();
   });
 
-  it('does not say it once the wallet is backed up', async () => {
+  it('a first claim launches the claimer’s vault on the way; later claims need no prompt', async () => {
     const world = await anEnvelope();
-    // The sender's wallet opens the envelope here; it was handed to Klimper before.
-    world.services.wallet.markBackedUp();
-    renderScreen(<ClaimScreen link={world.link} />, { services: world.services });
-    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
-    expect(await screen.findByText('€7.40')).toBeTruthy();
-    expect(screen.queryByText(/Back it up in Klimper/)).toBeNull();
+    const claimer = createWorld({ shared: world.fake, network: world.network });
+    await claimer.services.envelopes.open(world.link);
+    // The sign-in sheet (no passkey yet), then the phone's "create a passkey" sheet. Nothing
+    // signs the claim but the link; the vault costs 1 mojo out of the share.
+    expect(claimer.prompts()).toBe(2);
+    world.fake.farmBlock();
+    expect((await claimer.services.wallet.balance()).confirmed).toBe(TOTAL / BigInt(SHARES) - 1n);
+
+    const next = await world.makeEnvelope({ total: TOTAL, shares: SHARES, mode: 'equal' });
+    const before = claimer.prompts();
+    await claimer.services.envelopes.open(next.link);
+    world.fake.farmBlock();
+    expect(claimer.prompts()).toBe(before);
+    expect((await claimer.services.wallet.balance()).confirmed).toBe(
+      2n * (TOTAL / BigInt(SHARES)) - 1n,
+    );
   });
 });

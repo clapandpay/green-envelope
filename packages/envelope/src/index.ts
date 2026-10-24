@@ -7,8 +7,11 @@ export {
   buildSweep,
   buildTakeBack,
   type CreatedShares,
+  type Destination,
+  destinationFor,
   type OwnedCoin,
   type Signer,
+  type To,
 } from './builders';
 export {
   DEFAULT_FLOOR,

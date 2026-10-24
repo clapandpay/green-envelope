@@ -3,9 +3,23 @@
 /** Header names and values set on every HTML response. */
 export type SecurityHeaders = ReadonlyArray<readonly [name: string, value: string]>;
 
+/**
+ * The public node of each network. The page may talk to both: where one server serves both
+ * networks (localhost, previews), `?net=` moves the page to the other chain, and blocking its
+ * node would read as "no connection". They are read-only nodes plus `push_tx`, nothing more.
+ */
+const PUBLIC_NODES = ['https://api.coinset.org', 'https://testnet11.api.coinset.org'];
+
+/** Where `@names` are resolved (`XCHANDLES_API` of the web app). */
+const HANDLES_API = 'https://api.xchandles.com';
+
 /** The content security policy of the app: a static bundle that talks to itself and to the chain endpoints. */
 export function contentSecurityPolicy(chainEndpoints: readonly string[]): string {
-  const origins = [...new Set(chainEndpoints.map((endpoint) => new URL(endpoint).origin))];
+  const origins = [
+    ...new Set(
+      [...chainEndpoints, ...PUBLIC_NODES, HANDLES_API].map((endpoint) => new URL(endpoint).origin),
+    ),
+  ];
   return [
     "default-src 'none'",
     "script-src 'self'",
@@ -29,8 +43,16 @@ export function securityHeaders(chainEndpoints: readonly string[]): SecurityHead
     ['referrer-policy', 'no-referrer'],
     ['x-content-type-options', 'nosniff'],
     ['permissions-policy', 'publickey-credentials-get=(self), publickey-credentials-create=(self)'],
+    // HTTPS only from the first visit on, so nobody on the network can serve the wallet's script.
+    // Browsers ignore it over plain http, so localhost keeps working.
+    ['strict-transport-security', 'max-age=31536000'],
+    // A page that opened the wallet in a new window keeps no handle on it.
+    ['cross-origin-opener-policy', 'same-origin'],
   ];
 }
+
+/** What every other response (scripts, styles, images) gets: no guessing of its type. */
+export const ASSET_HEADERS: SecurityHeaders = [['x-content-type-options', 'nosniff']];
 
 /** True when the response is an HTML document. */
 export function isHtml(response: Response): boolean {

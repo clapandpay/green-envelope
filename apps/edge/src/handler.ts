@@ -6,7 +6,7 @@ import { type AssetsFn, createPages } from './pages';
 import { createPriceSource, FRESH_SECONDS } from './price';
 import { pickRecipient, readRecipientQuestion } from './recipient';
 import { createRpcProxy, isJsonContentType, readLimitedBody, rpcError } from './rpc';
-import { isHtml, securityHeaders, withHeaders } from './security';
+import { ASSET_HEADERS, isHtml, securityHeaders, withHeaders } from './security';
 import { createShareStateLookup, type SharesFn } from './share-state';
 
 /** Everything the handler needs from the outside; all of it is replaceable in tests. */
@@ -76,9 +76,16 @@ function json(body: unknown, status: number, cacheControl: string): Response {
 /** Builds the request handler; caches (price, shell, share state) live as long as the returned function. */
 export function createHandler(deps: HandlerDeps): Handler {
   const { config, now } = deps;
-  const headers = securityHeaders(config.chainEndpoints);
+  const headers = securityHeaders([
+    ...config.chainEndpoints,
+    ...(config.browserChain?.endpoints ?? []),
+  ]);
   const price = createPriceSource({ fetch: deps.fetch, now });
-  const rpc = createRpcProxy({ fetch: deps.fetch, endpoints: config.chainEndpoints });
+  const rpc = createRpcProxy({
+    fetch: deps.fetch,
+    endpoints: config.chainEndpoints,
+    apiKey: config.chainApiKey,
+  });
   const shareState = createShareStateLookup({
     shares: deps.shares,
     chain: deps.chain,
@@ -172,7 +179,7 @@ export function createHandler(deps: HandlerDeps): Handler {
     if (path === '/hello') return pages.hello(request, url);
     if (isAppRoute(path)) return pages.generic(request, url, 200);
     const asset = await deps.assets(request);
-    return isHtml(asset) ? withHeaders(asset, headers) : asset;
+    return withHeaders(asset, isHtml(asset) ? headers : ASSET_HEADERS);
   };
 
   const route = async (request: Request): Promise<Response> => {

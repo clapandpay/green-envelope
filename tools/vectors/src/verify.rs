@@ -164,7 +164,23 @@ fn validate(case: &Case) -> Result<std::result::Result<(), String>> {
         constants(case.network),
         MEMPOOL_MODE,
     ) {
-        Ok((conditions, _pairings)) => conditions,
+        Ok((conditions, _pairings)) => {
+            if std::env::var_os("GE_PRINT_COST").is_some() {
+                // Execution and conditions, plus 12,000 per byte of the spends (the generator).
+                let bytes: usize = bundle
+                    .coin_spends
+                    .iter()
+                    .map(|cs| cs.puzzle_reveal.as_ref().len() + cs.solution.as_ref().len())
+                    .sum();
+                eprintln!(
+                    "COST {} {} {}",
+                    conditions.cost,
+                    conditions.cost + 12_000 * bytes as u64,
+                    case.name.as_deref().unwrap_or("?")
+                );
+            }
+            conditions
+        }
         Err(error) => return Ok(Err(format!("{:?}", error.1))),
     };
 

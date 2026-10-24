@@ -2,6 +2,7 @@
 // Fill an envelope: how much, for how many, lucky dip or equal, a name and a few words.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { AmountField, type AmountValue } from '../../components/AmountField';
+import { FeeLine } from '../../components/FeeLine';
 import { BackIcon, MinusIcon, PlusIcon } from '../../components/icons';
 import { useI18n } from '../../i18n';
 import type { Dict } from '../../i18n/en';
@@ -99,6 +100,30 @@ export function CreateScreen(props: { prefill: bigint | null }) {
   }, [services, arriving]);
 
   const money = (mojos: bigint) => formatMoney(mojos, rate, locale);
+
+  // The network fee of making this envelope, worked out as soon as the amount is valid and
+  // shown by the button; the envelope is then made with exactly this fee.
+  const [quote, setQuote] = useState<{ total: bigint; fee: bigint | null } | null>(null);
+  const quotable = check.total !== null && check.error === null ? check.total : null;
+  useEffect(() => {
+    if (quotable === null) {
+      setQuote(null);
+      return;
+    }
+    let current = true;
+    setQuote({ total: quotable, fee: null });
+    const timer = setTimeout(() => {
+      services.wallet.quotePayment(quotable).then(
+        (answer) => current && setQuote({ total: quotable, fee: answer.fee }),
+        // No wallet yet, or not enough in it: the button says so when tapped.
+        () => current && setQuote(null),
+      );
+    }, 400);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [quotable, services]);
   const showError = check.error !== null || (nudged && check.total === null);
   const amountError = check.error
     ? amountErrorText(check.error, money(MIN_SHARE_MOJOS * BigInt(shares)), t)
@@ -132,6 +157,7 @@ export function CreateScreen(props: { prefill: bigint | null }) {
         mode,
         from,
         message: optionalText(message),
+        ...(quote?.fee != null && quote.total === check.total ? { fee: quote.fee } : {}),
       });
       setMade(sent);
     } catch (error) {
@@ -262,6 +288,10 @@ export function CreateScreen(props: { prefill: bigint | null }) {
           {failure}
         </p>
       )}
+      {quote !== null && (
+        <FeeLine fee={quote.fee} total={quote.fee === null ? null : quote.total + quote.fee} />
+      )}
+      <p class="soft create__trust">{t.create.trustNote}</p>
       <button type="submit" class="btn btn--primary btn--huge create__submit" aria-busy={busy}>
         {busy ? t.create.making : t.create.submit}
       </button>

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMemo } from 'preact/hooks';
 import { CopyButton } from '../../components/CopyButton';
+import { ExplorerLink } from '../../components/ExplorerLink';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
 import { encodeQr, qrPath } from '../../lib/qr';
@@ -35,12 +36,14 @@ export function ReceiveSheet(props: { address: string; onClose: () => void }) {
     <Sheet open title={t.wallet.receiveTitle} onClose={props.onClose}>
       <div class="stack">
         <p>{t.wallet.receiveBody}</p>
+        <p class="soft">{t.wallet.receiveSmall}</p>
         <QrPicture text={props.address} label={t.wallet.qrLabel} />
         <div class="field">
           <span class="field__label">{t.wallet.addressLabel}</span>
           <p class="address num">{props.address}</p>
         </div>
         <CopyButton text={props.address} class="btn btn--primary" />
+        <ExplorerLink address={props.address} />
       </div>
     </Sheet>
   );

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { decodeAddress, sha256, TESTNET11 } from '@ge/chia';
-import { decodeLink } from '@ge/envelope';
-import { createHandoffRequest } from '@ge/handoff';
-import type { KeyStore } from '@ge/wallet';
+import { decodeAddress, MAINNET, sha256, TESTNET11 } from '@ge/chia';
+import { decodeLink, encodeLink, envelopeKeys } from '@ge/envelope';
+import { fakePasskeys } from '@ge/passkey-signer/fake';
+import { createVaultKeyStore, memoryVaultStorage, type VaultKeyStore } from '@ge/wallet';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeChain } from '../test/fake-chain';
 import { createLocalState } from './local-state';
-import { createServicesFrom, priceIn } from './real';
+import { createServicesFrom, MAX_MOJOS_PER_COST, priceIn, servedChain } from './real';
 import type { AppServices } from './types';
 
 const text = (s: string) => new TextEncoder().encode(s);
@@ -19,51 +19,18 @@ function memoryStorage() {
   };
 }
 
-/** A keystore with a fixed seed per person, created on first use like the real one. */
-function keyStoreFor(name: string): KeyStore {
-  let exists = false;
-  const unlockedWallet = () => ({
-    kind: 'device' as const,
-    version: 1 as const,
-    seed: sha256(text(`seed of ${name}`)),
-    entropy: null,
-  });
-  return {
-    status: async () =>
-      exists ? { kind: 'device' as const, version: 1 as const, restorable: false } : null,
-    passkeySupported: async () => false,
-    create: async () => {
-      exists = true;
-      return unlockedWallet();
-    },
-    unlock: async () => unlockedWallet(),
-    signIn: async () => {
-      exists = true;
-      return unlockedWallet();
-    },
-    forget: async () => {
-      exists = false;
-    },
-    importWallet: async (seed: Uint8Array) => {
-      exists = true;
-      return {
-        kind: 'device' as const,
-        version: 1 as const,
-        seed: new Uint8Array(seed),
-        entropy: null,
-      };
-    },
-    secureWithPasskey: async () => unlockedWallet(),
-  };
+/** The real vault keystore over a software passkey: one per person, as one phone each. */
+function keyStoreFor(): VaultKeyStore {
+  return createVaultKeyStore({ env: fakePasskeys().env, storage: memoryVaultStorage() });
 }
 
 function world(fee = 0n) {
   const fake = createFakeChain();
-  const person = (name: string): AppServices =>
+  const person = (_name: string): AppServices =>
     createServicesFrom({
       network: TESTNET11,
       chain: fake.chain,
-      keyStore: keyStoreFor(name),
+      keyStore: keyStoreFor(),
       state: createLocalState(memoryStorage()),
       origin: 'https://clapandpay.test',
       fetch: async () => new Response('{}', { status: 500 }),
@@ -77,6 +44,10 @@ function world(fee = 0n) {
       },
     });
   return { fake, person };
+}
+
+async function addressOf(who: AppServices): Promise<string> {
+  return (await who.wallet.ensure()).address;
 }
 
 async function fund(fake: ReturnType<typeof createFakeChain>, who: AppServices, amount: bigint) {
@@ -113,7 +84,8 @@ describe('the whole loop', () => {
     fake.farmBlock();
     // The outgoing amount stops counting as pending once the next poll sees the envelope.
     await vi.waitFor(async () =>
-      expect(await anna.wallet.balance()).toEqual({ confirmed: 1_000_000_000n, pending: 0n }),
+      // Her first spend launched her vault: 1 mojo is the vault itself, not money.
+      expect(await anna.wallet.balance()).toEqual({ confirmed: 999_999_999n, pending: 0n }),
     );
     expect(await kai.envelopes.inspect(sent.link)).toMatchObject({
       from: 'Anna',
@@ -126,7 +98,8 @@ describe('the whole loop', () => {
     // Everybody taps within the same block.
     const family = ['kai', 'ben', 'chris', 'dana', 'eli'].map(person);
     const opened = await Promise.all(family.map((p) => p.envelopes.open(sent.link)));
-    expect(opened.reduce((sum, o) => sum + o.amount, 0n)).toBe(1_000_000_000n);
+    // Each first claim also launched that person's vault: 1 mojo each, out of the share.
+    expect(opened.reduce((sum, o) => sum + o.amount, 0n)).toBe(1_000_000_000n - 5n);
 
     const late = person('late');
     await expect(late.envelopes.open(sent.link)).rejects.toMatchObject({ code: 'envelope_empty' });
@@ -160,9 +133,10 @@ describe('the whole loop', () => {
 
     const kai = person('kai');
     const first = await kai.envelopes.open(sent.link);
-    expect(first.amount).toBe(200_000n);
+    // Kai's first claim also launched his vault, out of the share: 1 mojo.
+    expect(first.amount).toBe(200_000n - 1n);
     await expect(kai.envelopes.open(sent.link)).rejects.toMatchObject({ code: 'already_opened' });
-    expect((await kai.envelopes.inspect(sent.link)).openedAmount).toBe(200_000n);
+    expect((await kai.envelopes.inspect(sent.link)).openedAmount).toBe(200_000n - 1n);
   });
 
   it('takes back what nobody opened, with the fee paid by the shares', async () => {
@@ -180,7 +154,7 @@ describe('the whole loop', () => {
 
     const kai = person('kai');
     const opened = await kai.envelopes.open(sent.link);
-    expect(opened.amount).toBe(2_000_000n - 1_000n);
+    expect(opened.amount).toBe(2_000_000n - 1_000n - 1n); // and Kai's vault
     fake.farmBlock();
 
     const back = await anna.envelopes.takeBack(sent.id);
@@ -188,9 +162,9 @@ describe('the whole loop', () => {
     fake.farmBlock();
     await back.confirmed;
 
-    // 10M - 6M - create fee + 4M - take-back fee
+    // 10M - 6M - create fee - her vault + 4M - take-back fee
     expect((await anna.wallet.balance()).confirmed).toBe(
-      10_000_000n - 6_000_000n - 1_000n + 3_999_000n,
+      10_000_000n - 6_000_000n - 1_000n - 1n + 3_999_000n,
     );
     const [listed] = await anna.envelopes.listSent();
     expect(listed).toMatchObject({
@@ -214,7 +188,7 @@ describe('the whole loop', () => {
     expect((await kai.wallet.balance()).pending).toBe(-4_000n);
     fake.farmBlock();
     await sending.confirmed;
-    expect(await kai.wallet.balance()).toEqual({ confirmed: 5_000n, pending: 0n });
+    expect(await kai.wallet.balance()).toEqual({ confirmed: 4_999n, pending: 0n }); // vault: 1
     expect((await anna.wallet.balance()).confirmed).toBe(4_000n);
 
     await expect(kai.wallet.send(address.replace(/^txch/, 'xch'), 1n)).rejects.toMatchObject({
@@ -225,7 +199,7 @@ describe('the whole loop', () => {
     await expect(kai.wallet.send('@anna', 1n)).rejects.toMatchObject({
       code: 'handles_mainnet_only',
     });
-    await expect(kai.wallet.send(address, 6_000n)).rejects.toMatchObject({
+    await expect(kai.wallet.send(address, 5_000n)).rejects.toMatchObject({
       code: 'insufficient_funds',
     });
   });
@@ -251,21 +225,74 @@ describe('the whole loop', () => {
   });
 });
 
-describe('handing the wallet to Klimper', () => {
-  it('refuses a wallet from before recovery words: it has none to hand over', async () => {
-    const { person } = world();
-    const kai = person('kai'); // this stub keystore holds version 1 wallets
-    await kai.wallet.ensure();
+describe('two networks in one browser', () => {
+  it('lists only the envelopes of the network in use', async () => {
+    const storage = memoryStorage();
+    const state = createLocalState(storage);
+    const record = (id: string, link: string) => ({
+      id,
+      counter: 0,
+      link,
+      createdAt: 0,
+      total: '1000',
+      shares: 1,
+      takenBack: null,
+    });
+    const link = (label: string) => {
+      const secret = sha256(text(label)).slice(0, 16);
+      return encodeLink('https://ge.test', { publicKey: envelopeKeys(secret).publicKey, secret });
+    };
+    state.addSent(record('on-main', link('main')));
+    const test = new URL(link('test'));
+    test.searchParams.set('net', 'testnet');
+    state.addSent(record('on-test', test.toString()));
+    const services = (network: typeof TESTNET11) =>
+      createServicesFrom({
+        network,
+        chain: createFakeChain().chain,
+        keyStore: keyStoreFor(),
+        state,
+        origin: 'https://ge.test',
+        fetch: async () => new Response('{}', { status: 500 }),
+        now: () => 0,
+        fee: 0n,
+        expirySeconds: 1,
+      });
+    const ids = async (network: typeof TESTNET11) =>
+      (
+        await services(network)
+          .envelopes.listSent()
+          .catch(() => [])
+      ).map((e) => e.id);
+    expect(await ids(TESTNET11)).toEqual(['on-test']);
+    expect(await ids(MAINNET)).toEqual(['on-main']);
+  });
+});
 
-    const klimper = await createHandoffRequest('https://clapandpay.test');
-    const search = new URL(klimper.url).hash;
-    expect(await kai.wallet.connectRequest(search)).toEqual({});
-    await expect(kai.wallet.connectApprove(search)).rejects.toMatchObject({
-      code: 'wallet_too_old',
+describe('moving to Klimper', () => {
+  it('sends everything to a Klimper address with one prompt, and refuses another network', async () => {
+    const { fake, person } = world(1_000n);
+    const kai = person('kai');
+    await fund(fake, kai, 2_000_000n);
+    // The first spend from setup money also launches the vault.
+    await kai.wallet.send(await addressOf(person('lea')), 100_000n);
+    fake.farmBlock();
+    const before = (await kai.wallet.balance()).confirmed;
+    expect(before).toBe(2_000_000n - 100_000n - 1_000n - 1n);
+
+    const klimper = await addressOf(person('klimper'));
+    await expect(
+      kai.wallet.moveToKlimper('xch1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'),
+    ).rejects.toMatchObject({
+      code: 'invalid_recipient',
     });
-    await expect(kai.wallet.connectRequest('#v=2&k=nope')).rejects.toMatchObject({
-      code: 'bad_request',
-    });
+    const moved = await kai.wallet.moveToKlimper(klimper);
+    expect(moved.amount).toBe(before - 1_000n);
+    expect(moved.more).toBe(false);
+    fake.farmBlock();
+    await moved.confirmed;
+    expect((await kai.wallet.balance()).confirmed).toBe(0n);
+    expect(fake.balanceOf(decodeAddress(klimper).puzzleHash)).toBe(before - 1_000n);
   });
 });
 
@@ -276,5 +303,113 @@ describe('priceIn', () => {
     for (const bad of [null, {}, { eur: '12' }, { eur: 0 }, { eur: Number.NaN }, { chia: {} }]) {
       expect(priceIn(bad)).toBeNull();
     }
+  });
+});
+
+describe('servedChain', () => {
+  const doc = (content: string | null) => ({
+    querySelector: () => (content === null ? null : { getAttribute: () => content }),
+  });
+  it('reads the server’s node for this network only, and nothing malformed', () => {
+    const tag = JSON.stringify({
+      network: 'mainnet',
+      endpoints: ['https://api.nodexch.com', 'javascript:alert(1)'],
+      apiKey: 'pk',
+    });
+    expect(servedChain(doc(tag) as never, 'mainnet')).toEqual({
+      endpoints: ['https://api.nodexch.com'],
+      apiKey: 'pk',
+    });
+    expect(servedChain(doc(tag) as never, 'testnet11')).toBeNull();
+    expect(servedChain(doc('not json') as never, 'mainnet')).toBeNull();
+    expect(servedChain(doc(null) as never, 'mainnet')).toBeNull();
+  });
+});
+
+describe('the network fee', () => {
+  function withFee(feeMode: 'auto' | 'fixed', estimate: () => Promise<bigint>) {
+    const fake = createFakeChain();
+    const asked: bigint[] = [];
+    const chain = {
+      ...fake.chain,
+      feeEstimate: async (cost: bigint) => {
+        asked.push(cost);
+        return estimate();
+      },
+    };
+    const services = createServicesFrom({
+      network: TESTNET11,
+      chain,
+      keyStore: keyStoreFor(),
+      state: createLocalState(memoryStorage()),
+      origin: 'https://ge.test',
+      fetch: async () => new Response('{}', { status: 500 }),
+      now: () => 0,
+      fee: 1_000_000n,
+      feeMode,
+      expirySeconds: 1,
+    });
+    return { services, asked, fake };
+  }
+
+  it('automatic: the network’s estimate for the transaction’s cost, never below the floor', async () => {
+    const busy = withFee('auto', async () => 7_473_753n);
+    expect(await busy.services.wallet.fee()).toEqual({
+      policy: { mode: 'auto' },
+      current: 7_473_753n,
+    });
+    expect(busy.asked[0]).toBeGreaterThan(100_000_000n); // a vault spend's cost
+    const quiet = withFee('auto', async () => 0n);
+    expect((await quiet.services.wallet.fee()).current).toBe(1_000_000n);
+    // A network that cannot say: the floor, never a failed transaction.
+    const silent = withFee('auto', async () => {
+      throw new Error('down');
+    });
+    expect((await silent.services.wallet.fee()).current).toBe(1_000_000n);
+  });
+
+  it('automatic: an estimate above the ceiling per cost is cut down to it', async () => {
+    const greedy = withFee('auto', async () => 10n ** 15n);
+    const { current } = await greedy.services.wallet.fee();
+    expect(current).toBe((greedy.asked[0] ?? 0n) * MAX_MOJOS_PER_COST);
+  });
+
+  it('a fixed amount chosen here is kept, and used without asking the network', async () => {
+    const { services, asked } = withFee('auto', async () => 7_000_000n);
+    await services.wallet.setFee({ mode: 'fixed', mojos: 10_000_000n });
+    expect(await services.wallet.fee()).toEqual({
+      policy: { mode: 'fixed', mojos: 10_000_000n },
+      current: 10_000_000n,
+    });
+    expect(asked).toHaveLength(0);
+  });
+
+  it('a claim pays the estimated fee out of its share', async () => {
+    const { fake, person } = world();
+    const anna = person('anna');
+    await fund(fake, anna, 2_000_000n);
+    const sent = await anna.envelopes.create({
+      total: 400_000n,
+      shares: 1,
+      mode: 'equal',
+      from: null,
+      message: null,
+    });
+    fake.farmBlock();
+    const kai = createServicesFrom({
+      network: TESTNET11,
+      chain: { ...fake.chain, feeEstimate: async () => 50_000n },
+      keyStore: keyStoreFor(),
+      state: createLocalState(memoryStorage()),
+      origin: 'https://ge.test',
+      fetch: async () => new Response('{}', { status: 500 }),
+      now: () => 0,
+      fee: 1_000n,
+      feeMode: 'auto',
+      expirySeconds: 1,
+    });
+    const opened = await kai.envelopes.open(sent.link);
+    // The estimate (above the 1,000 floor), and 1 mojo for Kai's new vault.
+    expect(opened.amount).toBe(400_000n - 50_000n - 1n);
   });
 });

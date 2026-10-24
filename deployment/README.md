@@ -11,6 +11,17 @@ docker run -p 8787:8787 \
   ghcr.io/clapandpay/green-envelope/green-envelope:latest
 ```
 
+The chain node is chosen at runtime, never built into the image: `PUBLIC_CHAIN_ENDPOINTS` and
+`PUBLIC_CHAIN_API_KEY` for the node the browser calls (mainnet: `https://api.nodexch.com` with
+its public, origin-restricted key), `CHAIN_ENDPOINTS` and `CHAIN_API_KEY` for the server's own
+reads. Without them, the public Coinset node of the network is used.
+
+The testnet site (`testnet.envelope.clapandpay.com`) is the same image built for testnet11:
+the tag with `-testnet` (`:latest-testnet`), run with `NETWORK=testnet11` and
+`PUBLIC_ORIGIN=https://testnet.envelope.clapandpay.com`. Both sites use the same passkey (its
+domain is `clapandpay.com`); each network has its own vault, and each site its own browser
+storage. `VITE_MAINNET_URL` and `VITE_TESTNET_URL` name the two sites if yours differ.
+
 It runs as a non-root user and writes no files; `CHAIN_ENDPOINTS`, `PORT` and the optional
 `TYPESAFE_API_KEY` are the other variables. Images are published for `linux/amd64` and `linux/arm64` by
 `.github/workflows/green-envelope.yml` on a `green-envelope-v*` release; a prerelease does not move

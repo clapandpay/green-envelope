@@ -4,6 +4,7 @@ import type { Dict } from './en';
 
 export const de: Dict = {
   common: {
+    explorer: 'Auf mempoolxch.space ansehen ↗',
     appName: 'Grüner Umschlag',
     back: 'Zurück',
     close: 'Schließen',
@@ -32,10 +33,12 @@ export const de: Dict = {
     handleNotPayable: 'Dieser @Name kann gerade kein Geld annehmen. Frag nach der Adresse.',
     handlesUnavailable: '@Namen lassen sich gerade nicht nachschlagen. Eine Adresse geht trotzdem.',
     handlesMainnetOnly: '@Namen gibt es nur im echten Netz.',
+    walletSettling: 'Dein Geld kommt gerade an. Versuch es in einer Minute nochmal.',
     passkeyUnavailable:
       'Dieser Browser kann dein Geld nicht mit Gesicht oder Finger schützen. Öffne den Link in Safari oder Chrome.',
   },
   claim: {
+    explorer: 'Diesen Umschlag auf mempoolxch.space ansehen ↗',
     title: 'Ein grüner Umschlag für dich',
     from: (name) => `von ${name}`,
     fromNobody: 'für dich',
@@ -48,8 +51,7 @@ export const de: Dict = {
     youGot: 'Du bekommst',
     onItsWay: 'Unterwegs · etwa eine Minute',
     arrived: 'Angekommen. Es gehört dir.',
-    backupNote:
-      'Sichere es in Klimper. Geht der Passkey, den dein Gesicht oder Finger öffnet, je verloren und das Geld ist nicht in Klimper, ist es weg.',
+    backupNote: 'Taschengeld · nur kleine Beträge',
     announce: (amount) => `Du bekommst ${amount}`,
     sendOn: 'Weiterschenken',
     keep: 'Behalten',
@@ -69,25 +71,6 @@ export const de: Dict = {
     badBody: 'Ein Stück vom Link fehlt. Lass ihn dir nochmal schicken.',
     unknownTitle: 'Das hat nicht geklappt',
     unknownBody: 'Der Umschlag ist weiter sicher. Versuch es bitte nochmal.',
-  },
-  connect: {
-    title: 'Dein Geld in Klimper',
-    body: 'Klimper auf diesem Handy fragt nach deinem Geld. Danach kann Klimper alles davon ausgeben und bewahrt seine 24 Wiederherstellungswörter für dich auf.',
-    warn: 'Mach nur weiter, wenn du das selbst in Klimper angestoßen hast.',
-    approve: 'Ja, in Klimper holen',
-    working: 'Warte auf dein Handy…',
-    doneTitle: 'Fertig',
-    doneBody:
-      'Tipp, um zu Klimper zurückzugehen. Nur Klimper auf diesem Handy kann öffnen, was dieser Link mitbringt.',
-    open: 'Klimper öffnen',
-    doneNoApp:
-      'Passiert nichts? Dann ist Klimper nicht auf diesem Handy. Hol es dir und fang in Klimper noch einmal an.',
-    badTitle: 'Das kam nicht von Klimper',
-    badBody: 'Fang in der Klimper-App noch einmal an.',
-    noneTitle: 'Kein Geld auf diesem Gerät',
-    noneBody: 'Öffne zuerst einen Umschlag, oder nimm das Handy, auf dem du einen geöffnet hast.',
-    tooOldTitle: 'Dieses Geld ist von vor den Wiederherstellungswörtern',
-    tooOldBody: 'So kann es nicht zu Klimper. Lass es vorerst hier.',
   },
   create: {
     title: 'Neuer Umschlag',
@@ -130,12 +113,44 @@ export const de: Dict = {
     share: 'In den Chat schicken',
     copyLink: 'Link kopieren',
     linkLabel: 'Der Link',
-    cashNote: 'Der Link ist wie Bargeld. Wer ihn hat, kann den Umschlag öffnen.',
+    cashNote:
+      'Der Link ist wie Bargeld: Wer ihn hat, kann den Umschlag öffnen. Teile ihn nur mit Menschen, denen du vertraust.',
+    trustNote:
+      'Wer den Link hat, kann ihn öffnen, wie Bargeld. Schick ihn nur an Menschen, denen du vertraust.',
     done: 'Fertig',
   },
   wallet: {
+    feeLine: 'Netzwerkgebühr',
+    feeTotal: 'Insgesamt',
+    feeWorking: 'wird berechnet…',
+    feeRow: 'Netzwerkgebühr',
+    feeTitle: 'Netzwerkgebühr',
+    feeBody:
+      'Jede Überweisung zahlt dem Netzwerk eine kleine Gebühr, damit sie schnell bestätigt wird. Beim Öffnen eines Umschlags zahlt der Anteil seine eigene.',
+    feeAuto: 'Automatisch: fragt jedes Mal das Netzwerk',
+    feeNow: (amount: string) => `gerade etwa ${amount}`,
+    feeFixed: 'Ein fester Betrag',
+    feeAmountLabel: 'Gebühr in XCH',
+    feeInvalid: 'Ein Betrag wie 0.00001',
+    feeSave: 'Speichern',
     title: 'Dein Geld',
     onTheMove: (amount) => `${amount} unterwegs`,
+    smallNote: 'Taschengeld · nur kleine Beträge',
+    aboutOpen: 'Über dieses Geld',
+    aboutTitle: 'Über dieses Geld',
+    aboutPocketTitle: 'Taschengeld, kein Sparkonto',
+    aboutPasskeyTitle: 'Dein Passkey',
+    aboutBiggerTitle: 'Größere Beträge',
+    aboutLinkTitle: 'Ein Umschlag-Link ist wie Bargeld',
+    aboutLinkBody:
+      'Wer den Link hat, kann den Umschlag öffnen. Die App gibt jeder Person einen Anteil, aber mit eigenen Werkzeugen könnte jemand alle übrigen Anteile nehmen. Schick Links nur an Menschen, denen du vertraust, und hol dir zurück, was übrig ist, wenn du fertig bist. An dein übriges Geld kommt der Link nie heran.',
+    aboutKeyTitle: 'Dein Schlüssel bleibt auf deinem Handy',
+    aboutKeyBody:
+      'Keine Website kann ihn lesen oder kopieren, auch diese nicht. Eine Website kann dein Handy nur bitten, eine Zahlung freizugeben, und die Abfrage mit Gesicht oder Finger zeigt nicht, welche. Gib also nur frei, direkt nachdem du hier auf Senden, Erstellen oder Bringen getippt hast. Bald: ein zweiter Schlüssel, etwa Chia Signer, der Betrag und Adresse zeigt, bevor er freigibt.',
+    pocketNote:
+      'Das ist zum Verschicken von Umschlägen und kleinen Beträgen zum Spaß, nicht zum Aufbewahren.',
+    passkeyNote: (domain: string) =>
+      `Dein Passkey gehört zu ${domain} und ist der einzige Schlüssel zu diesem Geld: nur für kleine Beträge. Bald kannst du mit dem Vault Manager weitere Passkeys oder Chia Signer hinzufügen.`,
     newEnvelope: 'Neuer Umschlag',
     receive: 'Empfangen',
     send: 'Senden',
@@ -145,11 +160,10 @@ export const de: Dict = {
     firstRunOpened: 'Willkommen',
     start: 'Hier anfangen',
     starting: 'Wird vorbereitet…',
-    secureAction: 'Jetzt sichern',
-    securing: 'Wird gesichert…',
-    keepHere: 'Nur in diesem Browser behalten',
-    keepHereWarn:
-      'Dann liegt es nur in diesem Browser: Daten gelöscht, Geld weg. Bring es bald in Klimper.',
+    newPasskey: 'Neuen Passkey erstellen',
+    newPasskeyWorking: 'Wird erstellt…',
+    newPasskeyNote:
+      'Passkey klappt nicht? Erstell einen neuen. Geld hinter einem anderen Passkey bleibt dort: Melde dich ab und wähl diesen, um wieder ranzukommen.',
     newWallet: 'Zweites Konto eröffnen',
     newWalletTitle: 'Zweites Konto eröffnen?',
     newWalletBody:
@@ -158,26 +172,39 @@ export const de: Dict = {
     newWalletWorking: 'Wird eröffnet…',
     earlierTitle: 'Geld von früher',
     earlierBody: (amount: string) =>
-      `${amount} liegt noch an deiner früheren Adresse. Hol es einmal hierher.`,
+      `${amount} liegt noch da, wo dein Geld früher war. Hol es einmal hierher.`,
     earlierMove: 'Hierher holen',
     earlierMoving: 'Wird geholt…',
     earlierMoved: 'Unterwegs. In etwa einer Minute ist es da.',
     earlierMore: 'Ein Teil ist unterwegs. Tipp nochmal für den Rest.',
-    backupTitle: 'In Klimper sichern',
+    backupTitle: 'Mehr als Taschengeld?',
     backupBody:
-      'Nur der Passkey, den dein Gesicht oder Finger öffnet, hält dieses Geld. Geht er verloren (Handy und Apple- oder Google-Konto weg), bevor das Geld in Klimper ist, ist es weg: Niemand kann es zurückholen.',
-    backupBodyDevice:
-      'Dieses Geld liegt nur in diesem Browser. Löschst du ihn oder verlierst das Handy, bevor das Geld in Klimper ist, ist es weg.',
-    backupHow: 'Hol dir Klimper, öffne es und tippe auf „Mein Clap-and-Pay-Geld nutzen“.',
+      'Dein Passkey ist der einzige Schlüssel zu diesem Geld. Geht er verloren (Handy und Apple- oder Google-Konto weg), ist das Geld weg. Klimper sichert Geld mit eigenen 24 Wiederherstellungswörtern.',
     backupGet: 'Klimper holen',
+    klimperOpen: 'Zu Klimper bringen',
+    klimperTitle: 'Zu Klimper bringen',
+    klimperBody: 'Alles hier geht zu deinem Geld in Klimper. Du brauchst nur die Adresse.',
+    klimperStepGet: 'Hol dir Klimper und richte es ein.',
+    klimperStepReceive: 'Tippe in Klimper auf Empfangen und kopiere deine Adresse.',
+    klimperStepPaste: 'Füge sie hier ein.',
+    klimperAddressLabel: 'Deine Klimper-Adresse',
+    klimperNext: 'Weiter',
+    klimperInvalid: 'Das ist noch keine Adresse. Kopiere sie aus Klimper.',
+    klimperConfirmTitle: 'Alles zu Klimper schicken?',
+    klimperTo: 'An diese Adresse',
+    klimperCheck:
+      'Prüfe, dass es die Adresse ist, die Klimper dir zeigt. Geld an eine andere Adresse kommt nicht zurück.',
+    klimperMove: 'Ja, bring es hin',
+    klimperMoving: 'Wird gebracht…',
+    klimperDone: 'Unterwegs zu Klimper. Es kommt in etwa einer Minute an.',
+    klimperMore: 'Ein Teil ist unterwegs. Tippe nochmal für den Rest.',
     logOut: 'Abmelden',
     logOutTitle: 'Abmelden?',
     logOutSafe: 'Dein Geld bleibt, wo es ist. Komm jederzeit mit Gesicht oder Finger zurück.',
     logOutLoses:
-      'Dieses Geld liegt nur in diesem Browser. Nach dem Abmelden ist es weg. Sichere es vorher mit Gesicht oder Finger.',
+      'Dieses Geld liegt nur in diesem Browser. Nach dem Abmelden ist es weg. Bring es vorher weg.',
     logOutConfirm: 'Ja, abmelden',
     loggingOut: 'Wird abgemeldet…',
-    secured: 'Erledigt. Dein Handy passt jetzt auf dein Geld auf.',
     sentTitle: 'Deine Umschläge',
     sentEmpty: 'Noch keiner. Na los, mach jemandem eine Freude.',
     opened: (opened, total) => `${opened} von ${total} geöffnet`,
@@ -186,6 +213,8 @@ export const de: Dict = {
     statusFinished: 'alle geöffnet',
     statusTakenBack: 'zurückgeholt',
     takeBack: 'Zurückholen',
+    remove: 'Entfernen',
+    removeLabel: 'Diesen Umschlag aus der Liste entfernen',
     takeBackTitle: 'Diesen Umschlag zurückholen?',
     takeBackBody: (amount) =>
       `Was niemand geöffnet hat (${amount}), kommt zu dir zurück. Der Link geht dann nicht mehr.`,
@@ -193,6 +222,7 @@ export const de: Dict = {
     takingBack: 'Wird zurückgeholt…',
     receiveTitle: 'Empfangen',
     receiveBody: 'Das ist deine Adresse. Geld, das hierhin geschickt wird, landet bei dir.',
+    receiveSmall: 'Nur kleine Beträge.',
     addressLabel: 'Deine Adresse',
     qrLabel: 'Deine Adresse als Code zum Scannen',
     sendTitle: 'Senden',
@@ -218,6 +248,9 @@ export const de: Dict = {
   },
   footer: {
     language: 'Sprache',
+    network: 'Netzwerk',
+    mainnet: 'Mainnet',
+    testnet: 'Testnet',
     how: 'Wie funktioniert das?',
     howTitle: 'Wie funktioniert das?',
     howPoints: [

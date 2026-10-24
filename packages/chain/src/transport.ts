@@ -26,6 +26,8 @@ export interface TransportOptions {
   endpoints: string[];
   fetch?: typeof fetch;
   timeoutMs?: number;
+  /** `Authorization: Bearer` for the first endpoint only (a node that wants a key). */
+  apiKey?: string | null;
 }
 
 /** Default per-request timeout in milliseconds. */
@@ -67,9 +69,11 @@ export function createTransport(opts: TransportOptions): Transport {
       let status: number;
       let text: string;
       try {
+        const keyed =
+          base === endpoints[0] && opts.apiKey ? { authorization: `Bearer ${opts.apiKey}` } : {};
         const response = await doFetch(`${base}/${method}`, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          headers: { 'content-type': 'application/json', accept: 'application/json', ...keyed },
           body: payload,
           signal: controller.signal,
         });

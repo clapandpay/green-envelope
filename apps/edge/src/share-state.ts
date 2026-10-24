@@ -37,6 +37,15 @@ export const STATE_TTL_MS = 30_000;
 /** Envelopes whose state or derived puzzle hashes are kept in memory. */
 export const CACHED_ENVELOPES = 256;
 
+/**
+ * Fresh envelopes (keys not derived yet) looked up per second, and chain lookups in flight. Any
+ * curve point makes a valid-looking link, and each fresh one costs up to 100 key derivations on
+ * the server's one thread plus a chain request on its key: past these limits a page is served
+ * without the count instead of the server stalling for everybody.
+ */
+export const FRESH_PER_SECOND = 10;
+export const MAX_IN_FLIGHT = 8;
+
 const UNKNOWN: ShareState = { kind: 'unknown' };
 
 interface StateEntry {
@@ -65,20 +74,40 @@ export function createShareStateLookup(deps: ShareStateDeps): ShareStateLookup {
   const derived = createLru<Uint8Array[]>(CACHED_ENVELOPES);
   const states = createLru<StateEntry>(CACHED_ENVELOPES);
 
-  const puzzleHashes = (key: string, publicKey: Uint8Array, count: number): Uint8Array[] => {
+  let windowStart = Number.NEGATIVE_INFINITY;
+  let freshInWindow = 0;
+  let inFlight = 0;
+
+  /** Whether one more fresh derivation fits in this second's allowance (and counts it). */
+  const allowFresh = (): boolean => {
+    const now = deps.now();
+    if (now - windowStart >= 1000) {
+      windowStart = now;
+      freshInWindow = 0;
+    }
+    if (freshInWindow >= FRESH_PER_SECOND) return false;
+    freshInWindow += 1;
+    return true;
+  };
+
+  const puzzleHashes = (key: string, publicKey: Uint8Array, count: number): Uint8Array[] | null => {
     const cached = derived.get(key);
     if (cached !== undefined) return cached;
+    if (!allowFresh()) return null;
     const hashes = deps.shares(publicKey, count);
     derived.set(key, hashes);
     return hashes;
   };
 
   const lookup = async (key: string, publicKey: Uint8Array, count: number): Promise<ShareState> => {
+    if (inFlight >= MAX_IN_FLIGHT) return UNKNOWN;
+    inFlight += 1;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), deps.budgetMs);
     try {
       const { signal } = controller;
       const hashes = puzzleHashes(key, publicKey, count);
+      if (hashes === null) return UNKNOWN;
       const coins = await Promise.race([
         deps.chain.coinRecordsByPuzzleHashes(hashes, { signal }),
         rejectOnAbort(signal),
@@ -87,6 +116,7 @@ export function createShareStateLookup(deps: ShareStateDeps): ShareStateLookup {
     } catch {
       return UNKNOWN;
     } finally {
+      inFlight -= 1;
       clearTimeout(timer);
     }
   };

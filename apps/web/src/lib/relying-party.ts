@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Which domain the wallet's passkey belongs to. The Klimper app is hard-wired to clapandpay.com
-// (its relying party, and the `webcredentials` entry on that domain), and the money handed over
-// to it is the same passkey's key, so the web wallet has to use that domain too, not the one
-// host it happens to be served from. The app lives on envelope.clapandpay.com, and a page on a
-// subdomain may name its parent as the relying party.
+// Which domain the wallet's passkey belongs to: clapandpay.com, on that domain and every
+// subdomain of it (the app lives on envelope.clapandpay.com, and a page on a subdomain may name
+// its parent as the relying party). Klimper no longer shares passkeys with the web wallet; the
+// domain stays because existing passkeys are bound to it (docs/wallet-security.md, risk 2).
 //
 // Changing this after people have created a wallet strands them: a passkey is bound to its
 // relying party for good.

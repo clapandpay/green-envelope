@@ -155,19 +155,22 @@ export function Envelope(props: { state: EnvelopeState; interactive?: boolean })
             {/* two leaves grow out of the letter, the way they grow out of the logo; they unfold
               from the letter's edge with a spring once it is out of the pocket */}
             <g class="env__px env__px--leaves">
-              <g class="env__unfold">
-                <path
-                  class="env__leaf env__leaf--ivory"
-                  d="M118 112 C 96 108, 84 88, 92 70 C 110 74, 122 92, 118 112 Z"
-                />
-                <path
-                  class="env__leaf env__leaf--green"
-                  d="M122 112 C 124 88, 138 70, 160 66 C 164 88, 146 108, 122 112 Z"
-                />
-                <path
-                  class="env__leaf-vein"
-                  d="M118 110 C 110 96, 102 84, 94 72 M123 110 C 132 94, 144 80, 158 68"
-                />
+              {/* sway and unfold on separate elements: see .env__sway in styles/claim.css */}
+              <g class="env__sway">
+                <g class="env__unfold">
+                  <path
+                    class="env__leaf env__leaf--ivory"
+                    d="M118 112 C 96 108, 84 88, 92 70 C 110 74, 122 92, 118 112 Z"
+                  />
+                  <path
+                    class="env__leaf env__leaf--green"
+                    d="M122 112 C 124 88, 138 70, 160 66 C 164 88, 146 108, 122 112 Z"
+                  />
+                  <path
+                    class="env__leaf-vein"
+                    d="M118 110 C 110 96, 102 84, 94 72 M123 110 C 132 94, 144 80, 158 68"
+                  />
+                </g>
               </g>
             </g>
             <rect class="env__slip-cast" x="53" y="109" width="140" height="92" />

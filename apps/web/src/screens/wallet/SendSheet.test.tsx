@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // @vitest-environment happy-dom
+
+import { decodeAddress } from '@ge/chia';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen, stillMotion } from '../../test/render';
@@ -90,6 +92,16 @@ describe('pasting a line out of a chat', () => {
 });
 
 describe('an @name says where it goes', () => {
+  it('pays the address that was shown, not a second answer from the registry', async () => {
+    const world = createWorld({ network: 'mainnet', fetch: { handles: HANDLES } });
+    await world.fund(4_000_000_000n);
+    const shown = A;
+    await world.services.wallet.send('@anna', 1_000_000_000n, undefined, shown);
+    world.fake.farmBlock();
+    const { puzzleHash } = decodeAddress(shown);
+    expect(world.fake.balanceOf(puzzleHash)).toBe(1_000_000_000n);
+  });
+
   it('shows the address before anything is sent', async () => {
     const { field } = open({ network: 'mainnet', fetch: { handles: HANDLES } });
     fireEvent.input(field, { target: { value: '@anna' } });
@@ -142,5 +154,38 @@ describe('an @name says where it goes', () => {
     const { field } = open();
     fireEvent.input(field, { target: { value: '@anna' } });
     expect(await screen.findByText(/only work on the real network/i)).toBeTruthy();
+  });
+});
+
+describe('the network fee of a send', () => {
+  it('is shown before sending, with the total, and that fee is the one paid', async () => {
+    const world = createWorld({ fee: 10_000_000n });
+    await world.fund(5_000_000_000n);
+    world.fake.farmBlock();
+    const send = vi.spyOn(world.services.wallet, 'send');
+    renderScreen(
+      <SendSheet
+        rate={null}
+        balance={{ confirmed: 5_000_000_000n, pending: 0n }}
+        onClose={() => {}}
+        onChanged={() => {}}
+      />,
+      { services: world.services },
+    );
+    const other = createWorld({ shared: world.fake });
+    const { address } = await other.services.wallet.ensure();
+    fireEvent.input(screen.getByLabelText(/to whom/i), { target: { value: address } });
+    fireEvent.input(screen.getByLabelText(/how much/i), { target: { value: '0.001' } });
+    fireEvent.click(screen.getByRole('button', { name: /next|continue|send/i }));
+
+    expect(await screen.findByText(/network fee/i)).toBeTruthy();
+    expect(await screen.findByText(/0[.,]00001\s*XCH/)).toBeTruthy();
+    expect(screen.getByText(/in total/i)).toBeTruthy();
+    const now = (await screen.findByRole('button', { name: /send now/i })) as HTMLButtonElement;
+    await waitFor(() => expect(now.disabled).toBe(false));
+    fireEvent.click(now);
+    await waitFor(() =>
+      expect(send).toHaveBeenCalledWith(address, 1_000_000_000n, 10_000_000n, undefined),
+    );
   });
 });

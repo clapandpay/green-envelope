@@ -28,6 +28,7 @@ export function handlerFromEnv(env: Env): Handler {
     shares: sharePuzzleHashes,
     chain: createChainLookup({
       endpoints: config.chainEndpoints,
+      apiKey: config.chainApiKey,
       fetch: (input, init) => fetch(input, init),
       attemptTimeoutMs: attemptTimeoutMs(config),
     }),

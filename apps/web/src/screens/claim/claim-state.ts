@@ -2,7 +2,7 @@
 // The claim screen as a state machine. Pure: the hook in use-claim.ts feeds it events.
 import type { EnvelopeView, ServiceErrorCode } from '../../services/types';
 
-/** `no_passkey`: this browser cannot keep a passkey wallet; the screen offers a browser-only one. */
+/** `no_passkey`: the passkey did not give a wallet here; the screen offers a new passkey, never a browser-only wallet. */
 export type ClaimNotice = 'cancelled' | 'no_passkey' | 'network' | 'unknown';
 
 export type ClaimState =
@@ -10,7 +10,15 @@ export type ClaimState =
   | { s: 'sealed'; view: EnvelopeView; notice: ClaimNotice | null }
   | { s: 'opening'; view: EnvelopeView }
   /** `fresh`: opened just now (celebrate), not on an earlier visit. */
-  | { s: 'opened'; view: EnvelopeView; amount: bigint; confirmed: boolean; fresh: boolean }
+  | {
+      s: 'opened';
+      view: EnvelopeView;
+      amount: bigint;
+      confirmed: boolean;
+      fresh: boolean;
+      /** The coin the money landed in, when it was opened just now. */
+      coinId?: string;
+    }
   | { s: 'gone'; reason: 'empty' | 'expired'; view: EnvelopeView | null }
   | { s: 'failed'; reason: 'bad_link' | 'not_ready' | 'network' | 'unknown' };
 
@@ -19,7 +27,7 @@ export type ClaimEvent =
   | { e: 'inspected'; view: EnvelopeView }
   | { e: 'inspect_failed'; code: ServiceErrorCode }
   | { e: 'open_started' }
-  | { e: 'open_done'; amount: bigint }
+  | { e: 'open_done'; amount: bigint; coinId?: string }
   | { e: 'open_failed'; code: ServiceErrorCode }
   | { e: 'confirmed' };
 
@@ -66,13 +74,20 @@ export function claimReducer(state: ClaimState, event: ClaimEvent): ClaimState {
     case 'open_done': {
       if (state.s !== 'opening') return state;
       const view = { ...state.view, sharesLeft: Math.max(0, state.view.sharesLeft - 1) };
-      return { s: 'opened', view, amount: event.amount, confirmed: false, fresh: true };
+      return {
+        s: 'opened',
+        view,
+        amount: event.amount,
+        confirmed: false,
+        fresh: true,
+        ...(event.coinId === undefined ? {} : { coinId: event.coinId }),
+      };
     }
     case 'open_failed': {
       if (state.s !== 'opening') return state;
       const { code } = event;
       if (code === 'already_opened') return INITIAL_CLAIM; // the hook looks again
-      if (code === 'wallet_cancelled')
+      if (code === 'wallet_cancelled' || code === 'no_wallet_here')
         return { s: 'sealed', view: state.view, notice: 'cancelled' };
       if (code === 'network') return { s: 'sealed', view: state.view, notice: 'network' };
       if (code === 'passkey_unavailable')

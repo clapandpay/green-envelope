@@ -3,7 +3,10 @@
 // default implementation below can be replaced by an adapter over `@ge/chain`.
 import { toHex0x } from './bytes';
 
+import { endpointHeaders } from './rpc';
+
 /** The part of a coin record a link preview needs. */
+
 export interface ShareCoin {
   readonly amount: bigint;
   readonly spent: boolean;
@@ -21,6 +24,8 @@ export interface ChainLookup {
 /** Options of `createChainLookup`. */
 export interface ChainLookupOptions {
   readonly endpoints: readonly string[];
+  /** Bearer key for the first endpoint only. */
+  readonly apiKey?: string | null;
   readonly fetch: typeof fetch;
   /** Timeout of one attempt against one endpoint. */
   readonly attemptTimeoutMs: number;
@@ -57,10 +62,10 @@ export function parseCoinRecords(body: unknown): ShareCoin[] | null {
 
 /** A fetch-based `ChainLookup` over Coinset-compatible endpoints, tried in order. */
 export function createChainLookup(options: ChainLookupOptions): ChainLookup {
-  const attempt = async (base: string, body: string, signal: AbortSignal) => {
+  const attempt = async (base: string, index: number, body: string, signal: AbortSignal) => {
     const response = await options.fetch(`${base}/get_coin_records_by_puzzle_hashes`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: endpointHeaders(index, options.apiKey),
       body,
       signal: AbortSignal.any([signal, AbortSignal.timeout(options.attemptTimeoutMs)]),
     });
@@ -77,9 +82,9 @@ export function createChainLookup(options: ChainLookupOptions): ChainLookup {
         puzzle_hashes: puzzleHashes.map(toHex0x),
         include_spent_coins: true,
       });
-      for (const base of options.endpoints) {
+      for (const [index, base] of options.endpoints.entries()) {
         if (signal.aborted) break;
-        const coins = await attempt(base, body, signal).catch(() => null);
+        const coins = await attempt(base, index, body, signal).catch(() => null);
         if (coins !== null) return coins;
       }
       throw new ChainLookupError('no chain endpoint answered');

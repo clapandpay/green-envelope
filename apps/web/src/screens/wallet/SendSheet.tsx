@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Amount } from '../../components/Amount';
 import { AmountField, type AmountValue } from '../../components/AmountField';
+import { ExplorerLink } from '../../components/ExplorerLink';
+import { FeeLine } from '../../components/FeeLine';
 import { TickIcon } from '../../components/icons';
 import { Sheet } from '../../components/Sheet';
 import { useI18n } from '../../i18n';
@@ -71,6 +73,9 @@ export function SendSheet(props: {
   const services = useServices();
   const { rate } = props;
   const [step, setStep] = useState<Step>('form');
+  const [sentCoin, setSentCoin] = useState<string | null>(null);
+  /** The fee of this payment, worked out before it is confirmed, and then paid as shown. */
+  const [fee, setFee] = useState<bigint | null>(null);
   const [to, setTo] = useState('');
   const [amount, setAmount] = useState<AmountValue>({ text: '', unit: rate ? 'eur' : 'xch' });
   const [nudged, setNudged] = useState(false);
@@ -123,7 +128,18 @@ export function SendSheet(props: {
   const next = (event: Event) => {
     event.preventDefault();
     setNudged(true);
-    if (recipientOk && check.total !== null && check.error === null) setStep('confirm');
+    if (recipientOk && check.total !== null && check.error === null) {
+      const amount = check.total;
+      setFee(null);
+      setStep('confirm');
+      services.wallet.quotePayment(amount).then(
+        (quote) => setFee(quote.fee),
+        (error: unknown) => {
+          setFailure(errorText(errorCode(error), t));
+          setStep('form');
+        },
+      );
+    }
   };
 
   /**
@@ -172,7 +188,11 @@ export function SendSheet(props: {
     setStep('sending');
     setFailure(null);
     try {
-      const result = await services.wallet.send(recipient, check.total);
+      // An @name pays exactly the address shown on the confirm step.
+      const shown = kind === 'handle' && lookup.s === 'ok' ? lookup.value.address : undefined;
+      if (kind === 'handle' && shown === undefined) return;
+      const result = await services.wallet.send(recipient, check.total, fee ?? undefined, shown);
+      setSentCoin(result.coinId);
       setStep('done');
       props.onChanged();
       result.confirmed.then(props.onChanged, () => {});
@@ -190,6 +210,7 @@ export function SendSheet(props: {
             <TickIcon />
             {t.wallet.sendDone}
           </p>
+          {sentCoin !== null && <ExplorerLink coinId={sentCoin} />}
           <button type="button" class="btn btn--primary" onClick={props.onClose}>
             {t.common.close}
           </button>
@@ -213,6 +234,10 @@ export function SendSheet(props: {
               {lookup.s === 'ok' && <p class="address num soft">{lookup.value.address}</p>}
             </div>
           </div>
+          <FeeLine
+            fee={fee}
+            total={fee === null || check.total === null ? null : check.total + fee}
+          />
           {lookup.s === 'ok' && lookup.value.imitates !== null && (
             <p class="notice" role="alert">
               {t.wallet.handleLookalike(lookup.value.imitates)}
@@ -223,7 +248,7 @@ export function SendSheet(props: {
             type="button"
             class="btn btn--primary btn--huge"
             aria-busy={step === 'sending'}
-            disabled={step === 'sending'}
+            disabled={step === 'sending' || fee === null}
             onClick={send}
           >
             {step === 'sending' ? t.wallet.sending : t.wallet.sendNow}

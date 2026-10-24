@@ -6,14 +6,10 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { AlphaBanner } from './components/AlphaBanner';
 import { Footer } from './components/Footer';
 import { I18nProvider, type Lang, useI18n } from './i18n';
+import { reloadForNewBuild } from './lib/reload';
 import { onLinkClick, type Route, useRoute } from './router';
 import { ClaimScreen } from './screens/claim/ClaimScreen';
-import {
-  loadConnectScreen,
-  loadCreateScreen,
-  loadHelloScreen,
-  loadWalletScreen,
-} from './screens/lazy';
+import { loadCreateScreen, loadHelloScreen, loadWalletScreen } from './screens/lazy';
 import { ServicesProvider } from './services/context';
 import type { AppServices } from './services/types';
 
@@ -29,7 +25,9 @@ function Lazy<P extends object>(props: { load: () => Promise<ComponentType<P>>; 
     setFailed(false);
     load().then(
       (component) => alive && setScreen(() => component),
-      () => alive && setFailed(true),
+      // Most often a tab from before a release asking for files that are gone: one reload
+      // brings the current ones. Otherwise (offline), say so and offer to try again.
+      () => alive && !reloadForNewBuild() && setFailed(true),
     );
     return () => {
       alive = false;
@@ -84,9 +82,6 @@ function Screen(props: { route: Route }) {
       return <Lazy load={loadWalletScreen} with={{}} />;
     case 'hello':
       return <Lazy load={loadHelloScreen} with={{}} />;
-    case 'connect':
-      // The fragment carries the app's one-time public key, and is never sent to the server.
-      return <Lazy load={loadConnectScreen} with={{ search: location.hash }} />;
     default:
       return <NotFound />;
   }

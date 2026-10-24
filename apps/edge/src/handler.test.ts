@@ -56,13 +56,16 @@ describe('GET /g/:pk', () => {
     expect(response.headers.get('x-robots-tag')).toBe('noindex');
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('strict-transport-security')).toBe('max-age=31536000');
+    expect(response.headers.get('cross-origin-opener-policy')).toBe('same-origin');
     expect(response.headers.get('permissions-policy')).toBe(
       'publickey-credentials-get=(self), publickey-credentials-create=(self)',
     );
     expect(response.headers.get('content-security-policy')).toBe(
       "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data: blob:; font-src 'self'; " +
-        "connect-src 'self' https://node-a.test https://node-b.test; manifest-src 'self'; " +
+        "connect-src 'self' https://node-a.test https://node-b.test https://api.coinset.org " +
+        "https://testnet11.api.coinset.org https://api.xchandles.com; manifest-src 'self'; " +
         "worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     );
   });
@@ -313,5 +316,24 @@ describe('failures', () => {
     const response = await createHandler(deps)(get('/assets/app.js'));
     expect(response.status).toBe(500);
     expect(await response.text()).toBe('internal error');
+  });
+});
+
+describe('the browser’s chain node, from the environment', () => {
+  it('is written into every page and allowed by the CSP, with its public key', async () => {
+    const config = testConfig({
+      browserChain: { endpoints: ['https://api.nodexch.test'], apiKey: 'public-key' },
+    });
+    const response = await createHandler(testDeps({ config }))(get('/'));
+    const html = await response.text();
+    expect(html).toContain('<meta name="ge-chain" content="');
+    expect(html).toContain('https://api.nodexch.test');
+    expect(html).toContain('public-key');
+    expect(response.headers.get('content-security-policy')).toContain('https://api.nodexch.test');
+  });
+
+  it('is not there when none is configured', async () => {
+    const html = await (await createHandler(testDeps())(get('/'))).text();
+    expect(html).not.toContain('ge-chain');
   });
 });

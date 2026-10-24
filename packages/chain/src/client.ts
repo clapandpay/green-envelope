@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { ChainError } from './errors';
 import { toHex0x } from './hex';
-import { parseCoinRecordByName, parseCoinRecords, parsePeakHeight, parsePushStatus } from './parse';
+import {
+  parseCoinRecordByName,
+  parseCoinRecords,
+  parseFeeEstimate,
+  parsePeakHeight,
+  parsePushStatus,
+} from './parse';
 import { spendBundleToJson } from './spend-bundle-json';
 import { createTransport, type NodeErrorDecision, type TransportOptions } from './transport';
 import type { Bytes, CoinRecord, SpendBundle } from './types';
@@ -18,10 +24,22 @@ export interface ChainClient {
   ): Promise<CoinRecord[]>;
   /** One coin by its id, or `null` when the node does not know it. */
   coinRecordByName(coinId: Bytes): Promise<CoinRecord | null>;
+  /** Every coin created with `hint` as its first memo (how a vault is found again). */
+  coinRecordsByHint(hint: Bytes, opts?: { includeSpent?: boolean }): Promise<CoinRecord[]>;
+  /** Every coin whose parent is one of `parentIds` (how a vault's next coin is found). */
+  coinRecordsByParentIds(
+    parentIds: Bytes[],
+    opts?: { includeSpent?: boolean },
+  ): Promise<CoinRecord[]>;
   /** Submits a spend bundle to the mempool; definitive rejections throw a typed `ChainError`. */
   pushTx(bundle: SpendBundle): Promise<{ status: 'success' | 'pending' }>;
   /** Height of the current peak block. */
   peakHeight(): Promise<number>;
+  /**
+   * The fee (mojos) for a transaction of `cost` to be confirmed within about `targetSeconds`,
+   * as the node estimates it from its mempool.
+   */
+  feeEstimate(cost: bigint, targetSeconds: number): Promise<bigint>;
 }
 
 // Errors that say "this node cannot answer now", not "this transaction is invalid".
@@ -72,6 +90,29 @@ export function createChainClient(opts: TransportOptions): ChainClient {
       return pages.length === 1 && pages[0] !== undefined ? pages[0] : pages.flat();
     },
 
+    async coinRecordsByHint(hint, callOpts) {
+      return transport.call({
+        method: 'get_coin_records_by_hint',
+        body: {
+          hint: hash32ToHex(hint, 'hint'),
+          include_spent_coins: callOpts?.includeSpent ?? false,
+        },
+        parse: parseCoinRecords,
+      });
+    },
+
+    async coinRecordsByParentIds(parentIds, callOpts) {
+      if (parentIds.length === 0) return [];
+      return transport.call({
+        method: 'get_coin_records_by_parent_ids',
+        body: {
+          parent_ids: parentIds.map((id) => hash32ToHex(id, 'parent id')),
+          include_spent_coins: callOpts?.includeSpent ?? false,
+        },
+        parse: parseCoinRecords,
+      });
+    },
+
     async coinRecordByName(coinId) {
       return transport.call<CoinRecord | null>({
         method: 'get_coin_record_by_name',
@@ -87,6 +128,14 @@ export function createChainClient(opts: TransportOptions): ChainClient {
         body: { spend_bundle: spendBundleToJson(bundle) },
         parse: parsePushStatus,
         onNodeError: classifyPushError,
+      });
+    },
+
+    feeEstimate(cost, targetSeconds) {
+      return transport.call({
+        method: 'get_fee_estimate',
+        body: { cost: Number(cost), target_times: [targetSeconds] },
+        parse: parseFeeEstimate,
       });
     },
 

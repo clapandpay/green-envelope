@@ -46,6 +46,8 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     network: 'testnet11',
     typesafeApiKey: null,
     chainEndpoints: ['https://node-a.test', 'https://node-b.test/rpc'],
+    chainApiKey: null,
+    browserChain: null,
     publicOrigin: 'https://clapandpay.test',
     shareLookupBudgetMs: 20,
     shellTtlSeconds: 60,

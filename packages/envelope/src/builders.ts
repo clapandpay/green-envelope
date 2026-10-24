@@ -2,6 +2,7 @@
 import {
   type Bytes,
   type Coin,
+  type CoinSpend,
   type Condition,
   coinId,
   type Network,
@@ -54,6 +55,26 @@ function spendTogether(
     };
   });
   return signSpends(spends, network);
+}
+
+/**
+ * Where a claimed share goes. A plain puzzle hash, or more: a claim can also launch the
+ * claimer's vault, which costs `cost` mojos out of the share, adds `conditions` to the share's
+ * spend and `spends` (the launcher's) to the bundle.
+ */
+export interface Destination {
+  puzzleHash: Bytes;
+  conditions?: Condition[];
+  spends?: CoinSpend[];
+  cost?: bigint;
+}
+
+/** A destination, or a function of the share coin being spent (a launch depends on it). */
+export type To = Bytes | ((spent: Coin) => Destination);
+
+/** The destination for one spent coin. */
+export function destinationFor(to: To, spent: Coin): Destination {
+  return typeof to === 'function' ? to(spent) : { puzzleHash: to };
 }
 
 function feeCondition(fee: bigint): Condition[] {
@@ -109,28 +130,39 @@ export function buildCreate(args: {
   return { bundle: spendTogether(inputs, conditions, network), shares };
 }
 
-/** Opens one share: the whole coin, minus the fee it pays for itself, goes to `toPuzzleHash`. */
+/**
+ * Opens one share: the whole coin, minus the fee it pays for itself (and the launch of the
+ * claimer's vault, when `toPuzzleHash` asks for one), goes to the destination.
+ */
 export function buildOpen(args: {
   share: { index: number; coin: Coin };
   envelopeSk: SecretKey;
-  toPuzzleHash: Bytes;
+  toPuzzleHash: To;
   fee: bigint;
   network: Network;
-}): { bundle: SpendBundle; received: bigint } {
-  const { share, envelopeSk, toPuzzleHash, fee, network } = args;
-  const received = share.coin.amount - fee;
+}): { bundle: SpendBundle; received: bigint; destination: Destination } {
+  const { share, envelopeSk, fee, network } = args;
+  const destination = destinationFor(args.toPuzzleHash, share.coin);
+  const received = share.coin.amount - fee - (destination.cost ?? 0n);
   if (fee < 0n || received <= 0n) {
     throw new EnvelopeError('bad_amount', 'the fee would eat the whole share');
   }
   const key: ShareKey = shareKey(envelopeSk, share.index);
+  const to = destination.puzzleHash;
   const conditions: Condition[] = [
+    ...(destination.conditions ?? []),
     // The hint lets wallets that follow hints, not only addresses, see the money arrive.
-    { kind: 'createCoin', puzzleHash: toPuzzleHash, amount: received, memos: [toPuzzleHash] },
+    { kind: 'createCoin', puzzleHash: to, amount: received, memos: [to] },
     ...feeCondition(fee),
   ];
+  const signed = spendTogether([{ coin: share.coin, signer: key }], conditions, network);
   return {
-    bundle: spendTogether([{ coin: share.coin, signer: key }], conditions, network),
+    bundle: {
+      coinSpends: [...(destination.spends ?? []), ...signed.coinSpends],
+      aggregatedSignature: signed.aggregatedSignature,
+    },
     received,
+    destination,
   };
 }
 
@@ -165,23 +197,33 @@ export function buildTakeBack(args: {
  */
 export function buildSweep(args: {
   inputs: readonly OwnedCoin[];
-  toPuzzleHash: Bytes;
+  toPuzzleHash: To;
   fee: bigint;
   network: Network;
-}): { bundle: SpendBundle; amount: bigint } {
-  const { inputs, toPuzzleHash, fee, network } = args;
-  const amount = sum(inputs.map((input) => input.coin.amount)) - fee;
-  if (amount <= 0n) throw new EnvelopeError('insufficient_funds', 'nothing left after the fee');
+}): { bundle: SpendBundle; amount: bigint; destination: Destination } {
+  const { inputs, fee, network } = args;
+  const first = inputs[0];
+  if (first === undefined) throw new EnvelopeError('insufficient_funds', 'no coins to spend');
+  // The destination may launch a vault from the first coin (an old wallet moving in).
+  const destination = destinationFor(args.toPuzzleHash, first.coin);
+  const amount = sum(inputs.map((input) => input.coin.amount)) - fee - (destination.cost ?? 0n);
+  if (fee < 0n || amount <= 0n) {
+    throw new EnvelopeError('insufficient_funds', 'nothing left after the fee');
+  }
+  const to = destination.puzzleHash;
+  const conditions: Condition[] = [
+    ...(destination.conditions ?? []),
+    { kind: 'createCoin', puzzleHash: to, amount, memos: [to] },
+    ...feeCondition(fee),
+  ];
+  const signed = spendTogether(inputs, conditions, network);
   return {
-    bundle: buildSend({
-      inputs,
-      toPuzzleHash,
-      amount,
-      changePuzzleHash: toPuzzleHash,
-      fee,
-      network,
-    }),
+    bundle: {
+      coinSpends: [...(destination.spends ?? []), ...signed.coinSpends],
+      aggregatedSignature: signed.aggregatedSignature,
+    },
     amount,
+    destination,
   };
 }
 

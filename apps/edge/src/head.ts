@@ -12,6 +12,8 @@ export interface HeadTags {
   readonly url: string;
   /** Open Graph locale, for example `en_US`. */
   readonly locale: string;
+  /** The browser's chain node, as JSON for `<meta name="ge-chain">`; absent: none. */
+  readonly chain?: string;
 }
 
 /** An app shell with the managed tags removed, split at the point where they are written back. */
@@ -84,7 +86,8 @@ export function renderHeadTags(tags: HeadTags): string {
     meta('property', 'og:image', tags.image) +
     meta('property', 'og:image:width', String(OG_IMAGE_SIZE.width)) +
     meta('property', 'og:image:height', String(OG_IMAGE_SIZE.height)) +
-    meta('name', 'twitter:card', 'summary_large_image')
+    meta('name', 'twitter:card', 'summary_large_image') +
+    (tags.chain === undefined ? '' : meta('name', 'ge-chain', tags.chain))
   );
 }
 

@@ -9,13 +9,30 @@ export interface RpcDeps {
   readonly fetch: typeof fetch;
   /** Coinset-compatible base URLs without a trailing slash, tried in order. */
   readonly endpoints: readonly string[];
+  /** Bearer key for the first endpoint only (`Config.chainApiKey`). */
+  readonly apiKey?: string | null;
+}
+
+/** Headers for a request to endpoint number `index`: the key goes to the first one only. */
+export function endpointHeaders(index: number, apiKey: string | null | undefined): HeadersInit {
+  return index === 0 && apiKey
+    ? { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` }
+    : { 'content-type': 'application/json' };
+}
+
+/** A refusal that says nothing about the request: the next endpoint may still answer it. */
+function isRefusal(status: number): boolean {
+  return status === 401 || status === 403 || status === 429;
 }
 
 /** The full-node RPC methods the app needs; everything else is refused. */
 export const RPC_METHODS: ReadonlySet<string> = new Set([
   'get_coin_records_by_puzzle_hashes',
   'get_coin_record_by_name',
+  'get_coin_records_by_hint',
+  'get_coin_records_by_parent_ids',
   'get_blockchain_state',
+  'get_fee_estimate',
   'push_tx',
 ]);
 /** Largest accepted request body. */
@@ -98,11 +115,15 @@ function passThrough(body: BodyInit | null, status: number): Response {
 
 /** Creates the proxy: allow-list, JSON only, 256 kB, 8 s per endpoint, fallback on transport failure or 5xx. */
 export function createRpcProxy(deps: RpcDeps): RpcProxy {
-  const attempt = async (url: string, body: Uint8Array<ArrayBuffer>): Promise<Response | null> =>
+  const attempt = async (
+    url: string,
+    index: number,
+    body: Uint8Array<ArrayBuffer>,
+  ): Promise<Response | null> =>
     deps
       .fetch(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: endpointHeaders(index, deps.apiKey),
         body,
         signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
       })
@@ -111,6 +132,11 @@ export function createRpcProxy(deps: RpcDeps): RpcProxy {
   // `push_tx` must not reach a second node once the first has given its verdict. A transport
   // failure is not a verdict, and pushing the identical bundle again is idempotent on Chia.
   const settle = async (method: string, response: Response): Promise<Response | null> => {
+    if (isRefusal(response.status)) {
+      // Not a verdict on the request (a key or a rate limit), so even push_tx may go on.
+      await response.body?.cancel();
+      return null;
+    }
     if (response.status < 500) return passThrough(response.body, response.status);
     if (method !== 'push_tx') {
       await response.body?.cancel();
@@ -127,8 +153,8 @@ export function createRpcProxy(deps: RpcDeps): RpcProxy {
     if (body === null) return rpcError(413, 'body_too_large');
     if (!isJsonObject(body)) return rpcError(400, 'bad_json');
 
-    for (const base of deps.endpoints) {
-      const response = await attempt(`${base}/${method}`, body);
+    for (const [index, base] of deps.endpoints.entries()) {
+      const response = await attempt(`${base}/${method}`, index, body);
       const settled = response === null ? null : await settle(method, response);
       if (settled !== null) return settled;
     }

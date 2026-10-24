@@ -27,3 +27,4 @@ export const PlusIcon = () => <Icon d="M12 5 V19 M5 12 H19" />;
 export const MinusIcon = () => <Icon d="M5 12 H19" />;
 export const DownIcon = () => <Icon d="M12 4 V18 M6 12 L12 18 L18 12" />;
 export const UpIcon = () => <Icon d="M12 20 V6 M6 12 L12 6 L18 12" />;
+export const InfoIcon = () => <Icon d="M12 11 V17 M12 7 V7.01" />;

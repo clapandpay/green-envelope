@@ -4,6 +4,10 @@
 interface ImportMetaEnv {
   /** `mainnet` or `testnet11`. Default: mainnet; `?net=` overrides it per link. */
   readonly VITE_NETWORK?: string;
+  /** The mainnet site; default https://envelope.clapandpay.com */
+  readonly VITE_MAINNET_URL?: string;
+  /** The testnet site; default https://testnet.envelope.clapandpay.com */
+  readonly VITE_TESTNET_URL?: string;
   /** Comma-separated Coinset-compatible base URLs, tried in order. */
   readonly VITE_CHAIN_ENDPOINTS?: string;
   /** Origin written into the links this app makes. Default: the origin of the page. */

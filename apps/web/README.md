@@ -46,15 +46,18 @@ only sign that a test chain is in use.
 
 ## The fee
 
-Zero is fine on a quiet chain, and a test chain is always quiet. On mainnet a zero-fee
-transaction is the first thing dropped when the mempool fills, and an envelope that will not
-open for an hour is worse than one that costs a thousandth of a cent — so mainnet has a floor of
-a millionth of an XCH and testnet does not.
+Every transaction pays a network fee; a claimed share pays its own out of the share.
 
-That is a tenth of a percent of the smallest share this app will make, and the person opening a
-share pays it out of that share. `VITE_FEE_MOJOS` overrides it either way; a value that is not a
-whole number of mojos is ignored in favour of the default, because a typo in a deployment
-variable should not take the app down.
+- **Mainnet: automatic.** Before each transaction the app asks the chain node (nodexch, through
+  `PUBLIC_CHAIN_ENDPOINTS`, with the public node behind it) `get_fee_estimate` for that
+  transaction's cost and a confirmation within a minute. The costs are measured with the
+  simulator (`GE_PRINT_COST=1 pnpm verify:spends`) and kept in `COSTS` in `services/real.ts`:
+  about 15M for a claim, 30M for a first claim that launches a vault, 115M for a vault spend
+  plus 25M per extra coin. The estimate never goes below 0.000001 XCH, which is also what is
+  paid when the node gives no estimate.
+- **Testnet: 0.00001 TXCH**, fixed.
+- **The wallet's "Network fee" section** lets a person choose automatic or a fixed amount, per
+  network, in this browser. `VITE_FEE_MOJOS` makes a build's fee fixed everywhere.
 
 ## Passkeys and where they live
 
@@ -79,8 +82,9 @@ built-in sensor and nothing else, so a Mac without Touch ID would look like a ma
 passkeys at all and quietly get the weaker device wallet.
 
 What is required is the **PRF extension**, because that is where the wallet key comes from. A
-provider that cannot do PRF gets a device wallet instead, which lives in this browser and can be
-secured with a passkey later (see below). Most providers evaluate PRF on `get` rather than
+provider that cannot do PRF is told so and offered a new passkey: the app never makes a wallet
+that lives only in the browser. Device wallets made before that rule still open, and are asked
+to secure themselves with a passkey (see below). Most providers evaluate PRF on `get` rather than
 `create`, so making a wallet for the first time asks twice: once to make the passkey, once to
 read from it.
 

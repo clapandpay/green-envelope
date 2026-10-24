@@ -30,6 +30,8 @@ export function errorText(code: ServiceErrorCode, t: Dict): string {
       return t.errors.handlesMainnetOnly;
     case 'passkey_unavailable':
       return t.errors.passkeyUnavailable;
+    case 'wallet_settling':
+      return t.errors.walletSettling;
     default:
       return t.errors.unknown;
   }
