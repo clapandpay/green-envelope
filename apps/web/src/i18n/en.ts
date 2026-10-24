@@ -122,7 +122,7 @@ export const en = {
     onTheMove: (amount: string) => `${amount} on the move`,
     pocketNote: 'Pocket money for envelopes, not savings. Keep larger amounts in Klimper.',
     passkeyNote: (domain: string) =>
-      `Your passkey belongs to ${domain}, and it is the only key to this money: use it for small amounts only. Later you can add more passkeys or Chia Signer.`,
+      `Your passkey belongs to ${domain}, and it is the only key to this money: use it for small amounts only. Coming soon you can add more passkeys or Chia Signer with vault manager.`,
     newEnvelope: 'New envelope',
     receive: 'Receive',
     send: 'Send',

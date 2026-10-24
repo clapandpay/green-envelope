@@ -122,7 +122,7 @@ export const de: Dict = {
     onTheMove: (amount) => `${amount} unterwegs`,
     pocketNote: 'Taschengeld für Umschläge, kein Sparkonto. Größere Beträge gehören in Klimper.',
     passkeyNote: (domain: string) =>
-      `Dein Passkey gehört zu ${domain} und ist der einzige Schlüssel zu diesem Geld: nur für kleine Beträge. Später kannst du weitere Passkeys oder Chia Signer hinzufügen.`,
+      `Dein Passkey gehört zu ${domain} und ist der einzige Schlüssel zu diesem Geld: nur für kleine Beträge. Bald kannst du mit dem Vault Manager weitere Passkeys oder Chia Signer hinzufügen.`,
     newEnvelope: 'Neuer Umschlag',
     receive: 'Empfangen',
     send: 'Senden',
