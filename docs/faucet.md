@@ -71,7 +71,7 @@ rate limited (countdown), offline, broken. Each has English and German copy in
 
 ## Link previews
 
-`apps/edge` serves `/hello` with its own Open Graph / Twitter tags (title "Get your green
+`apps/edge` serves `/hello` with its own Open Graph / Twitter tags (title "Make an
 envelope", the standard 1200x630 envelope image, canonical `/hello`), English or German by
 `Accept-Language`. `index.html` and the edge `APP_ROUTES` list both know the route. The
 marketing site should link to `https://<app>/hello`; if the app is served by something other
