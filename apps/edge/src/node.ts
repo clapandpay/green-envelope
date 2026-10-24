@@ -99,6 +99,9 @@ async function send(response: Response, out: ServerResponse): Promise<void> {
 const { handlerFromEnv } = await import('./index');
 const handler = handlerFromEnv({
   CHAIN_ENDPOINTS: process.env.CHAIN_ENDPOINTS,
+  CHAIN_API_KEY: process.env.CHAIN_API_KEY,
+  PUBLIC_CHAIN_ENDPOINTS: process.env.PUBLIC_CHAIN_ENDPOINTS,
+  PUBLIC_CHAIN_API_KEY: process.env.PUBLIC_CHAIN_API_KEY,
   NETWORK: process.env.NETWORK,
   PUBLIC_ORIGIN: process.env.PUBLIC_ORIGIN,
   TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY,
