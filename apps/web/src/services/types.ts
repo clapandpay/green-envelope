@@ -9,6 +9,16 @@ export interface WalletInfo {
   address: string;
 }
 
+/** How the network fee is chosen: asked of the network per transaction, or a fixed amount. */
+export type FeePolicy = { mode: 'auto' } | { mode: 'fixed'; mojos: bigint };
+
+/** The fee setting, and what a send would cost with it right now. */
+export interface FeeInfo {
+  policy: FeePolicy;
+  /** The fee of a typical send now, in mojos; for `auto`, the network's current estimate. */
+  current: bigint;
+}
+
 export interface Balance {
   confirmed: bigint;
   /** Incoming or outgoing amounts the network has accepted but not yet confirmed. */
@@ -130,6 +140,10 @@ export interface WalletService {
    * left for another move (a transaction takes at most 50).
    */
   moveEarlier(): Promise<{ amount: bigint; confirmed: Promise<void>; more: boolean }>;
+  /** The network fee setting and what a send costs with it now. Never prompts. */
+  fee(): Promise<FeeInfo>;
+  /** Chooses the network fee for this network: automatic, or a fixed amount. */
+  setFee(policy: FeePolicy): Promise<FeeInfo>;
   /** Whether `makeNew` is possible: there is a passkey here to replace. */
   canMakeNew(): Promise<boolean>;
   /**

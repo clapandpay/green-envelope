@@ -109,6 +109,19 @@ export function parsePeakHeight(body: JsonObject): number {
   return heightField(peak, 'height');
 }
 
+/**
+ * Parses the first of `estimates` out of `get_fee_estimate`: the fee in mojos for the asked
+ * cost and confirmation time.
+ */
+export function parseFeeEstimate(body: JsonObject): bigint {
+  const estimates = field(body, 'estimates');
+  const first = Array.isArray(estimates) ? estimates[0] : undefined;
+  if (typeof first !== 'number' || !Number.isFinite(first) || first < 0) {
+    throw bad('get_fee_estimate gave no estimate');
+  }
+  return BigInt(Math.ceil(first));
+}
+
 /** Parses the `status` of a successful `push_tx`. */
 export function parsePushStatus(body: JsonObject): { status: 'success' | 'pending' } {
   const status = field(body, 'status');

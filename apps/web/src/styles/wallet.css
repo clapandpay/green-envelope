@@ -392,3 +392,27 @@
   color: var(--ink-soft);
   font-size: var(--text-s);
 }
+
+.fee-options {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fee-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--touch);
+  padding: 8px 12px;
+  border: var(--line-thin) solid var(--ink-soft);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+
+.fee-option:has(input:checked) {
+  border-color: var(--ink);
+  background: var(--paper-raised);
+}

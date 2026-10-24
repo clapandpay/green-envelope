@@ -9,8 +9,7 @@ mod verify;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USAGE: &str =
-    "usage: ge-vectors generate [out.json] | mnemonic [out.json] | vault [out.json] | verify [cases.json | -]";
+const USAGE: &str = "usage: ge-vectors generate [out.json] | mnemonic [out.json] | vault [out.json] | verify [cases.json | -]";
 
 /// `packages/chia/src`, resolved from this crate's location so the commands work from any cwd.
 fn chia_src_dir() -> PathBuf {

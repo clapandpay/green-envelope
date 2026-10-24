@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { ChainError } from './errors';
 import { toHex0x } from './hex';
-import { parseCoinRecordByName, parseCoinRecords, parsePeakHeight, parsePushStatus } from './parse';
+import {
+  parseCoinRecordByName,
+  parseCoinRecords,
+  parseFeeEstimate,
+  parsePeakHeight,
+  parsePushStatus,
+} from './parse';
 import { spendBundleToJson } from './spend-bundle-json';
 import { createTransport, type NodeErrorDecision, type TransportOptions } from './transport';
 import type { Bytes, CoinRecord, SpendBundle } from './types';
@@ -29,6 +35,11 @@ export interface ChainClient {
   pushTx(bundle: SpendBundle): Promise<{ status: 'success' | 'pending' }>;
   /** Height of the current peak block. */
   peakHeight(): Promise<number>;
+  /**
+   * The fee (mojos) for a transaction of `cost` to be confirmed within about `targetSeconds`,
+   * as the node estimates it from its mempool.
+   */
+  feeEstimate(cost: bigint, targetSeconds: number): Promise<bigint>;
 }
 
 // Errors that say "this node cannot answer now", not "this transaction is invalid".
@@ -117,6 +128,14 @@ export function createChainClient(opts: TransportOptions): ChainClient {
         body: { spend_bundle: spendBundleToJson(bundle) },
         parse: parsePushStatus,
         onNodeError: classifyPushError,
+      });
+    },
+
+    feeEstimate(cost, targetSeconds) {
+      return transport.call({
+        method: 'get_fee_estimate',
+        body: { cost: Number(cost), target_times: [targetSeconds] },
+        parse: parseFeeEstimate,
       });
     },
 

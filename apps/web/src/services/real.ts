@@ -77,6 +77,8 @@ import {
   type AppServices,
   type Balance,
   type EnvelopeView,
+  type FeeInfo,
+  type FeePolicy,
   type HandleLookup,
   type RecipientPick,
   type SentEnvelope,
@@ -103,8 +105,13 @@ export interface RealDeps {
   fetch: typeof fetch;
   /** Unix seconds. */
   now: () => number;
-  /** Network fee per transaction in mojos; a share pays its own. */
+  /**
+   * The network fee in mojos: the fixed fee, or with `feeMode: 'auto'` the floor and the
+   * fallback when the network gives no estimate. A share pays its own.
+   */
   fee: bigint;
+  /** 'auto' asks the network per transaction (mainnet); 'fixed' always pays `fee`. */
+  feeMode?: 'auto' | 'fixed';
   /** Where `@names` are resolved, or null when no registry indexes this chain. */
   handlesApi?: string | null;
   expirySeconds: number;
@@ -170,8 +177,26 @@ async function guarded<T>(work: () => Promise<T>): Promise<T> {
  */
 export const DEFAULT_FEE_MOJOS: Readonly<Record<NetworkName, bigint>> = {
   mainnet: 1_000_000n,
-  testnet11: 0n,
+  // 0.00001 TXCH: test money, and a fee keeps test transactions moving on a busy testnet.
+  testnet11: 10_000_000n,
 };
+
+/**
+ * What each kind of transaction costs on chain (execution, conditions and 12,000 per byte),
+ * measured with the simulator (`GE_PRINT_COST=1 pnpm verify:spends`) and rounded up. An
+ * automatic fee asks the network what this much cost needs to be confirmed within a minute.
+ */
+export const COSTS = {
+  claim: 15_000_000n,
+  claimLaunch: 30_000_000n,
+  setupSpend: 75_000_000n,
+  vaultSpend: (coins: number) => 115_000_000n + 25_000_000n * BigInt(Math.max(coins - 1, 0)),
+  takeBack: (shares: number) => 15_000_000n + 6_000_000n * BigInt(shares),
+  oldWallet: (coins: number) => 15_000_000n + 12_000_000n * BigInt(coins),
+} as const;
+
+/** How soon an automatic fee aims to be confirmed. */
+const FEE_TARGET_SECONDS = 60;
 
 /**
  * The configured fee, or the network's default. A value that is not a whole number of mojos is
@@ -205,13 +230,37 @@ export function priceIn(body: unknown): number | null {
 
 /** Builds the services from their dependencies. */
 export function createServicesFrom(deps: RealDeps): AppServices {
-  const { network, chain, keyStore, state, fee } = deps;
+  const { network, chain, keyStore, state } = deps;
   const legacy = deps.legacyKeyStore ?? null;
   const handlesApi = deps.handlesApi ?? null;
   /** Accepted by the network, not confirmed yet: positive is on its way in. */
   let pending = 0n;
 
   const landed = (spent: Coin, output: Coin) => waitForOutput(chain, spent, output, deps.waiting);
+
+  /** The fee setting: what this person chose here, else the deployment's default. */
+  function feePolicy(): FeePolicy {
+    return (
+      state.feePolicy(network.name) ??
+      (deps.feeMode === 'auto' ? { mode: 'auto' } : { mode: 'fixed', mojos: deps.fee })
+    );
+  }
+
+  /**
+   * The fee for a transaction of `cost`: the fixed one, or the network's estimate for a
+   * confirmation within a minute, never below the deployment's floor. A network that gives no
+   * estimate gets the floor: a fee is never a reason for a transaction to fail.
+   */
+  async function feeFor(cost: bigint): Promise<bigint> {
+    const policy = feePolicy();
+    if (policy.mode === 'fixed') return policy.mojos;
+    try {
+      const estimate = await chain.feeEstimate(cost, FEE_TARGET_SECONDS);
+      return estimate > deps.fee ? estimate : deps.fee;
+    } catch {
+      return deps.fee;
+    }
+  }
   const address = (puzzleHash: Bytes) => encodeAddress(puzzleHash, network.addressPrefix);
 
   function track(amount: bigint, done: Promise<void>): Promise<void> {
@@ -329,7 +378,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
   async function pay(
     outputs: Output[],
     opts: { all?: boolean } = {},
-  ): Promise<{ first: Coin; firstOutput: Coin; total: bigint; more: boolean }> {
+  ): Promise<{ first: Coin; firstOutput: Coin; total: bigint; more: boolean; fee: bigint }> {
     const record = await requireRecord();
     const { money, setup } = await walletCoins(chain, record.publicKey, record.launcherId);
     const vault =
@@ -338,10 +387,20 @@ export function createServicesFrom(deps: RealDeps): AppServices {
         : await currentVault(chain, record.publicKey, record.launcherId);
 
     if (vault !== null && money.length > 0) {
-      const wanted = outputs.reduce((sum, o) => sum + o.amount, 0n) + fee;
-      const coins = opts.all === true ? money.slice(0, MAX_INPUTS) : selectCoins(money, wanted);
+      const paying = outputs.reduce((sum, o) => sum + o.amount, 0n);
+      const pick = (fee: bigint) =>
+        opts.all === true ? money.slice(0, MAX_INPUTS) : selectCoins(money, paying + fee);
+      // The fee depends on how many coins are spent, and which coins on the fee: once more
+      // with the fee for the coins actually picked.
+      let fee = await feeFor(COSTS.vaultSpend(1));
+      let coins = pick(fee);
+      const exact = await feeFor(COSTS.vaultSpend(coins.length));
+      if (exact !== fee) {
+        fee = exact;
+        coins = pick(fee);
+      }
       const total = coins.reduce((sum, coin) => sum + coin.amount, 0n);
-      const plan = opts.all === true ? sweepTo(outputs, total) : outputs;
+      const plan = opts.all === true ? sweepTo(outputs, total, fee) : outputs;
       const unsigned = buildVaultSpend({ vault, money: coins, outputs: plan, fee });
       const bundle = unsigned.finish(await keyStore.sign(unsigned.challenge));
       await chain.pushTx(bundle);
@@ -357,6 +416,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
         },
         total: plan.reduce((sum, o) => sum + o.amount, 0n),
         more: opts.all === true && money.length > coins.length,
+        fee,
       };
     }
 
@@ -366,6 +426,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
     }
 
     // No vault yet: one coin at the setup address pays, and launches the vault on the way.
+    const fee = await feeFor(COSTS.setupSpend);
     const wanted = outputs.reduce((sum, o) => sum + o.amount, 0n) + fee + 1n;
     const coin =
       opts.all === true
@@ -380,7 +441,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       );
     }
     const launch = launchVault(coinId(coin), record.publicKey);
-    const plan = opts.all === true ? sweepTo(outputs, coin.amount - 1n) : outputs;
+    const plan = opts.all === true ? sweepTo(outputs, coin.amount - 1n, fee) : outputs;
     const paid = plan.reduce((sum, o) => sum + o.amount, 0n);
     const change = coin.amount - 1n - paid - fee;
     if (change < 0n) throw new ServiceError('insufficient_funds');
@@ -406,11 +467,12 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       firstOutput: { parentCoinInfo: coinId(coin), puzzleHash: out.puzzleHash, amount: out.amount },
       total: paid,
       more: opts.all === true && setup.length > 1,
+      fee,
     };
   }
 
   /** Everything (minus the fee) to the first output's address. */
-  function sweepTo(outputs: Output[], total: bigint): Output[] {
+  function sweepTo(outputs: Output[], total: bigint, fee: bigint): Output[] {
     const [target] = outputs;
     if (target === undefined) throw new ServiceError('unknown');
     const amount = total - fee;
@@ -639,6 +701,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
             const first = inputs[0];
             if (first === undefined) throw new ServiceError('insufficient_funds');
             const { to, launches } = await claimDestination(record);
+            const fee = await feeFor(COSTS.oldWallet(inputs.length));
             const { bundle, amount, destination } = buildSweep({
               inputs,
               toPuzzleHash: to,
@@ -669,6 +732,21 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           }
         }),
 
+      fee: () =>
+        guarded(
+          async (): Promise<FeeInfo> => ({
+            policy: feePolicy(),
+            current: await feeFor(COSTS.vaultSpend(1)),
+          }),
+        ),
+
+      setFee: (policy) =>
+        guarded(async (): Promise<FeeInfo> => {
+          if (policy.mode === 'fixed' && policy.mojos < 0n) throw new ServiceError('unknown');
+          state.setFeePolicy(network.name, policy);
+          return { policy: feePolicy(), current: await feeFor(COSTS.vaultSpend(1)) };
+        }),
+
       canMakeNew: () => guarded(async () => (await keyStore.status()) !== null),
 
       makeNew: () =>
@@ -689,7 +767,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
       send: (to, amount) =>
         guarded(async () => {
           const toPuzzleHash = await recipient(to);
-          const { first, firstOutput } = await pay([{ puzzleHash: toPuzzleHash, amount }]);
+          const { first, firstOutput, fee } = await pay([{ puzzleHash: toPuzzleHash, amount }]);
           // Accepted by the network: this is the first moment the name has been paid, and the
           // only one that should make it a name this person trusts.
           const handle = parseHandle(to);
@@ -710,7 +788,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           } catch {
             throw new ServiceError('invalid_recipient');
           }
-          const { first, firstOutput, total, more } = await pay([{ puzzleHash, amount: 0n }], {
+          const { first, firstOutput, total, more, fee } = await pay([{ puzzleHash, amount: 0n }], {
             all: true,
           });
           return {
@@ -810,6 +888,8 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           // the share's own key (from the link) signs.
           const record = await ensureRecord();
           const { to, launches } = await claimDestination(record);
+          // The share pays its own fee; a first claim also launches the vault, which costs more.
+          const fee = await feeFor(typeof to === 'function' ? COSTS.claimLaunch : COSTS.claim);
           const opened = await openEnvelope({
             chain,
             envelopeSk: keys.secretKey,
@@ -843,14 +923,16 @@ export function createServicesFrom(deps: RealDeps): AppServices {
 
       create: (input) =>
         guarded(async (): Promise<SentEnvelope> => {
+          // Every share must still be worth opening once it has paid its own (first) claim.
+          const claimFee = await feeFor(COSTS.claimLaunch);
           const amounts = splitAmounts(input.total, input.shares, input.mode, {
-            floor: fee + MIN_SHARE_AFTER_FEE,
+            floor: claimFee + MIN_SHARE_AFTER_FEE,
           });
           // A random secret: nothing about an envelope is derived from the wallet any more.
           // The link is kept below; it is how this browser takes the envelope back.
           const secret = globalThis.crypto.getRandomValues(new Uint8Array(SECRET_BYTES));
           const keys = envelopeKeys(secret);
-          const { first, firstOutput } = await pay(
+          const { first, firstOutput, fee } = await pay(
             amounts.map((amount, index) => ({
               puzzleHash: sharePuzzleHash(keys.publicKey, index),
               amount,
@@ -914,6 +996,7 @@ export function createServicesFrom(deps: RealDeps): AppServices {
           const unopened = (await inspectEnvelope(chain, keys.publicKey, record.shares)).filter(
             (share) => !share.opened,
           );
+          const fee = await feeFor(COSTS.takeBack(unopened.length));
           const back = await takeBackEnvelope({
             chain,
             envelopeSk: keys.secretKey,
@@ -1017,6 +1100,10 @@ export function createRealServices(): AppServices {
     fetch: (input, init) => fetch(input, init),
     now: () => Math.floor(Date.now() / 1000),
     fee: feeFromEnv(env.VITE_FEE_MOJOS, network.name),
+    // Mainnet asks the network (nodexch) for the fee of each transaction; testnet pays its fixed
+    // default. A fee named in the build is fixed everywhere.
+    feeMode:
+      (env.VITE_FEE_MOJOS ?? '').trim() === '' && network.name === 'mainnet' ? 'auto' : 'fixed',
     handlesApi: handlesApiFor(network.name, env.VITE_HANDLES_API),
     expirySeconds: WEEK,
   });

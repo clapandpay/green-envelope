@@ -32,6 +32,7 @@ export const RPC_METHODS: ReadonlySet<string> = new Set([
   'get_coin_records_by_hint',
   'get_coin_records_by_parent_ids',
   'get_blockchain_state',
+  'get_fee_estimate',
   'push_tx',
 ]);
 /** Largest accepted request body. */

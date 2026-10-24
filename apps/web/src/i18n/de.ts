@@ -117,6 +117,16 @@ export const de: Dict = {
     done: 'Fertig',
   },
   wallet: {
+    feeRow: 'Netzwerkgebühr',
+    feeTitle: 'Netzwerkgebühr',
+    feeBody:
+      'Jede Überweisung zahlt dem Netzwerk eine kleine Gebühr, damit sie schnell bestätigt wird. Beim Öffnen eines Umschlags zahlt der Anteil seine eigene.',
+    feeAuto: 'Automatisch: fragt jedes Mal das Netzwerk',
+    feeNow: (amount: string) => `gerade etwa ${amount}`,
+    feeFixed: 'Ein fester Betrag',
+    feeAmountLabel: 'Gebühr in XCH',
+    feeInvalid: 'Ein Betrag wie 0.00001',
+    feeSave: 'Speichern',
     title: 'Dein Geld',
     onTheMove: (amount) => `${amount} unterwegs`,
     smallNote: 'Taschengeld · nur kleine Beträge',

@@ -56,6 +56,9 @@ function fakeChain() {
     async coinRecordsByHint() {
       return [];
     },
+    async feeEstimate() {
+      return 0n;
+    },
     async coinRecordsByParentIds() {
       return [];
     },

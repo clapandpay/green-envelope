@@ -18,7 +18,7 @@ use chia_wallet_sdk::chia::puzzle_types::standard::StandardArgs;
 use chia_wallet_sdk::chia::secp::{R1PublicKey, R1SecretKey};
 use chia_wallet_sdk::chia::sha2::Sha256;
 use chia_wallet_sdk::driver::{
-    InnerPuzzleSpend, MemberMemo, MemoKind, MipsMemo, MipsSpend, InnerPuzzleMemo, Vault,
+    InnerPuzzleMemo, InnerPuzzleSpend, MemberMemo, MemoKind, MipsMemo, MipsSpend, Vault,
     mips_puzzle_hash,
 };
 use chia_wallet_sdk::prelude::*;
@@ -54,8 +54,7 @@ fn sha256(parts: &[&[u8]]) -> [u8; 32] {
 }
 
 fn base64url(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut out = String::new();
     for chunk in bytes.chunks(3) {
         let b = [
@@ -78,7 +77,12 @@ fn hint(pk: &R1PublicKey) -> Bytes32 {
 }
 
 fn custody_hash(pk: R1PublicKey) -> TreeHash {
-    mips_puzzle_hash(0, Vec::new(), PasskeyMember::new(pk).curry_tree_hash(), true)
+    mips_puzzle_hash(
+        0,
+        Vec::new(),
+        PasskeyMember::new(pk).curry_tree_hash(),
+        true,
+    )
 }
 
 fn p2_hash(launcher_id: Bytes32) -> TreeHash {
@@ -146,7 +150,11 @@ fn passkey_spend(
 
 fn launcher_memo(ctx: &mut SpendContext, pk: R1PublicKey) -> Result<NodePtr> {
     let member = MemberMemo::passkey(ctx, pk, false, true)?;
-    let memo = MipsMemo::new(InnerPuzzleMemo::new(0, Vec::new(), MemoKind::Member(member)));
+    let memo = MipsMemo::new(InnerPuzzleMemo::new(
+        0,
+        Vec::new(),
+        MemoKind::Member(member),
+    ));
     Ok(ctx.alloc(&memo)?)
 }
 
@@ -190,7 +198,11 @@ fn cast() -> Result<Cast> {
     let funder_sk = master_to_wallet_unhardened(&master, 0).derive_synthetic();
     let funder_ph: Bytes32 = StandardArgs::curry_tree_hash(funder_sk.public_key()).into();
     let funder_coin = Coin::new(Bytes32::new([7; 32]), funder_ph, 1_000_000_000);
-    Ok(Cast { passkey, funder_sk, funder_coin })
+    Ok(Cast {
+        passkey,
+        funder_sk,
+        funder_coin,
+    })
 }
 
 const FEE: u64 = 1_000_000;
@@ -265,12 +277,17 @@ fn launch_from_setup(c: &Cast) -> Result<Value> {
     let conditions = mint.create_coin(p2, change, p2_memos).reserve_fee(FEE);
 
     let delegated = ctx.delegated_spend(conditions)?;
-    let challenge = sha256(&[&ctx.tree_hash(delegated.puzzle).to_bytes(), &setup_coin.coin_id()]);
+    let challenge = sha256(&[
+        &ctx.tree_hash(delegated.puzzle).to_bytes(),
+        &setup_coin.coin_id(),
+    ]);
     let assertion = assert_passkey(&c.passkey, challenge)?;
     let mut mips = MipsSpend::new(delegated);
     let member = passkey_spend(ctx, pk, &assertion, setup_coin.coin_id())?;
-    mips.members
-        .insert(custody_hash(pk), InnerPuzzleSpend::new(0, Vec::new(), member));
+    mips.members.insert(
+        custody_hash(pk),
+        InnerPuzzleSpend::new(0, Vec::new(), member),
+    );
     let spend = mips.spend(ctx, custody_hash(pk))?;
     ctx.spend(setup_coin, spend)?;
     let coin_spends = ctx.take();
@@ -346,8 +363,10 @@ fn vault_spend(c: &Cast, vault: &Vault, first: Coin) -> Result<Value> {
     let assertion = assert_passkey(&c.passkey, challenge)?;
     let mut mips = MipsSpend::new(delegated);
     let member = passkey_spend(ctx, pk, &assertion, vault.coin.coin_id())?;
-    mips.members
-        .insert(custody_hash(pk), InnerPuzzleSpend::new(0, Vec::new(), member));
+    mips.members.insert(
+        custody_hash(pk),
+        InnerPuzzleSpend::new(0, Vec::new(), member),
+    );
     vault.spend(ctx, &mips)?;
     let coin_spends = ctx.take();
 

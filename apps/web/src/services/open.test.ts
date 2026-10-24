@@ -117,10 +117,10 @@ describe('one tap on the envelope', () => {
 });
 
 describe('the fee a deployment gets when it does not name one', () => {
-  it('is zero on a test chain and non-zero on mainnet', () => {
-    // A zero fee is the first thing dropped when mainnet's mempool fills, and an envelope
-    // that will not open for an hour is worse than one that costs a fraction of a cent.
-    expect(feeFromEnv(undefined, 'testnet11')).toBe(0n);
+  it('is 0.00001 TXCH on testnet, and a floor on mainnet, where the network is asked', () => {
+    // A zero fee is the first thing dropped when a mempool fills, and an envelope that will
+    // not open for an hour is worse than one that costs a fraction of a cent.
+    expect(feeFromEnv(undefined, 'testnet11')).toBe(10_000_000n);
     expect(feeFromEnv(undefined, 'mainnet')).toBeGreaterThan(0n);
   });
 

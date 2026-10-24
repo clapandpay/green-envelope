@@ -2,7 +2,7 @@
 // What this browser remembers between visits. Everything here is either public (the wallet's
 // address) or already in the sender's chat history (their own envelope links). Storage that
 // refuses to work (private windows, some in-app browsers) degrades to memory for the session.
-import type { WalletInfo } from './types';
+import type { FeePolicy, WalletInfo } from './types';
 
 /** One envelope this browser sent. Amounts are decimal strings: JSON has no bigint. */
 export interface SentRecord {
@@ -51,6 +51,9 @@ export interface LocalState {
   rememberPaidHandle(handle: string): void;
   addSent(record: SentRecord): void;
   markTakenBack(id: string, takenBack: NonNullable<SentRecord['takenBack']>): void;
+  /** The network fee this person chose for `network`, or null for the network's default. */
+  feePolicy(network: string): FeePolicy | null;
+  setFeePolicy(network: string, policy: FeePolicy): void;
   /** Forgets a sent envelope (its link included): only once nothing can come back from it. */
   removeSent(id: string): void;
   /** A fresh number for the next envelope's secret; never handed out twice. */
@@ -65,6 +68,7 @@ const KEY = {
   paidHandles: 'ge.paidHandles',
   earlier: 'ge.earlier',
   legacy: 'ge.legacy',
+  fee: 'ge.fee',
 };
 
 /** How many paid handles are remembered; enough to be the person's circle, not their history. */
@@ -147,6 +151,24 @@ export function createLocalState(storage: StringStorage): LocalState {
     sent: () => read<SentRecord[]>(KEY.sent, []),
     addSent(record) {
       write(KEY.sent, [record, ...read<SentRecord[]>(KEY.sent, [])]);
+    },
+    feePolicy(network) {
+      const stored = read<Record<string, { mode?: string; mojos?: string }>>(KEY.fee, {})[network];
+      if (stored?.mode === 'auto') return { mode: 'auto' };
+      if (stored?.mode === 'fixed' && /^\d+$/.test(stored.mojos ?? '')) {
+        return { mode: 'fixed', mojos: BigInt(stored.mojos ?? '0') };
+      }
+      return null;
+    },
+    setFeePolicy(network, policy) {
+      const all = read<Record<string, unknown>>(KEY.fee, {});
+      write(KEY.fee, {
+        ...all,
+        [network]:
+          policy.mode === 'auto'
+            ? { mode: 'auto' }
+            : { mode: 'fixed', mojos: String(policy.mojos) },
+      });
     },
     removeSent(id) {
       write(

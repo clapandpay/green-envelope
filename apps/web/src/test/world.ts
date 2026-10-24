@@ -222,6 +222,7 @@ export function createWorld(options: WorldOptions = {}) {
       spend() ? fake.chain.coinRecordsByParentIds(...args) : offline(),
     pushTx: (...args) => (spend() ? fake.chain.pushTx(...args) : offline()),
     peakHeight: (...args) => (spend() ? fake.chain.peakHeight(...args) : offline()),
+    feeEstimate: (...args) => (spend() ? fake.chain.feeEstimate(...args) : offline()),
   };
   function spend(): boolean {
     if (down === 0) return true;

@@ -325,3 +325,85 @@ describe('servedChain', () => {
     expect(servedChain(doc(null) as never, 'mainnet')).toBeNull();
   });
 });
+
+describe('the network fee', () => {
+  function withFee(feeMode: 'auto' | 'fixed', estimate: () => Promise<bigint>) {
+    const fake = createFakeChain();
+    const asked: bigint[] = [];
+    const chain = {
+      ...fake.chain,
+      feeEstimate: async (cost: bigint) => {
+        asked.push(cost);
+        return estimate();
+      },
+    };
+    const services = createServicesFrom({
+      network: TESTNET11,
+      chain,
+      keyStore: keyStoreFor(),
+      state: createLocalState(memoryStorage()),
+      origin: 'https://ge.test',
+      fetch: async () => new Response('{}', { status: 500 }),
+      now: () => 0,
+      fee: 1_000_000n,
+      feeMode,
+      expirySeconds: 1,
+    });
+    return { services, asked, fake };
+  }
+
+  it('automatic: the network’s estimate for the transaction’s cost, never below the floor', async () => {
+    const busy = withFee('auto', async () => 7_473_753n);
+    expect(await busy.services.wallet.fee()).toEqual({
+      policy: { mode: 'auto' },
+      current: 7_473_753n,
+    });
+    expect(busy.asked[0]).toBeGreaterThan(100_000_000n); // a vault spend's cost
+    const quiet = withFee('auto', async () => 0n);
+    expect((await quiet.services.wallet.fee()).current).toBe(1_000_000n);
+    // A network that cannot say: the floor, never a failed transaction.
+    const silent = withFee('auto', async () => {
+      throw new Error('down');
+    });
+    expect((await silent.services.wallet.fee()).current).toBe(1_000_000n);
+  });
+
+  it('a fixed amount chosen here is kept, and used without asking the network', async () => {
+    const { services, asked } = withFee('auto', async () => 7_000_000n);
+    await services.wallet.setFee({ mode: 'fixed', mojos: 10_000_000n });
+    expect(await services.wallet.fee()).toEqual({
+      policy: { mode: 'fixed', mojos: 10_000_000n },
+      current: 10_000_000n,
+    });
+    expect(asked).toHaveLength(0);
+  });
+
+  it('a claim pays the estimated fee out of its share', async () => {
+    const { fake, person } = world();
+    const anna = person('anna');
+    await fund(fake, anna, 2_000_000n);
+    const sent = await anna.envelopes.create({
+      total: 400_000n,
+      shares: 1,
+      mode: 'equal',
+      from: null,
+      message: null,
+    });
+    fake.farmBlock();
+    const kai = createServicesFrom({
+      network: TESTNET11,
+      chain: { ...fake.chain, feeEstimate: async () => 50_000n },
+      keyStore: keyStoreFor(),
+      state: createLocalState(memoryStorage()),
+      origin: 'https://ge.test',
+      fetch: async () => new Response('{}', { status: 500 }),
+      now: () => 0,
+      fee: 1_000n,
+      feeMode: 'auto',
+      expirySeconds: 1,
+    });
+    const opened = await kai.envelopes.open(sent.link);
+    // The estimate (above the 1,000 floor), and 1 mojo for Kai's new vault.
+    expect(opened.amount).toBe(400_000n - 50_000n - 1n);
+  });
+});

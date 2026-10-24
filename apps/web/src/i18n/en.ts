@@ -117,6 +117,16 @@ export const en = {
     done: 'Done',
   },
   wallet: {
+    feeRow: 'Network fee',
+    feeTitle: 'Network fee',
+    feeBody:
+      'Every transaction pays a small fee to the network, so it is confirmed quickly. When an envelope is opened, the share pays its own.',
+    feeAuto: 'Automatic: asks the network each time',
+    feeNow: (amount: string) => `now about ${amount}`,
+    feeFixed: 'A fixed amount',
+    feeAmountLabel: 'Fee in XCH',
+    feeInvalid: 'An amount like 0.00001',
+    feeSave: 'Save',
     title: 'Your money',
     onTheMove: (amount: string) => `${amount} on the move`,
     smallNote: 'Pocket money · small amounts only',

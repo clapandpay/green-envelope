@@ -14,6 +14,7 @@ import { useRate } from '../../lib/use-rate';
 import { onLinkClick } from '../../router';
 import { useServices } from '../../services/context';
 import type { Balance, SentEnvelope, WalletInfo } from '../../services/types';
+import { FeeSheet } from './FeeSheet';
 import { KlimperSheet } from './KlimperSheet';
 import { ReceiveSheet } from './ReceiveSheet';
 import { SendSheet } from './SendSheet';
@@ -72,7 +73,7 @@ export function WalletScreen() {
   const { rate } = useRate();
   const [load, setLoad] = useState<Load>({ s: 'loading' });
   const [sheet, setSheet] = useState<
-    'receive' | 'send' | 'out' | 'new' | 'klimper' | 'about' | null
+    'receive' | 'send' | 'out' | 'new' | 'klimper' | 'about' | 'fee' | null
   >(null);
   const [working, setWorking] = useState<Work | null>(null);
   /** The passkey failed or was not found: offer to make a new one (never a browser-only wallet). */
@@ -420,6 +421,9 @@ export function WalletScreen() {
         )}
       </section>
 
+      <button type="button" class="btn btn--plain wallet__fee" onClick={() => setSheet('fee')}>
+        {t.wallet.feeRow}
+      </button>
       {load.canMakeNew && (
         <button type="button" class="btn btn--plain" onClick={() => setSheet('new')}>
           {t.wallet.newWallet}
@@ -478,6 +482,7 @@ export function WalletScreen() {
       {sheet === 'receive' && (
         <ReceiveSheet address={load.wallet.address} onClose={() => setSheet(null)} />
       )}
+      {sheet === 'fee' && <FeeSheet onClose={() => setSheet(null)} onChanged={() => {}} />}
       {sheet === 'about' && (
         <Sheet open title={t.wallet.aboutTitle} onClose={() => setSheet(null)}>
           <div class="stack about">

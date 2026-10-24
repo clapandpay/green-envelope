@@ -170,6 +170,10 @@ export function createFakeChain() {
     async peakHeight() {
       return height;
     },
+    async feeEstimate(cost) {
+      // A quiet mempool: one mojo per thousand cost.
+      return cost / 1000n;
+    },
   };
 
   return {
