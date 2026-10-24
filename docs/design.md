@@ -37,9 +37,12 @@ functional, not brand.
 
 ## Logo
 
-The mark is a green envelope with a leaf. The originals (1254px, about 2 MB each) are not in the
-repository; the page uses downscaled copies in `apps/web/public/`, served as static files so they
-do not count against the claim route's JavaScript budget:
+The mark is the Beidwerk studio's p189: a copper-green envelope, a verdigris flap and a gold coin
+seal with one red light. The repository root holds it at full size (`green-envelope-light.png`,
+`green-envelope-dark.png` on a paper tile, `green-envelope-mark.svg` as a vector) and the fun
+layer, the sticker p187 (`green-envelope-sticker.png`). The page uses downscaled copies in
+`apps/web/public/`, served as static files so they do not count against the claim route's
+JavaScript budget:
 
 | File                   | Size  | Use                                               |
 | ---------------------- | ----- | ------------------------------------------------- |
@@ -48,8 +51,7 @@ do not count against the claim route's JavaScript budget:
 | `favicon.png`          | 64px  | browser tab                                       |
 | `apple-touch-icon.png` | 180px | home screen on iPhone, full bleed (iOS rounds it) |
 
-The mark cannot be cut out of its background (the leaf and the envelope's V are the paper
-colour), so it is always shown as a tile on its own paper. To regenerate from a new original,
+On dark the mark sits on a paper tile, since its copper-green body would sink into the night. To regenerate from a new original,
 square-crop it around the mark with about 9% margin on its own background colour and scale with
 ImageMagick; the commands are in the commit that added these files.
 
